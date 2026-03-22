@@ -20,6 +20,9 @@ if(location.protocol==='https:'){
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--nv:#0F1B2D;--nvl:#1A2942;--nvm:#243656;--am:#E8850C;--aml:#FFF3E0;--amd:#C66F00;--gn:#0D9461;--gnl:#E8F8F0;--rd:#C42B2B;--rdl:#FDF0F0;--bl:#1565C0;--bll:#E8F1FC;--pr:#7B1FA2;--prl:#F3E5F5;--tl:#00838F;--tll:#E0F7FA;--bg:#F4F3F0;--card:#FFF;--t1:#0F1B2D;--t2:#5C6A7E;--t3:#9CA5B4;--bd:#E4E7EC;--bl2:#F0F1F3}
@@ -262,6 +265,7 @@ textarea.fi{resize:vertical;min-height:50px}
 <div class="tp-acts">
 <div style="position:relative"><input class="fi" id="global-search" placeholder="Ara..." style="width:160px;padding:5px 10px 5px 28px;font-size:10.5px" oninput="globalSearch(this.value)"><svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
 <span style="font-size:9px;color:var(--t3)" id="last-save-info"></span>
+<span id="export-buttons"></span>
 <button class="btn bo bsm" onclick="exportData()">↓ Yedekle</button>
 <button class="btn bp bsm" id="main-add">+ Yeni kayıt</button>
 </div>
@@ -733,12 +737,34 @@ function totalKDVIncome() { return DB.transactions.filter(function(t){return t.t
 function totalKDVExpense() { return DB.transactions.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0); }
 
 // ===== RENDER =====
+var exportMap = {
+  oz:  {pdf:'exportOzetPDF',  xls:'exportOzetExcel',  label:'Özet'},
+  gg:  {pdf:'exportGGPDF',    xls:'exportGGExcel',    label:'Gelir/Gider'},
+  ts:  {pdf:'exportTSPDF',    xls:'exportTSExcel',    label:'Taşeron'},
+  pgt: {pdf:'exportProjePDF', xls:'exportProjeExcel', label:'Proje Gelir'},
+  pgd: {pdf:'exportProjePDF', xls:'exportProjeExcel', label:'Proje Gider'},
+  ms:  {pdf:'exportMSPDF',    xls:'exportMSExcel',    label:'Müşteri'},
+  st:  {pdf:'exportSTPDF',    xls:'exportSTExcel',    label:'Satış'},
+  banka:{pdf:'exportBankaPDF',xls:'exportBankaExcel', label:'Banka'},
+  tk:  {pdf:'exportTKPDF',    xls:'exportTKExcel',    label:'Taksit'}
+};
+
 function render() {
   document.getElementById('sn-cnt').textContent = DB.projects.length;
   var c = document.getElementById('ct');
   var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup,users:rUsers,sysTest:rSysTest};
   if(fn[curPage]) c.innerHTML = fn[curPage]();
   else c.innerHTML = '<div class="empty">Bu sayfa yapım aşamasında.</div>';
+  // Export butonlarını güncelle
+  var eb = document.getElementById('export-buttons');
+  if(eb) {
+    var ex = exportMap[curPage];
+    if(ex) {
+      eb.innerHTML = '<button class="btn bo bsm" onclick="'+ex.pdf+'()" style="color:var(--rd)">PDF</button><button class="btn bo bsm" onclick="'+ex.xls+'()" style="color:var(--gn)">Excel</button>';
+    } else {
+      eb.innerHTML = '';
+    }
+  }
 }
 
 function rOzet() {
@@ -3304,6 +3330,321 @@ function exportData() {
   a.download='propakt_yedek_'+today()+'.json';
   a.click();
   toast('Yedek dosyası indirildi');
+}
+
+// ===== v19: PDF & EXCEL EXPORT SİSTEMİ =====
+
+// --- Yardımcı: Türkçe karakter düzeltme (jsPDF helvetica desteği yok) ---
+function trfix(str) {
+  if(!str) return '';
+  var s = String(str);
+  s = s.replace(/ş/g,'s').replace(/Ş/g,'S');
+  s = s.replace(/ğ/g,'g').replace(/Ğ/g,'G');
+  s = s.replace(/ı/g,'i').replace(/İ/g,'I');
+  s = s.replace(/ö/g,'o').replace(/Ö/g,'O');
+  s = s.replace(/ü/g,'u').replace(/Ü/g,'U');
+  s = s.replace(/ç/g,'c').replace(/Ç/g,'C');
+  s = s.replace(/₺/g,'TL ').replace(/\u20BA/g,'TL ');
+  return s;
+}
+
+// Dizi içindeki tüm stringleri düzelt
+function trfixArr(arr) {
+  return arr.map(function(item) {
+    if(Array.isArray(item)) return trfixArr(item);
+    return typeof item === 'string' ? trfix(item) : item;
+  });
+}
+
+// --- Yardımcı: PDF başlık ve stil ---
+function pdfCreate(title, subtitle) {
+  var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if(!jsPDF) { alert('PDF kutuphanesi yuklenemedi. Internet baglantinizi kontrol edin.'); return null; }
+  var doc = new jsPDF('l','mm','a4');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.setTextColor(15,27,45);
+  doc.text('Propakt Group', 14, 15);
+  doc.setFontSize(11);
+  doc.setTextColor(232,133,12);
+  doc.text(trfix(title), 14, 22);
+  doc.setFontSize(8);
+  doc.setTextColor(140,140,140);
+  doc.text(trfix((subtitle||'')+' — '+new Date().toLocaleDateString('tr-TR')), 14, 27);
+  doc.setDrawColor(228,231,236);
+  doc.line(14, 29, 283, 29);
+  return doc;
+}
+
+function pdfTable(doc, head, body, startY) {
+  doc.autoTable({
+    head:[trfixArr(head)], body:trfixArr(body), startY:startY||32,
+    styles:{font:'helvetica',fontSize:8,cellPadding:2.5,lineColor:[228,231,236],lineWidth:0.1},
+    headStyles:{fillColor:[15,27,45],textColor:[255,255,255],fontStyle:'bold',fontSize:8},
+    alternateRowStyles:{fillColor:[248,248,246]},
+    margin:{left:14,right:14}
+  });
+}
+
+function pdfSave(doc, name) {
+  doc.save('propakt_'+name+'_'+today()+'.pdf');
+  toast('PDF indirildi');
+}
+
+// --- Yardımcı: Excel oluştur ve indir ---
+function xlsxSave(data, headers, sheetName, fileName) {
+  var ws = XLSX.utils.aoa_to_sheet([headers].concat(data));
+  var colWidths = headers.map(function(h,i){
+    var max = h.length;
+    data.forEach(function(row){ if(row[i]&&String(row[i]).length>max) max=String(row[i]).length; });
+    return {wch:Math.min(max+2,40)};
+  });
+  ws['!cols'] = colWidths;
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName||'Veri');
+  XLSX.writeFile(wb, 'propakt_'+fileName+'_'+today()+'.xlsx');
+  toast('Excel indirildi');
+}
+
+// =============================================
+// 1) ÖZET PANEL
+// =============================================
+function exportOzetPDF() {
+  var doc = pdfCreate('Özet Panel Raporu','Genel bakış');
+  if(!doc) return;
+  var ti=totalIncome(),te=totalExpense(),tb=totalBB(),sb2=soldBB(),fb=freeBB(),rb=rsvBB(),bb2=barterBB();
+  var body = [
+    ['Toplam proje', DB.projects.length],
+    ['Toplam gelir', '\u20BA'+fmt(ti)],
+    ['Toplam gider', '\u20BA'+fmt(te)],
+    ['Net kâr', '\u20BA'+fmt(ti-te)],
+    ['Toplam BB', tb],
+    ['Satılan BB', sb2],
+    ['Boş BB', fb],
+    ['Rezerve BB', rb],
+    ['Barter BB', bb2],
+    ['Taşeron sayısı', DB.taserons.length],
+    ['Müşteri sayısı', DB.customers.length],
+    ['Banka hesabı', DB.bankaHesaplari?DB.bankaHesaplari.length:0]
+  ];
+  pdfTable(doc, ['Gösterge','Değer'], body);
+  // Proje bazlı özet
+  if(DB.projects.length>0) {
+    var py = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(10); doc.setTextColor(15,27,45);
+    doc.text(trfix('Proje bazli ozet'), 14, py);
+    var pBody = DB.projects.map(function(p){
+      var pbb=0,psold=0; p.blocks.forEach(function(b){b.units.forEach(function(u){pbb++;if(u.status==='sold')psold++;});});
+      return [p.name, p.location||'-', p.status||'-', pbb, psold, '\u20BA'+fmt(p.budget||0)];
+    });
+    pdfTable(doc, ['Proje','Lokasyon','Durum','BB','Satılan','Bütçe'], pBody, py+3);
+  }
+  pdfSave(doc, 'ozet');
+}
+
+function exportOzetExcel() {
+  var ti=totalIncome(),te=totalExpense();
+  var data = [
+    ['Toplam proje', DB.projects.length],
+    ['Toplam gelir', ti],
+    ['Toplam gider', te],
+    ['Net kâr', ti-te],
+    ['Toplam BB', totalBB()],
+    ['Satılan BB', soldBB()],
+    ['Boş BB', freeBB()],
+    ['Taşeron sayısı', DB.taserons.length],
+    ['Müşteri sayısı', DB.customers.length]
+  ];
+  xlsxSave(data, ['Gösterge','Değer'], 'Özet', 'ozet');
+}
+
+// =============================================
+// 2) GELİR / GİDER
+// =============================================
+function exportGGPDF() {
+  var doc = pdfCreate('Gelir / Gider Raporu','Tüm kayıtlar');
+  if(!doc) return;
+  var body = DB.transactions.map(function(t){
+    return [t.date||'-', t.type==='gelir'?'Gelir':'Gider', t.desc, t.project||'-', t.category||'-',
+      '\u20BA'+fmt(t.total), '\u20BA'+fmt(t.resmi), '%'+(t.kdvOran||0), '\u20BA'+fmt(t.kdvTutar||0)];
+  });
+  pdfTable(doc, ['Tarih','Tür','Açıklama','Proje','Kategori','Toplam','Resmi','KDV %','KDV ₺'], body);
+  // Alt toplam
+  var y = doc.lastAutoTable.finalY + 5;
+  doc.setFontSize(9); doc.setTextColor(15,27,45);
+  doc.text(trfix('Toplam Gelir: TL '+fmt(totalIncome())+' | Toplam Gider: TL '+fmt(totalExpense())+' | Net: TL '+fmt(totalIncome()-totalExpense())), 14, y);
+  pdfSave(doc, 'gelir_gider');
+}
+
+function exportGGExcel() {
+  var data = DB.transactions.map(function(t){
+    return [t.date||'', t.type==='gelir'?'Gelir':'Gider', t.desc, t.project||'', t.category||'', t.total, t.resmi, t.kdvOran||0, t.kdvTutar||0];
+  });
+  xlsxSave(data, ['Tarih','Tür','Açıklama','Proje','Kategori','Toplam','Resmi','KDV %','KDV ₺'], 'Gelir-Gider', 'gelir_gider');
+}
+
+// =============================================
+// 3) TAŞERON ÖDEMELERİ
+// =============================================
+function exportTSPDF() {
+  var doc = pdfCreate('Taşeron Ödemeleri Raporu','Anlaşma ve ödeme detayları');
+  if(!doc) return;
+  var body = DB.taserons.map(function(t){
+    var kalan = t.total - (t.paid||0);
+    var oran = t.total>0 ? Math.round((t.paid||0)/t.total*100) : 0;
+    return [t.name, t.project||'-', t.job||'-', t.payType||'Nakit', '\u20BA'+fmt(t.total), '\u20BA'+fmt(t.resmi),
+      '\u20BA'+fmt(t.paid||0), '\u20BA'+fmt(kalan), '%'+oran];
+  });
+  pdfTable(doc, ['Taşeron','Proje','İş','Ödeme tipi','Toplam','Resmi','Ödenen','Kalan','Oran'], body);
+  pdfSave(doc, 'taseron');
+}
+
+function exportTSExcel() {
+  var data = DB.taserons.map(function(t){
+    return [t.name, t.project||'', t.job||'', t.payType||'Nakit', t.total, t.resmi, t.paid||0, t.total-(t.paid||0),
+      t.barterVal||0, t.barterDesc||'', t.note||''];
+  });
+  xlsxSave(data, ['Taşeron','Proje','İş','Ödeme tipi','Toplam','Resmi','Ödenen','Kalan','Barter değeri','Barter açıklama','Not'], 'Taşeronlar', 'taseron');
+}
+
+// =============================================
+// 4) PROJE BAZLI GELİR/GİDER
+// =============================================
+function exportProjePDF() {
+  var doc = pdfCreate('Proje Bazlı Gelir/Gider','Şantiye bazlı analiz');
+  if(!doc) return;
+  var body = DB.projects.map(function(p){
+    var gelir=0, gider=0;
+    DB.transactions.forEach(function(t){ if(t.project===p.name){ if(t.type==='gelir') gelir+=t.total; else gider+=t.total; }});
+    return [p.name, p.status||'-', '\u20BA'+fmt(p.budget||0), '\u20BA'+fmt(gelir), '\u20BA'+fmt(gider), '\u20BA'+fmt(gelir-gider)];
+  });
+  pdfTable(doc, ['Proje','Durum','Bütçe','Gelir','Gider','Net'], body);
+  pdfSave(doc, 'proje_gelir_gider');
+}
+
+function exportProjeExcel() {
+  var data = DB.projects.map(function(p){
+    var gelir=0, gider=0;
+    DB.transactions.forEach(function(t){ if(t.project===p.name){ if(t.type==='gelir') gelir+=t.total; else gider+=t.total; }});
+    return [p.name, p.location||'', p.status||'', p.budget||0, gelir, gider, gelir-gider];
+  });
+  xlsxSave(data, ['Proje','Lokasyon','Durum','Bütçe','Gelir','Gider','Net'], 'Proje Gelir-Gider', 'proje_gelir_gider');
+}
+
+// =============================================
+// 5) MÜŞTERİ LİSTESİ
+// =============================================
+function exportMSPDF() {
+  var doc = pdfCreate('Müşteri Listesi','Tüm müşteri kayıtları');
+  if(!doc) return;
+  var body = DB.customers.map(function(c){
+    return [c.name, c.phone||'-', c.phone2||'-', c.email||'-', c.project||'-', c.unit||'-', c.payType||'-', '\u20BA'+fmt(c.total||0)];
+  });
+  pdfTable(doc, ['Ad','Telefon 1','Telefon 2','E-posta','Proje','Birim','Ödeme','Tutar'], body);
+  pdfSave(doc, 'musteriler');
+}
+
+function exportMSExcel() {
+  var data = DB.customers.map(function(c){
+    return [c.name, c.phone||'', c.phone2||'', c.email||'', c.project||'', c.unit||'', c.payType||'', c.total||0, c.paid||0];
+  });
+  xlsxSave(data, ['Ad','Telefon 1','Telefon 2','E-posta','Proje','Birim','Ödeme','Tutar','Ödenen'], 'Müşteriler', 'musteriler');
+}
+
+// =============================================
+// 6) SATIŞ RAPORU
+// =============================================
+function exportSTPDF() {
+  var doc = pdfCreate('Satış Raporu','Proje bazlı satış durumu');
+  if(!doc) return;
+  var body = [];
+  DB.projects.forEach(function(p){
+    p.blocks.forEach(function(b){
+      b.units.forEach(function(u){
+        var durum = u.status==='sold'?'Satıldı':u.status==='reserved'?'Rezerve':u.status==='barter'?'Barter':u.status==='owner'?'Firma':'Boş';
+        body.push([p.name, b.name, u.no, durum, u.customer||'-', '\u20BA'+fmt(u.targetPrice||0), '\u20BA'+fmt(u.salePrice||0)]);
+      });
+    });
+  });
+  pdfTable(doc, ['Proje','Blok','Birim','Durum','Müşteri','Hedef fiyat','Satış fiyatı'], body);
+  pdfSave(doc, 'satis');
+}
+
+function exportSTExcel() {
+  var data = [];
+  DB.projects.forEach(function(p){
+    p.blocks.forEach(function(b){
+      b.units.forEach(function(u){
+        var durum = u.status==='sold'?'Satıldı':u.status==='reserved'?'Rezerve':u.status==='barter'?'Barter':u.status==='owner'?'Firma':'Boş';
+        data.push([p.name, b.name, u.no, durum, u.customer||'', u.targetPrice||0, u.salePrice||0, u.m2||'', u.type||'']);
+      });
+    });
+  });
+  xlsxSave(data, ['Proje','Blok','Birim','Durum','Müşteri','Hedef fiyat','Satış fiyatı','m²','Tip'], 'Satış', 'satis');
+}
+
+// =============================================
+// 7) BANKA HAREKETLERİ
+// =============================================
+function exportBankaPDF() {
+  var doc = pdfCreate('Banka Hareketleri','Hesap bazlı giriş/çıkış');
+  if(!doc) return;
+  // Hesap özeti
+  var hesapBody = (DB.bankaHesaplari||[]).map(function(b){
+    return [b.name, b.banka||'-', b.iban||'-', '\u20BA'+fmt(b.bakiye||0)];
+  });
+  if(hesapBody.length>0) {
+    pdfTable(doc, ['Hesap adı','Banka','IBAN','Bakiye'], hesapBody);
+  }
+  // Hareketler
+  var py = hesapBody.length>0 ? doc.lastAutoTable.finalY + 8 : 32;
+  doc.setFontSize(10); doc.setTextColor(15,27,45);
+  doc.text(trfix('Hareketler'), 14, py);
+  var hBody = (DB.bankaHareketleri||[]).map(function(h){
+    var banka = (DB.bankaHesaplari||[]).find(function(b){return b.id===h.bankaId});
+    return [h.date||'-', banka?banka.name:'-', h.type==='giren'?'Giriş':'Çıkış', h.desc||'-', h.project||'-', '\u20BA'+fmt(h.amount), '\u20BA'+fmt(h.bakiyeSonrasi||0)];
+  });
+  pdfTable(doc, ['Tarih','Hesap','Tür','Açıklama','Proje','Tutar','Bakiye'], hBody, py+3);
+  pdfSave(doc, 'banka');
+}
+
+function exportBankaExcel() {
+  var data = (DB.bankaHareketleri||[]).map(function(h){
+    var banka = (DB.bankaHesaplari||[]).find(function(b){return b.id===h.bankaId});
+    return [h.date||'', banka?banka.name:'', h.type==='giren'?'Giriş':'Çıkış', h.desc||'', h.project||'', h.amount, h.bakiyeSonrasi||0];
+  });
+  xlsxSave(data, ['Tarih','Hesap','Tür','Açıklama','Proje','Tutar','Bakiye'], 'Banka', 'banka');
+}
+
+// =============================================
+// 8) TAKSİT TAKİP
+// =============================================
+function exportTKPDF() {
+  var doc = pdfCreate('Taksit Takip Raporu','Müşteri taksit detayları');
+  if(!doc) return;
+  var body = [];
+  DB.customers.forEach(function(c){
+    if(c.taksitler && c.taksitler.length>0) {
+      c.taksitler.forEach(function(t,i){
+        body.push([c.name, c.project||'-', (i+1)+'/'+c.taksitler.length, t.tarih||'-', '\u20BA'+fmt(t.tutar||0), t.odendi?'Ödendi':'Bekliyor']);
+      });
+    }
+  });
+  if(body.length===0) body.push(['Taksit kaydı bulunamadı','','','','','']);
+  pdfTable(doc, ['Müşteri','Proje','Taksit','Tarih','Tutar','Durum'], body);
+  pdfSave(doc, 'taksit');
+}
+
+function exportTKExcel() {
+  var data = [];
+  DB.customers.forEach(function(c){
+    if(c.taksitler && c.taksitler.length>0) {
+      c.taksitler.forEach(function(t,i){
+        data.push([c.name, c.project||'', i+1, c.taksitler.length, t.tarih||'', t.tutar||0, t.odendi?'Ödendi':'Bekliyor']);
+      });
+    }
+  });
+  xlsxSave(data, ['Müşteri','Proje','Taksit No','Toplam Taksit','Tarih','Tutar','Durum'], 'Taksitler', 'taksit');
 }
 
 function importData(e) {
