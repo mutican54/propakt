@@ -3814,13 +3814,43 @@ auth.onAuthStateChanged(function(user) {
 setInterval(function(){if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}},60000);
 
 // ===== PWA SERVICE WORKER =====
-// v19: Sadece https ortamında çalıştır (file:// ve http'de hata vermez)
+// v19: Sadece https ortamında çalıştır + güncelleme algılama
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
     console.log('SW registered:', reg.scope);
+    // Güncelleme kontrolü: her 5 dakikada bir
+    setInterval(function() { reg.update(); }, 5 * 60 * 1000);
+    // Yeni SW bulunduğunda kullanıcıya bildir
+    reg.addEventListener('updatefound', function() {
+      var newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', function() {
+        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+          // Yeni versiyon hazır — kullanıcıya bildir
+          showUpdateBar();
+        }
+      });
+    });
   }).catch(function(err) {
     console.log('SW registration failed:', err);
   });
+  // Başka bir sekmede SW değişirse bu sekmeyi de güncelle
+  var refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function() {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
+
+function showUpdateBar() {
+  if (document.getElementById('update-bar')) return;
+  var bar = document.createElement('div');
+  bar.id = 'update-bar';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#0D9461;color:#fff;padding:10px 16px;z-index:6000;display:flex;align-items:center;justify-content:space-between;font-family:inherit;font-size:13px;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,.2)';
+  bar.innerHTML = '<span>Yeni güncelleme mevcut!</span><button onclick="location.reload()" style="background:#fff;color:#0D9461;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Güncelle</button>';
+  document.body.appendChild(bar);
 }
 
 // ===== PWA INSTALL PROMPT =====
