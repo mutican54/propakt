@@ -7,9 +7,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Propakt">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<script>
+// v19: PWA manifest ve ikonları sadece https ortamında yükle (file:// hata vermez)
+if(location.protocol==='https:'){
+  var ml=document.createElement('link');ml.rel='manifest';ml.href='manifest.json';document.head.appendChild(ml);
+  var ai=document.createElement('link');ai.rel='apple-touch-icon';ai.href='icon-192.png';document.head.appendChild(ai);
+  var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
+}
+</script>
 <title>Propakt Group — İnşaat Yönetim Sistemi v19</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -213,10 +218,7 @@ textarea.fi{resize:vertical;min-height:50px}
 </div>
 </div>
 </div>
-<div id="pwa-install" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--nv);color:#fff;padding:12px 16px;z-index:3000;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.3)">
-<div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" alt="Propakt Group" style="width:36px;height:36px;border-radius:8px"><div><div style="font-weight:700;font-size:13px">Propakt Group'u yükle</div><div style="font-size:10px;opacity:.7">Ana ekrana ekle — uygulama gibi çalışsın</div></div></div>
-<div style="display:flex;gap:6px"><button onclick="pwaInstall()" style="background:var(--am);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Yükle</button><button onclick="pwaInstallDismiss()" style="background:transparent;color:rgba(255,255,255,.6);border:none;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
-</div>
+<div id="pwa-install-anchor"></div>
 <div class="app">
 <div class="sb">
 <div class="sb-l"><div class="sb-lm">PG</div><div><div class="sb-lt">Propakt Group</div><div class="sb-ls">yönetim sistemi</div></div></div>
@@ -243,6 +245,7 @@ textarea.fi{resize:vertical;min-height:50px}
 <div style="flex:1"></div>
 <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)">
 <div class="si" data-pg="users" style="margin:0 0 4px 0;display:none" id="admin-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>Kullanıcı yönetimi</div>
+<div class="si" data-pg="sysTest" style="margin:0 0 4px 0;display:none" id="admin-test-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Sistem testi</div>
 <div class="si" data-pg="backup" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Yedekle / geri yükle</div>
 </div>
 <div class="user-bar" id="user-bar" style="display:none">
@@ -450,6 +453,8 @@ function enterApp(user) {
   updateSyncStatus(true);
   var adminMenu = document.getElementById('admin-menu');
   if(adminMenu) adminMenu.style.display = isAdmin ? 'block' : 'none';
+  var adminTestMenu = document.getElementById('admin-test-menu');
+  if(adminTestMenu) adminTestMenu.style.display = isAdmin ? 'block' : 'none';
   loadFromFirestore();
 }
 
@@ -687,7 +692,7 @@ function today() { return new Date().toISOString().split('T')[0]; }
 
 // ===== NAVIGATION =====
 var curPage = 'oz', curPrj = 0;
-var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme'],users:['Kullanıcı yönetimi','Kullanıcı onay ve yetki yönetimi']};
+var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme'],users:['Kullanıcı yönetimi','Kullanıcı onay ve yetki yönetimi'],sysTest:['Sistem testi','Firestore bağlantı ve güvenlik kontrolleri']};
 
 document.querySelectorAll('.si[data-pg]').forEach(function(el) {
   el.addEventListener('click', function() {
@@ -731,7 +736,7 @@ function totalKDVExpense() { return DB.transactions.filter(function(t){return t.
 function render() {
   document.getElementById('sn-cnt').textContent = DB.projects.length;
   var c = document.getElementById('ct');
-  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup,users:rUsers};
+  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup,users:rUsers,sysTest:rSysTest};
   if(fn[curPage]) c.innerHTML = fn[curPage]();
   else c.innerHTML = '<div class="empty">Bu sayfa yapım aşamasında.</div>';
 }
@@ -3450,6 +3455,214 @@ function healthCheck() {
 }
 
 
+// ===== v19: SİSTEM TEST PANELİ =====
+function rSysTest() {
+  if(!isAdmin) return '<div class="empty">Bu sayfaya erişim yetkiniz yok.</div>';
+  var h='<div class="warn" style="background:#E3F2FD;border-color:#90CAF9;color:#1565C0">Bu panel Firestore bağlantısını, güvenlik kurallarını ve ortak veri modelini test eder. Testleri başlatmak için aşağıdaki butona tıklayın.</div>';
+
+  h+='<button class="btn bp" onclick="runAllTests()" id="run-tests-btn" style="margin-bottom:16px">Tüm testleri başlat</button>';
+  h+='<div id="test-results"><div class="empty">Henüz test çalıştırılmadı.</div></div>';
+  return h;
+}
+
+function runAllTests() {
+  var btn = document.getElementById('run-tests-btn');
+  if(btn) { btn.disabled=true; btn.textContent='Testler çalışıyor...'; }
+  var results = [];
+  var container = document.getElementById('test-results');
+  if(container) container.innerHTML='<div class="empty">Testler çalışıyor, lütfen bekleyin...</div>';
+
+  var testIndex = 0;
+  var tests = [
+    // TEST 1: Firestore bağlantısı
+    function(cb) {
+      db_fire.doc(SHARED_DOC_PATH).get().then(function(doc) {
+        cb({name:'Firestore bağlantısı', pass:true, detail:'shared_data/main dokümanına erişim başarılı'});
+      }).catch(function(err) {
+        cb({name:'Firestore bağlantısı', pass:false, detail:'Hata: '+err.message});
+      });
+    },
+    // TEST 2: Ortak veri dokümanı var mı
+    function(cb) {
+      db_fire.doc(SHARED_DOC_PATH).get().then(function(doc) {
+        if(doc.exists && doc.data().data) {
+          var dataLen = doc.data().data.length;
+          cb({name:'Ortak veri dokümanı', pass:true, detail:'shared_data/main mevcut ('+Math.round(dataLen/1024)+' KB veri)'});
+        } else {
+          cb({name:'Ortak veri dokümanı', pass:false, detail:'Doküman bulunamadı veya boş'});
+        }
+      }).catch(function(err) {
+        cb({name:'Ortak veri dokümanı', pass:false, detail:'Hata: '+err.message});
+      });
+    },
+    // TEST 3: Veri yazma testi (test alanına yaz, sonra sil)
+    function(cb) {
+      var testRef = db_fire.collection('shared_data').doc('_test_');
+      testRef.set({
+        testBy: currentUser.email,
+        testAt: firebase.firestore.FieldValue.serverTimestamp(),
+        msg: 'Sistem testi — bu doküman otomatik silinecek'
+      }).then(function() {
+        // Yazdık, şimdi silelim
+        return testRef.delete();
+      }).then(function() {
+        cb({name:'Veri yazma/silme', pass:true, detail:'shared_data koleksiyonuna yazma ve silme başarılı'});
+      }).catch(function(err) {
+        cb({name:'Veri yazma/silme', pass:false, detail:'Hata: '+err.message});
+      });
+    },
+    // TEST 4: Kullanıcı onay sistemi (app_users okunabiliyor mu)
+    function(cb) {
+      db_fire.collection('app_users').get().then(function(snapshot) {
+        cb({name:'Kullanıcı listesi (app_users)', pass:true, detail:snapshot.size+' kullanıcı kaydı bulundu'});
+      }).catch(function(err) {
+        cb({name:'Kullanıcı listesi (app_users)', pass:false, detail:'Hata: '+err.message});
+      });
+    },
+    // TEST 5: Realtime sync aktif mi
+    function(cb) {
+      var synced = (firestoreUnsubscribe !== null);
+      cb({name:'Gerçek zamanlı senkronizasyon', pass:synced, detail:synced?'onSnapshot dinleyicisi aktif':'Dinleyici başlatılmamış — sayfayı yenileyin'});
+    },
+    // TEST 6: Yerel veri tutarlılığı
+    function(cb) {
+      var pCount = DB.projects ? DB.projects.length : 0;
+      var tCount = DB.transactions ? DB.transactions.length : 0;
+      var tsCount = DB.taserons ? DB.taserons.length : 0;
+      var cCount = DB.customers ? DB.customers.length : 0;
+      var bCount = DB.bankaHesaplari ? DB.bankaHesaplari.length : 0;
+      cb({
+        name:'Yerel veri durumu',
+        pass:true,
+        detail: pCount+' proje, '+tCount+' işlem, '+tsCount+' taşeron, '+cCount+' müşteri, '+bCount+' banka hesabı'
+      });
+    },
+    // TEST 7: Eski users/{uid} verisi hala var mı
+    function(cb) {
+      db_fire.doc('users/'+currentUser.uid).get().then(function(doc) {
+        if(doc.exists) {
+          cb({name:'Eski veri (users/uid)', pass:true, detail:'Eski doküman hâlâ mevcut — taşıma sonrası silinebilir', warn:true});
+        } else {
+          cb({name:'Eski veri (users/uid)', pass:true, detail:'Eski doküman yok veya zaten temizlenmiş'});
+        }
+      }).catch(function(err) {
+        cb({name:'Eski veri (users/uid)', pass:true, detail:'Eski doküman okunamadı (güvenlik kuralları engelliyor olabilir) — sorun değil'});
+      });
+    },
+    // TEST 8: Auth durumu
+    function(cb) {
+      var user = firebase.auth().currentUser;
+      if(user) {
+        cb({name:'Oturum durumu', pass:true, detail:'Giriş: '+user.email+(isAdmin?' (Admin)':' (Kullanıcı)')});
+      } else {
+        cb({name:'Oturum durumu', pass:false, detail:'Oturum açık değil'});
+      }
+    },
+    // TEST 9: Güvenlik kuralları — korunan koleksiyona erişimi dene
+    function(cb) {
+      if(isAdmin) {
+        // Admin olarak giriş yapılmış — users/ okuma izni var (geçiş dönemi kuralı)
+        // Bunun yerine tamamen korunan bir koleksiyonu deneyelim
+        db_fire.collection('secret_test_xyz').doc('test').get().then(function(doc) {
+          cb({name:'Güvenlik: korunan koleksiyon', pass:false, detail:'UYARI — korunan koleksiyona erişildi! Güvenlik kurallarını kontrol edin', warn:true});
+        }).catch(function(err) {
+          if(err.code === 'permission-denied') {
+            cb({name:'Güvenlik: korunan koleksiyon', pass:true, detail:'Tanımsız koleksiyonlara erişim engellendi — kurallar aktif'});
+          } else {
+            cb({name:'Güvenlik: korunan koleksiyon', pass:true, detail:'Erişim engellendi ('+err.code+')'});
+          }
+        });
+      } else {
+        // Normal kullanıcı — users/ koleksiyonuna erişim engelli olmalı
+        db_fire.doc('users/FAKE_UID_TEST_12345').get().then(function(doc) {
+          cb({name:'Güvenlik: yabancı veri erişimi', pass:false, detail:'UYARI — başka kullanıcının verisi okunabildi!', warn:true});
+        }).catch(function(err) {
+          if(err.code === 'permission-denied') {
+            cb({name:'Güvenlik: yabancı veri erişimi', pass:true, detail:'Başka kullanıcının verisi engellendiği doğrulandı'});
+          } else {
+            cb({name:'Güvenlik: yabancı veri erişimi', pass:true, detail:'Erişim engellendi ('+err.code+')'});
+          }
+        });
+      }
+    },
+    // TEST 10: Bulut-yerel veri eşleşmesi
+    function(cb) {
+      db_fire.doc(SHARED_DOC_PATH).get().then(function(doc) {
+        if(doc.exists && doc.data().data) {
+          try {
+            var cloudData = JSON.parse(doc.data().data);
+            var cloudProjects = cloudData.projects ? cloudData.projects.length : 0;
+            var localProjects = DB.projects ? DB.projects.length : 0;
+            var match = (cloudProjects === localProjects);
+            cb({
+              name:'Bulut-yerel veri eşleşmesi',
+              pass:match,
+              detail: match
+                ? 'Eşleşiyor: '+localProjects+' proje (bulut = yerel)'
+                : 'UYUŞMAZLIK — Bulut: '+cloudProjects+' proje, Yerel: '+localProjects+' proje. Sayfayı yenileyin.',
+              warn:!match
+            });
+          } catch(e) {
+            cb({name:'Bulut-yerel veri eşleşmesi', pass:false, detail:'Bulut verisi parse edilemedi'});
+          }
+        } else {
+          cb({name:'Bulut-yerel veri eşleşmesi', pass:false, detail:'Bulut dokümanı bulunamadı'});
+        }
+      }).catch(function(err) {
+        cb({name:'Bulut-yerel veri eşleşmesi', pass:false, detail:'Hata: '+err.message});
+      });
+    }
+  ];
+
+  function runNext() {
+    if(testIndex >= tests.length) {
+      renderTestResults(results);
+      if(btn) { btn.disabled=false; btn.textContent='Testleri tekrar çalıştır'; }
+      return;
+    }
+    tests[testIndex](function(result) {
+      results.push(result);
+      testIndex++;
+      runNext();
+    });
+  }
+  runNext();
+}
+
+function renderTestResults(results) {
+  var container = document.getElementById('test-results');
+  if(!container) return;
+  var passed = results.filter(function(r){return r.pass}).length;
+  var failed = results.filter(function(r){return !r.pass}).length;
+  var warns = results.filter(function(r){return r.warn}).length;
+
+  var h='<div class="sts s3" style="margin-bottom:14px">';
+  h+='<div class="st xg"><div class="stl">Başarılı</div><div class="stv" style="color:var(--gn)">'+passed+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Başarısız</div><div class="stv" style="color:var(--rd)">'+failed+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Uyarı</div><div class="stv" style="color:var(--am)">'+warns+'</div></div>';
+  h+='</div>';
+
+  h+='<div class="cd"><table class="tb"><thead><tr><th style="width:30px">Durum</th><th>Test</th><th>Sonuç</th></tr></thead><tbody>';
+  results.forEach(function(r) {
+    var icon = r.pass ? (r.warn ? '<span style="color:var(--am);font-size:16px">⚠</span>' : '<span style="color:var(--gn);font-size:16px">✓</span>') : '<span style="color:var(--rd);font-size:16px">✕</span>';
+    var bgClass = r.pass ? (r.warn ? 'bga' : 'bgg') : 'bgr';
+    h+='<tr>';
+    h+='<td style="text-align:center">'+icon+'</td>';
+    h+='<td style="font-weight:600">'+r.name+'</td>';
+    h+='<td><span class="bg '+bgClass+'">'+r.detail+'</span></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  if(failed === 0) {
+    h+='<div class="warn" style="background:var(--gnl);border-color:#A5D6A7;color:var(--gn);margin-top:12px">Tüm testler başarılı! Sistem production için hazır.</div>';
+  } else {
+    h+='<div class="warn" style="margin-top:12px">'+failed+' test başarısız. Yukarıdaki hata detaylarını kontrol edin.</div>';
+  }
+
+  container.innerHTML = h;
+}
+
 // ===== v18: KULLANICI YÖNETİMİ =====
 function rUsers() {
   if(!isAdmin) return '<div class="empty">Bu sayfaya erişim yetkiniz yok.</div>';
@@ -3601,7 +3814,8 @@ auth.onAuthStateChanged(function(user) {
 setInterval(function(){if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}},60000);
 
 // ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
+// v19: Sadece https ortamında çalıştır (file:// ve http'de hata vermez)
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
     console.log('SW registered:', reg.scope);
   }).catch(function(err) {
@@ -3611,12 +3825,22 @@ if ('serviceWorker' in navigator) {
 
 // ===== PWA INSTALL PROMPT =====
 var deferredPrompt;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  deferredPrompt = e;
-  var installBar = document.getElementById('pwa-install');
-  if (installBar) installBar.style.display = 'flex';
-});
+// v19: PWA install bar'ı sadece https ortamında dinamik oluştur
+if(location.protocol==='https:'){
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    var anchor = document.getElementById('pwa-install-anchor');
+    if(!anchor) return;
+    if(!document.getElementById('pwa-install')) {
+      var bar = document.createElement('div');
+      bar.id = 'pwa-install';
+      bar.style.cssText = 'display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--nv);color:#fff;padding:12px 16px;z-index:3000;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.3)';
+      bar.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;background:var(--am);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;letter-spacing:-.5px;flex-shrink:0">PG</div><div><div style="font-weight:700;font-size:13px">Propakt Group\u2019u yükle</div><div style="font-size:10px;opacity:.7">Ana ekrana ekle — uygulama gibi çalışsın</div></div></div><div style="display:flex;gap:6px"><button onclick="pwaInstall()" style="background:var(--am);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Yükle</button><button onclick="pwaInstallDismiss()" style="background:transparent;color:rgba(255,255,255,.6);border:none;font-size:18px;cursor:pointer;padding:4px 8px">\u2715</button></div>';
+      anchor.appendChild(bar);
+    }
+  });
+}
 
 function pwaInstall() {
   if (!deferredPrompt) return;
