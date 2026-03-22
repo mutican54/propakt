@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>Propakt Group — İnşaat Yönetim Sistemi</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v16</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -146,9 +146,9 @@ textarea.fi{resize:vertical;min-height:50px}
   .tb{font-size:10px}
   .tb th,.tb td{padding:6px 5px}
   .mdl{width:95vw!important;max-height:92vh}
-  .fr{flex-direction:column}.fr>div{width:100%!important}
-  .fr3,.fr4{flex-direction:column}
-  .fr3>div,.fr4>div{width:100%!important}
+  .fr{display:flex!important;flex-direction:column!important;gap:6px!important}.fr>div,.fr>.fg{width:100%!important}
+  .fr3,.fr4{display:flex!important;flex-direction:column!important;gap:6px!important}
+  .fr3>div,.fr4>div,.fr3>.fg,.fr4>.fg{width:100%!important}
   .sum-bar{flex-wrap:wrap;gap:8px;padding:12px}
   .sum-i .v{font-size:20px}
   .sum-i .l{font-size:9px}
@@ -210,6 +210,8 @@ textarea.fi{resize:vertical;min-height:50px}
 <div class="tp">
 <div><h1 id="pt">Özet panel</h1><p id="ps">Propakt Group — genel bakış</p></div>
 <div class="tp-acts">
+<div style="position:relative"><input class="fi" id="global-search" placeholder="Ara..." style="width:160px;padding:5px 10px 5px 28px;font-size:10.5px" oninput="globalSearch(this.value)"><svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+<span style="font-size:9px;color:var(--t3)" id="last-save-info"></span>
 <button class="btn bo bsm" onclick="exportData()">↓ Yedekle</button>
 <button class="btn bp bsm" id="main-add">+ Yeni kayıt</button>
 </div>
@@ -255,7 +257,7 @@ function load() {
 }
 
 function save() {
-  try { localStorage.setItem('propakt_db', JSON.stringify(DB)); } catch(e) { console.error('Save error', e); }
+  try { DB.lastSaveTime=new Date().toISOString(); localStorage.setItem('propakt_db', JSON.stringify(DB)); var el=document.getElementById('last-save-info'); if(el) el.textContent=formatTimeSince(DB.lastSaveTime); } catch(e) { console.error('Save error', e); }
 }
 
 function nid() { return DB.settings.nextId++; }
@@ -292,7 +294,7 @@ function closeM(id) { document.getElementById(id).classList.remove('sh'); }
 
 // ===== COUNTS =====
 function totalBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){c+=b.units.length})}); return c; }
-function soldBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='sold'||u.status==='barter')c++})})}); return c; }
+function soldBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='sold')c++})})}); return c; }
 function freeBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='free')c++})})}); return c; }
 function rsvBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='reserved')c++})})}); return c; }
 function barterBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='barter')c++})})}); return c; }
@@ -321,7 +323,7 @@ function rOzet() {
   var h='<div class="sum-bar">';
   h+='<div class="sum-i"><div class="v">'+DB.projects.length+'</div><div class="l">Proje</div></div><div class="sum-d"></div>';
   h+='<div class="sum-i"><div class="v">'+tb+'</div><div class="l">Toplam BB</div></div><div class="sum-d"></div>';
-  h+='<div class="sum-i"><div class="v" style="color:#4CAF50">'+sb2+'</div><div class="l">Satılan</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v" style="color:#4CAF50">'+(sb2+bb2)+'</div><div class="l">Satılan/barter</div></div><div class="sum-d"></div>';
   h+='<div class="sum-i"><div class="v" style="color:#EF5350">'+fb+'</div><div class="l">Boş</div></div><div class="sum-d"></div>';
   h+='<div class="sum-i"><div class="v" style="color:#CE93D8">'+bb2+'</div><div class="l">Barter</div></div><div class="sum-d"></div>';
   h+='<div class="sum-i"><div class="v" style="color:var(--am)">%'+pct+'</div><div class="l">Satış oranı</div></div></div>';
@@ -334,6 +336,17 @@ function rOzet() {
   h+='<div class="st xa"><div class="stl">Hedef satış geliri</div><div class="stv" style="color:var(--am)">₺'+fmtK(tgt)+'</div><div class="stc" style="color:var(--t2)">Gerçekleşen: %'+(tgt>0?Math.round(ti/tgt*100):0)+'</div></div>';
   h+='<div class="st xt"><div class="stl">KDV fark</div><div class="stv" style="color:var(--tl)">₺'+fmtK(totalKDVIncome()-totalKDVExpense())+'</div><div class="stc">Hesap. - İndiri.</div></div>';
   h+='</div>';
+
+  // Sağlık kontrolü
+  var warnings=healthCheck();
+  if(warnings.length>0) {
+    h+='<div class="cd" style="border-color:var(--am)"><div class="chd"><span class="cht" style="color:var(--am)">Dikkat gerektiren konular</span><span style="background:var(--am);color:#fff;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700">'+warnings.length+'</span></div>';
+    h+='<div style="padding:10px 16px">';
+    warnings.forEach(function(w){
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid var(--bl2);font-size:11.5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--'+w.type+');flex-shrink:0"></div><span>'+w.msg+'</span></div>';
+    });
+    h+='</div></div>';
+  }
 
   // Recent transactions
   h+='<div class="cd"><div class="chd"><span class="cht">Son hareketler</span><span class="cha" onclick="openGGModal()">+ Yeni kayıt</span></div>';
@@ -373,7 +386,7 @@ function rOzet() {
   return h;
 }
 
-var ggFilter={type:'all',project:'all'};
+var ggFilter={type:'all',project:'all',dateFrom:'',dateTo:''};
 function rGG() {
   var h='<div class="warn">Gayri resmi kayıtlar sadece bu bilgisayarda saklanır.</div>';
 
@@ -391,10 +404,21 @@ function rGG() {
   });
   h+='</div>';
 
+  // Tarih aralığı filtresi
+  h+='<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap">';
+  h+='<span style="font-size:11px;font-weight:600;color:var(--t2)">Tarih:</span>';
+  h+='<input class="fi" type="date" style="padding:4px 8px;font-size:10.5px;width:130px" value="'+ggFilter.dateFrom+'" onchange="ggFilter.dateFrom=this.value;render()">';
+  h+='<span style="font-size:10px;color:var(--t3)">—</span>';
+  h+='<input class="fi" type="date" style="padding:4px 8px;font-size:10.5px;width:130px" value="'+ggFilter.dateTo+'" onchange="ggFilter.dateTo=this.value;render()">';
+  if(ggFilter.dateFrom||ggFilter.dateTo) h+='<span style="color:var(--am);cursor:pointer;font-size:10px;font-weight:600" onclick="ggFilter.dateFrom=\'\';ggFilter.dateTo=\'\';render()">✕ Temizle</span>';
+  h+='</div>';
+
   // Filter transactions
   var filtered=DB.transactions.filter(function(t){
     if(ggFilter.type!=='all'&&t.type!==ggFilter.type) return false;
     if(ggFilter.project!=='all'&&(t.project||'Genel')!==ggFilter.project) return false;
+    if(ggFilter.dateFrom&&t.date<ggFilter.dateFrom) return false;
+    if(ggFilter.dateTo&&t.date>ggFilter.dateTo) return false;
     return true;
   });
 
@@ -559,7 +583,7 @@ function rTS() {
   h+='<div class="cd"><div class="chd"><span class="cht">Taşeron anlaşmaları</span><span class="cha" onclick="openTaseronModal()">+ Yeni anlaşma</span></div>';
   if(DB.taserons.length===0) h+='<div class="empty">Henüz taşeron kaydı yok.</div>';
   else {
-    h+='<table class="tb"><thead><tr><th>Taşeron</th><th>İş kalemi</th><th>Şantiye</th><th>Toplam</th><th>Ödeme şekli</th><th>Nakit kısım</th><th>Barter kısım</th><th>Barter detay</th><th>Sil</th></tr></thead><tbody>';
+    h+='<table class="tb"><thead><tr><th>Taşeron</th><th>İş kalemi</th><th>Şantiye</th><th>Toplam</th><th>Ödeme şekli</th><th>Ödenen</th><th>Barter</th><th>Kalan borç</th><th>Barter detay</th><th>İşlem</th></tr></thead><tbody>';
     DB.taserons.forEach(function(t){
       var cashDisplay = '', barterDisplay = '', barterDetailDisplay = '';
       if(t.payType==='Karma') {
@@ -577,13 +601,15 @@ function rTS() {
         cashDisplay = '₺'+fmt(t.total);
         barterDisplay = '—';
       }
+      var kalanBorc = Math.max(0, t.total - (t.paid||0) - (t.barterVal||0));
       h+='<tr><td style="font-weight:600">'+t.name+'</td><td>'+t.job+'</td><td style="color:var(--t2)">'+t.project+'</td>';
       h+='<td style="font-weight:700">₺'+fmt(t.total)+'</td>';
       h+='<td><span class="bg '+(t.payType==='Barter'?'bgp':t.payType==='Karma'?'bgp':'bga')+'">'+t.payType+'</span></td>';
-      h+='<td style="color:var(--gn)">'+cashDisplay+'</td>';
-      h+='<td style="color:var(--pr);font-weight:600">'+barterDisplay+'</td>';
-      h+='<td style="font-size:10px;color:var(--t2);max-width:160px">'+(barterDetailDisplay||'—')+'</td>';
-      h+='<td><button class="btn bo bsm" onclick="editTs('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTs('+t.id+')">✕</span></td></tr>';
+      h+='<td style="color:var(--gn)">₺'+fmt(t.paid||0)+'</td>';
+      h+='<td style="color:var(--pr);font-weight:600">'+(t.barterVal?'₺'+fmt(t.barterVal):'—')+'</td>';
+      h+='<td style="color:'+(kalanBorc>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(kalanBorc)+'</td>';
+      h+='<td style="font-size:10px;color:var(--t2);max-width:140px">'+(barterDetailDisplay||'—')+'</td>';
+      h+='<td><button class="btn bp bsm" onclick="taseronOdeme('+t.id+')" style="margin-right:3px">Ödeme</button><button class="btn bo bsm" onclick="editTs('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTs('+t.id+')">✕</span></td></tr>';
     });
     h+='</tbody></table>';
   }
@@ -610,12 +636,15 @@ function rTK() {
   var unpaidCount=allTaksit.filter(function(t){return !t.paid}).length;
   var todayStr=today();
   var overdueCount=allTaksit.filter(function(t){return !t.paid && t.date<todayStr}).length;
+  var thisMonth=todayStr.substring(0,7);
+  var thisMonthCount=allTaksit.filter(function(t){return !t.paid && t.date.substring(0,7)===thisMonth}).length;
+  var thisMonthAmount=allTaksit.filter(function(t){return !t.paid && t.date.substring(0,7)===thisMonth}).reduce(function(s,t){return s+t.amount},0);
   var totalAraOdeme=DB.customers.reduce(function(s,c){return s+((c.araOdemeler||[]).reduce(function(s2,a){return s2+a.amount},0))},0);
 
   h+='<div class="sts s5">';
   h+='<div class="st xa"><div class="stl">Toplam taksit alacağı</div><div class="stv" style="color:var(--am)">₺'+fmtK(totalRemaining)+'</div></div>';
   h+='<div class="st xr"><div class="stl">Gecikmiş taksit</div><div class="stv" style="color:var(--rd)">'+overdueCount+'</div></div>';
-  h+='<div class="st xb"><div class="stl">Bu ay vadeli</div><div class="stv" style="color:var(--bl)">'+unpaidCount+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Bu ay vadeli</div><div class="stv" style="color:var(--bl)">'+thisMonthCount+'</div><div class="stc" style="color:var(--t2)">₺'+fmtK(thisMonthAmount)+'</div></div>';
   h+='<div class="st xg"><div class="stl">Ödenen taksit</div><div class="stv" style="color:var(--gn)">'+paidCount+' / '+(paidCount+unpaidCount)+'</div></div>';
   h+='<div class="st xt"><div class="stl">Ara ödemeler toplamı</div><div class="stv" style="color:var(--tl)">₺'+fmtK(totalAraOdeme)+'</div></div>';
   h+='</div>';
@@ -1825,11 +1854,13 @@ function openGGModal(editId) {
   var prjOpts='<option value="Genel">Genel (şirket)</option>';
   DB.projects.forEach(function(p){prjOpts+='<option value="'+p.name+'"'+(t&&t.project===p.name?' selected':'')+'>'+p.name+'</option>'});
 
-  var catOpts='<option>Daire satışı</option><option>Kapora / peşinat</option><option>Taksit tahsilat</option><option>Taahhüt geliri (iş bedeli)</option><option>Hakediş geliri</option><option>Malzeme</option><option>İşçilik</option><option>Taşeron</option><option>SGK / vergi</option><option>Yakıt</option><option>Kira</option><option>Genel yönetim</option><option>Barter</option><option>Diğer</option>';
+  var gelirCats='<option>Daire satışı</option><option>Kapora / peşinat</option><option>Taksit tahsilat</option><option>Taahhüt geliri (iş bedeli)</option><option>Hakediş geliri</option><option>Kira geliri</option><option>Barter</option><option>Ara ödeme</option><option>Diğer gelir</option>';
+  var giderCats='<option>Malzeme</option><option>İşçilik</option><option>Taşeron</option><option>SGK / vergi</option><option>Yakıt</option><option>Kira</option><option>Genel yönetim</option><option>Barter</option><option>Diğer gider</option>';
+  var catOpts = (!t||t.type==='gelir') ? gelirCats : giderCats;
 
   document.getElementById('m-gg-body').innerHTML=
     '<input type="hidden" id="gg-edit-id" value="'+(editId||'')+'">'+
-    '<div class="rgs" id="gg-ty"><div class="rgo'+((!t||t.type==='gelir')?' on':'')+'" onclick="sRgo(this)">Gelir</div><div class="rgo'+((t&&t.type==='gider')?' on':'')+'" onclick="sRgo(this)">Gider</div></div>'+
+    '<div class="rgs" id="gg-ty"><div class="rgo'+((!t||t.type==='gelir')?' on':'')+'" onclick="sRgo(this);ggTypeChange()">Gelir</div><div class="rgo'+((t&&t.type==='gider')?' on':'')+'" onclick="sRgo(this);ggTypeChange()">Gider</div></div>'+
     '<div class="fr"><div class="fg"><label class="fl">Açıklama</label><input class="fi" id="gg-desc" placeholder="ör: Daire satışı A-5" value="'+(t?t.desc:'')+'"></div><div class="fg"><label class="fl">Proje</label><select class="fi" id="gg-proj">'+prjOpts+'</select></div></div>'+
     '<div class="fr"><div class="fg"><label class="fl">Kategori</label><select class="fi" id="gg-cat">'+catOpts+'</select></div><div class="fg"><label class="fl">Tarih</label><input class="fi" type="date" id="gg-date" value="'+(t?t.date:today())+'"></div></div>'+
     '<hr class="sep"><div class="sec-t">Tutar + KDV (resmi / gayri resmi)</div>'+
@@ -2708,8 +2739,46 @@ function delTs(id) {
   }
   DB.taserons=DB.taserons.filter(function(x){return x.id!==id}); save(); render(); toast('Silindi');
 }
-function delCust(id) { if(!confirm('Müşteriyi silmek istediğinize emin misiniz?'))return; DB.customers=DB.customers.filter(function(c){return c.id!==id}); save(); render(); toast('Silindi'); }
-function delProject(id) { if(!confirm('Bu projeyi ve tüm bağımsız bölümlerini silmek istediğinize emin misiniz?'))return; DB.projects=DB.projects.filter(function(p){return p.id!==id}); save(); render(); toast('Proje silindi'); }
+function delCust(id) {
+  var c=DB.customers.find(function(x){return x.id===id});
+  if(!c) return;
+  if(!confirm(c.name+' müşterisini silmek istediğinize emin misiniz? İlgili BB boşa alınacaktır.'))return;
+  // BB'yi geri free'ye al
+  if(c.project && c.unit) {
+    DB.projects.forEach(function(p){
+      if(p.name===c.project) {
+        p.blocks.forEach(function(b){
+          b.units.forEach(function(u){
+            if(u.no===c.unit && (u.status==='sold'||u.status==='reserved') && u.customer===c.name) {
+              u.status='free'; u.customer=null;
+            }
+          });
+        });
+      }
+    });
+  }
+  DB.customers=DB.customers.filter(function(x){return x.id!==id}); save(); render(); toast(c.name+' silindi, BB boşa alındı');
+}
+function delProject(id) {
+  var p=DB.projects.find(function(x){return x.id===id});
+  if(!p) return;
+  var msg='"'+p.name+'" projesini silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz ve şunlar da silinecek:\n• İlgili gelir/gider kayıtları\n• İlgili taşeron anlaşmaları\n• İlgili müşteri kayıtları';
+  if(!confirm(msg))return;
+  var pName=p.name;
+  // Bağlı taşeronların barter BB'lerini temizle
+  DB.taserons.filter(function(t){return t.project===pName}).forEach(function(t){
+    if(t.barterBBProj && t.barterBBUnit) {
+      var parts=t.barterBBUnit.split('|');
+      var bp=DB.projects.find(function(x){return x.name===t.barterBBProj});
+      if(bp) {var bb=bp.blocks.find(function(x){return x.name===parts[0]});if(bb&&bb.units[parseInt(parts[1])]){bb.units[parseInt(parts[1])].status='free';bb.units[parseInt(parts[1])].customer=null;}}
+    }
+  });
+  DB.transactions=DB.transactions.filter(function(t){return t.project!==pName});
+  DB.taserons=DB.taserons.filter(function(t){return t.project!==pName});
+  DB.customers=DB.customers.filter(function(c){return c.project!==pName});
+  DB.projects=DB.projects.filter(function(x){return x.id!==id});
+  save(); render(); toast(pName+' ve bağlı tüm kayıtlar silindi');
+}
 
 function editTs(id) {
   var t=DB.taserons.find(function(x){return x.id===id});
@@ -2786,9 +2855,143 @@ function importData(e) {
   reader.readAsText(file);
 }
 
+
+
+// ===== v16: GENEL ARAMA =====
+function globalSearch(q) {
+  if(!q||q.length<2){render();return}
+  q=q.toLowerCase();
+  var results=[];
+  DB.transactions.forEach(function(t){if((t.desc||'').toLowerCase().indexOf(q)>-1||(t.category||'').toLowerCase().indexOf(q)>-1||(t.project||'').toLowerCase().indexOf(q)>-1) results.push({type:'tx',data:t})});
+  DB.customers.forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1||(c.phone||'').toLowerCase().indexOf(q)>-1||(c.email||'').toLowerCase().indexOf(q)>-1||(c.unit||'').toLowerCase().indexOf(q)>-1) results.push({type:'cust',data:c})});
+  DB.taserons.forEach(function(t){if((t.name||'').toLowerCase().indexOf(q)>-1||(t.job||'').toLowerCase().indexOf(q)>-1) results.push({type:'ts',data:t})});
+  DB.projects.forEach(function(p){if((p.name||'').toLowerCase().indexOf(q)>-1||(p.location||'').toLowerCase().indexOf(q)>-1) results.push({type:'proj',data:p})});
+  var ct=document.getElementById('ct');
+  if(results.length===0){ct.innerHTML='<div class="empty">"'+q+'" için sonuç bulunamadı.</div>';return}
+  var h='<div style="margin-bottom:8px;font-size:12px;color:var(--t2)">"'+q+'" için '+results.length+' sonuç</div>';
+  h+='<div class="cd"><table class="tb"><thead><tr><th>Tür</th><th>Bilgi</th><th>Detay</th><th>İşlem</th></tr></thead><tbody>';
+  results.slice(0,30).forEach(function(r){
+    if(r.type==='tx'){var t=r.data;h+='<tr><td><span class="bg '+(t.type==='gelir'?'bgg':'bgr')+'">'+t.type+'</span></td><td style="font-weight:600">'+t.desc+'</td><td style="color:var(--t2)">'+t.date+' — ₺'+fmt(t.total)+'</td><td><button class="btn bo bsm" onclick="document.getElementById(\'global-search\').value=\'\';curPage=\'gg\';render()">Git</button></td></tr>'}
+    else if(r.type==='cust'){var c=r.data;h+='<tr><td><span class="bg bgb">Müşteri</span></td><td style="font-weight:600">'+c.name+'</td><td style="color:var(--t2)">'+c.project+' — '+c.unit+'</td><td><button class="btn bo bsm" onclick="document.getElementById(\'global-search\').value=\'\';curPage=\'ms\';render()">Git</button></td></tr>'}
+    else if(r.type==='ts'){var t2=r.data;h+='<tr><td><span class="bg bgp">Taşeron</span></td><td style="font-weight:600">'+t2.name+'</td><td style="color:var(--t2)">'+t2.project+' — '+t2.job+'</td><td><button class="btn bo bsm" onclick="document.getElementById(\'global-search\').value=\'\';curPage=\'ts\';render()">Git</button></td></tr>'}
+    else if(r.type==='proj'){var p=r.data;h+='<tr><td><span class="bg bga">Proje</span></td><td style="font-weight:600">'+p.name+'</td><td style="color:var(--t2)">'+p.location+'</td><td><button class="btn bo bsm" onclick="document.getElementById(\'global-search\').value=\'\';curPage=\'sn\';render()">Git</button></td></tr>'}
+  });
+  h+='</tbody></table></div>';
+  ct.innerHTML=h;
+}
+
+// ===== v16: GG TÜR DEĞİŞİNCE KATEGORİ GÜNCELLE =====
+function ggTypeChange() {
+  var type=document.querySelector('#gg-ty .rgo.on').textContent.toLowerCase();
+  var catSel=document.getElementById('gg-cat');
+  if(!catSel) return;
+  var gelirCats=['Daire satışı','Kapora / peşinat','Taksit tahsilat','Taahhüt geliri (iş bedeli)','Hakediş geliri','Kira geliri','Barter','Ara ödeme','Diğer gelir'];
+  var giderCats=['Malzeme','İşçilik','Taşeron','SGK / vergi','Yakıt','Kira','Genel yönetim','Barter','Diğer gider'];
+  var cats=type==='gelir'?gelirCats:giderCats;
+  catSel.innerHTML='';
+  cats.forEach(function(c){var o=document.createElement('option');o.textContent=c;o.value=c;catSel.appendChild(o);});
+}
+
+// ===== v16: TAŞERONA ÖDEME KAYDET =====
+function taseronOdeme(id) {
+  var t=DB.taserons.find(function(x){return x.id===id});
+  if(!t) return;
+  var kalanBorc=Math.max(0,t.total-(t.paid||0)-(t.barterVal||0));
+  document.getElementById('m-sell-body').innerHTML=
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-size:14px;font-weight:700">Taşeron ödeme — '+t.name+'</div>'+
+    '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+t.project+' — '+t.job+'</div>'+
+    '<div style="font-size:12px;margin-top:6px">Toplam: ₺'+fmt(t.total)+' | Ödenen: ₺'+fmt(t.paid||0)+' | Barter: ₺'+fmt(t.barterVal||0)+'</div>'+
+    '<div style="font-size:13px;margin-top:4px;font-weight:700;color:var(--rd)">Kalan borç: ₺'+fmt(kalanBorc)+'</div>'+
+    '</div>'+
+    '<input type="hidden" id="tsod-id" value="'+id+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Ödeme tutarı (₺)</label><input class="fi" id="tsod-amount" type="number" placeholder="ör: 500.000" max="'+kalanBorc+'"></div><div class="fg"><label class="fl">Ödeme tarihi</label><input class="fi" id="tsod-date" type="date" value="'+today()+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Resmi kısmı (₺)</label><input class="fi" id="tsod-resmi" type="number" placeholder="0"></div><div class="fg"><label class="fl">Açıklama</label><input class="fi" id="tsod-desc" placeholder="ör: 3. hakediş ödemesi"></div></div>';
+  document.querySelector('#m-sell .mdt').textContent='Taşeron ödeme';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeTaseronOdeme()">İptal</button><button class="btn bp" onclick="saveTaseronOdeme()">Ödemeyi kaydet</button>';
+  openM('m-sell');
+}
+
+function saveTaseronOdeme() {
+  var id=parseInt(document.getElementById('tsod-id').value);
+  var t=DB.taserons.find(function(x){return x.id===id});
+  if(!t) return;
+  var amount=parseFloat(document.getElementById('tsod-amount').value)||0;
+  if(amount<=0){alert('Ödeme tutarı giriniz');return}
+  var resmi=parseFloat(document.getElementById('tsod-resmi').value)||0;
+  var date=document.getElementById('tsod-date').value;
+  var desc=document.getElementById('tsod-desc').value||'Taşeron ödemesi';
+  t.paid=(t.paid||0)+amount;
+  // Otomatik gider kaydı oluştur
+  DB.transactions.push({
+    id:nid(), type:'gider',
+    desc:'Taşeron ödeme — '+t.name+(desc?' — '+desc:''),
+    project:t.project, category:'Taşeron',
+    date:date, total:amount, resmi:resmi,
+    kdvOran:0, kdvTutar:0
+  });
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+  save(); closeM('m-sell'); render();
+  toast('Ödeme kaydedildi — '+t.name+' ₺'+fmt(amount));
+}
+
+function closeTaseronOdeme() {
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+  closeM('m-sell');
+}
+
+// ===== v16: SON GÜNCELLEME TARİHİ =====
+function updateLastSaveTime() {
+  DB.lastSaveTime = new Date().toISOString();
+  var el=document.getElementById('last-save-info');
+  if(el) el.textContent=formatTimeSince(DB.lastSaveTime);
+}
+
+function formatTimeSince(isoStr) {
+  if(!isoStr) return 'henüz kaydedilmedi';
+  var d=new Date(isoStr);
+  var now=new Date();
+  var diff=Math.floor((now-d)/1000);
+  if(diff<60) return 'az önce';
+  if(diff<3600) return Math.floor(diff/60)+' dk önce';
+  if(diff<86400) return Math.floor(diff/3600)+' saat önce';
+  return d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ===== v16: SAĞLIK KONTROLÜ =====
+function healthCheck() {
+  var warnings=[];
+  // Gecikmiş taksitler
+  var todayStr=today();
+  var overdue=0;
+  DB.customers.forEach(function(c){(c.taksitler||[]).forEach(function(t){if(!t.paid&&t.date<todayStr)overdue++})});
+  if(overdue>0) warnings.push({type:'rd',msg:overdue+' gecikmiş taksit var!'});
+  // Bütçe aşımı
+  DB.projects.forEach(function(p){
+    if(p.budget>0){
+      var spent=DB.transactions.filter(function(t){return t.type==='gider'&&t.project===p.name}).reduce(function(s,t){return s+t.total},0);
+      if(spent>p.budget*0.9) warnings.push({type:spent>p.budget?'rd':'am',msg:p.name+': bütçenin %'+Math.round(spent/p.budget*100)+'\'i kullanıldı'});
+    }
+  });
+  // Hedef fiyatı girilmemiş BB
+  var noTarget=0;
+  DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='free'&&!u.targetPrice)noTarget++})})});
+  if(noTarget>0) warnings.push({type:'am',msg:noTarget+' boş BB\'de hedef satış fiyatı girilmemiş'});
+  // Taşeron kalan borç
+  var tsBorc=DB.taserons.reduce(function(s,t){return s+Math.max(0,t.total-(t.paid||0)-(t.barterVal||0))},0);
+  if(tsBorc>0) warnings.push({type:'bl',msg:'Taşeronlara toplam ₺'+fmtK(tsBorc)+' borç var'});
+  return warnings;
+}
+
 // ===== INIT =====
 load();
 render();
+// v16: son kayıt bilgisini göster
+if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}
+// v16: her dakika son kayıt bilgisini güncelle
+setInterval(function(){if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}},60000);
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
