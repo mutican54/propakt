@@ -1,4 +1,4 @@
-var CACHE_NAME = 'propakt-v15';
+var CACHE_NAME = 'propakt-v19';
 var urlsToCache = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ var urlsToCache = [
   './icon-512.png'
 ];
 
-// Yükleme — dosyaları önbelleğe al
+// Yükleme — dosyaları önbelleğe al ve hemen aktif ol
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
@@ -17,7 +17,7 @@ self.addEventListener('install', function(event) {
   self.skipWaiting();
 });
 
-// Aktivasyon — eski önbelleği temizle
+// Aktivasyon — eski önbelleği temizle + tüm sekmeleri devral
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
@@ -33,21 +33,31 @@ self.addEventListener('activate', function(event) {
   self.clients.claim();
 });
 
-// İstek yakalama — önce önbellekten, yoksa internetten
+// v19: Network-first strateji
+// Önce internetten indir (güncel versiyon), başarısız olursa cache'den göster
 self.addEventListener('fetch', function(event) {
+  // Firebase ve harici API isteklerini cache'leme
+  if (event.request.url.indexOf('firebaseio.com') !== -1 ||
+      event.request.url.indexOf('googleapis.com') !== -1 ||
+      event.request.url.indexOf('gstatic.com') !== -1) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then(function(response) {
-      if (response) return response;
-      return fetch(event.request).then(function(networkResponse) {
-        if (networkResponse && networkResponse.status === 200) {
-          var responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(function(cache) {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return networkResponse;
-      }).catch(function() {
-        // Offline ve önbellekte yok — boş sayfa göster
+    fetch(event.request).then(function(networkResponse) {
+      // İnternetten başarıyla aldık — cache'i güncelle
+      if (networkResponse && networkResponse.status === 200) {
+        var responseClone = networkResponse.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, responseClone);
+        });
+      }
+      return networkResponse;
+    }).catch(function() {
+      // İnternet yok — cache'den göster (offline mod)
+      return caches.match(event.request).then(function(cachedResponse) {
+        if (cachedResponse) return cachedResponse;
+        // Cache'de de yok — offline mesajı
         return new Response('<h1>Çevrimdışısınız</h1><p>İnternet bağlantınızı kontrol edin.</p>', {
           headers: { 'Content-Type': 'text/html; charset=UTF-8' }
         });
