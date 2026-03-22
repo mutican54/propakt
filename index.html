@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>Propakt Group — İnşaat Yönetim Sistemi v18</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v19</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -511,9 +511,12 @@ function updateSyncStatus(online) {
 }
 
 // ===== FIRESTORE SYNC =====
+// v19: Ortak veri modeli — tüm onaylı kullanıcılar aynı dokümanı paylaşır
+var SHARED_DOC_PATH = 'shared_data/main';
+
 function getFirestorePath() {
   if(!currentUser) return null;
-  return 'users/' + currentUser.uid;
+  return SHARED_DOC_PATH;
 }
 
 function saveToFirestore() {
@@ -524,7 +527,7 @@ function saveToFirestore() {
   db_fire.doc(path).set({
     data: JSON.stringify(data),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    email: currentUser.email
+    lastEditedBy: currentUser.email
   }).then(function(){
     console.log('Firestore save OK');
   }).catch(function(err){
@@ -549,7 +552,6 @@ function loadFromFirestore() {
         if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
         if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
         if(!DB.settings) DB.settings={nextId:1};
-        // Yerel yedek de tut
         try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
         render();
         toast('Bulut verileri yüklendi');
@@ -557,21 +559,57 @@ function loadFromFirestore() {
         console.error('Firestore parse error:', e);
         load(); render();
       }
+      startRealtimeSync();
     } else {
-      // Bulutta veri yok — yerel veriyi yükle ve buluta kaydet
-      load();
-      render();
-      if(DB.projects.length>0 || DB.transactions.length>0) {
-        saveToFirestore();
-        toast('Yerel veriler buluta aktarıldı');
-      }
+      // shared_data/main henüz yok — eski users/{uid} verisini taşımayı dene
+      migrateFromOldPath();
     }
-    // Gerçek zamanlı dinlemeyi başlat
-    startRealtimeSync();
   }).catch(function(err) {
     console.error('Firestore load error:', err);
     toast('Bulut bağlantı hatası — yerel veriler kullanılıyor');
     load(); render();
+  });
+}
+
+// v19: Eski users/{uid} verisini shared_data/main'e taşıma (tek seferlik)
+function migrateFromOldPath() {
+  var oldPath = 'users/' + currentUser.uid;
+  db_fire.doc(oldPath).get().then(function(oldDoc) {
+    if(oldDoc.exists && oldDoc.data().data) {
+      // Eski veri bulundu — shared_data/main'e kopyala
+      try {
+        var oldData = JSON.parse(oldDoc.data().data);
+        DB = oldData;
+        if(!DB.projects) DB.projects=[];
+        if(!DB.transactions) DB.transactions=[];
+        if(!DB.taserons) DB.taserons=[];
+        if(!DB.customers) DB.customers=[];
+        if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
+        if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
+        if(!DB.settings) DB.settings={nextId:1};
+        try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
+        render();
+        saveToFirestore();
+        toast('Veriler ortak alana taşındı — artık herkes aynı veriyi görüyor');
+      } catch(e) {
+        console.error('Migration parse error:', e);
+        load(); render();
+      }
+    } else {
+      // Eski veri de yok — yerel veriden başla
+      load();
+      render();
+      if(DB.projects.length>0 || DB.transactions.length>0) {
+        saveToFirestore();
+        toast('Yerel veriler ortak alana aktarıldı');
+      }
+    }
+    startRealtimeSync();
+  }).catch(function(err) {
+    console.error('Migration error:', err);
+    // Eski veriye erişilemedi — yerel ile devam et
+    load(); render();
+    startRealtimeSync();
   });
 }
 
