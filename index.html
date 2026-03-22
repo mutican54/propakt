@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>Propakt Group — İnşaat Yönetim Sistemi v17</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v18</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -259,6 +259,7 @@ textarea.fi{resize:vertical;min-height:50px}
 <div class="si" data-pg="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Satış takip</div>
 <div style="flex:1"></div>
 <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)">
+<div class="si" data-pg="users" style="margin:0 0 4px 0;display:none" id="admin-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>Kullanıcı yönetimi</div>
 <div class="si" data-pg="backup" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Yedekle / geri yükle</div>
 </div>
 <div class="user-bar" id="user-bar" style="display:none">
@@ -312,6 +313,8 @@ var db_fire = firebase.firestore();
 var currentUser = null;
 var isOnlineMode = false;
 var firestoreUnsubscribe = null;
+var ADMIN_EMAIL = 'mpalankalilar@hotmail.com';
+var isAdmin = false;
 
 // ===== AUTH FUNCTIONS =====
 var authMode = 'login';
@@ -348,10 +351,28 @@ function authAction() {
     if(pass.length<6){showLoginErr('Şifre en az 6 karakter olmalı');document.getElementById('auth-btn').disabled=false;document.getElementById('auth-btn').textContent='Kayıt ol';return}
     auth.createUserWithEmailAndPassword(email, pass).then(function(cred) {
       var displayName=(document.getElementById('auth-name').value||'').trim();
-      if(displayName) return cred.user.updateProfile({displayName:displayName}).then(function(){return cred});
-      return cred;
-    }).then(function(cred) {
-      onAuthSuccess(cred.user);
+      var updatePromise = displayName ? cred.user.updateProfile({displayName:displayName}) : Promise.resolve();
+      return updatePromise.then(function(){
+        // Firestore'da kullanıcı kaydı oluştur (pending)
+        return db_fire.collection('app_users').doc(cred.user.uid).set({
+          email: email,
+          displayName: displayName || '',
+          status: email===ADMIN_EMAIL ? 'approved' : 'pending',
+          role: email===ADMIN_EMAIL ? 'admin' : 'user',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }).then(function(){
+        if(email===ADMIN_EMAIL) {
+          // Admin ise direkt giriş
+          onAuthSuccess(cred.user);
+        } else {
+          // Normal kullanıcı — çıkış yaptır, onay bekle
+          auth.signOut();
+          showLoginSuccess('Hesabınız oluşturuldu! Yönetici onayından sonra giriş yapabileceksiniz.');
+          document.getElementById('auth-btn').disabled=false;
+          document.getElementById('auth-btn').textContent='Kayıt ol';
+        }
+      });
     }).catch(function(err) {
       var msg='Kayıt başarısız';
       if(err.code==='auth/email-already-in-use') msg='Bu e-posta zaten kayıtlı';
@@ -363,7 +384,8 @@ function authAction() {
     });
   } else {
     auth.signInWithEmailAndPassword(email, pass).then(function(cred) {
-      onAuthSuccess(cred.user);
+      // Onay kontrolü
+      return checkUserApproval(cred.user);
     }).catch(function(err) {
       var msg='Giriş başarısız';
       if(err.code==='auth/user-not-found'||err.code==='auth/wrong-password'||err.code==='auth/invalid-credential') msg='E-posta veya şifre hatalı';
@@ -376,13 +398,71 @@ function authAction() {
   }
 }
 
+
+function checkUserApproval(user) {
+  // Admin her zaman geçer
+  if(user.email === ADMIN_EMAIL) { onAuthSuccess(user); return; }
+  // Firestore'dan kullanıcı durumunu kontrol et
+  db_fire.collection('app_users').doc(user.uid).get().then(function(doc) {
+    if(!doc.exists) {
+      // Firestore kaydı yoksa oluştur (eski kullanıcılar için)
+      db_fire.collection('app_users').doc(user.uid).set({
+        email: user.email,
+        displayName: user.displayName || '',
+        status: 'pending',
+        role: 'user',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function(){
+        auth.signOut();
+        showLoginErr('Hesabınız onay bekliyor. Yönetici onayından sonra giriş yapabileceksiniz.');
+        document.getElementById('auth-btn').disabled=false;
+        document.getElementById('auth-btn').textContent='Giriş yap';
+      });
+      return;
+    }
+    var status = doc.data().status;
+    if(status === 'approved') {
+      onAuthSuccess(user);
+    } else if(status === 'rejected') {
+      auth.signOut();
+      showLoginErr('Hesabınız reddedilmiş. Yönetici ile iletişime geçin.');
+      document.getElementById('auth-btn').disabled=false;
+      document.getElementById('auth-btn').textContent='Giriş yap';
+    } else {
+      // pending
+      auth.signOut();
+      showLoginErr('Hesabınız henüz onaylanmadı. Yönetici onayını bekleyin.');
+      document.getElementById('auth-btn').disabled=false;
+      document.getElementById('auth-btn').textContent='Giriş yap';
+    }
+  }).catch(function(err) {
+    console.error('Approval check error:', err);
+    // Hata durumunda yine de giriş yaptır (ağ sorunu olabilir)
+    onAuthSuccess(user);
+  });
+}
+
+function showLoginSuccess(msg) {
+  var el=document.getElementById('login-err');
+  el.textContent=msg;
+  el.style.display='block';
+  el.style.background='#E8F8F0';
+  el.style.color='#0D9461';
+  // 5 saniye sonra normal renge dönsün
+  setTimeout(function(){ el.style.background=''; el.style.color=''; }, 5000);
+}
+
 function onAuthSuccess(user) {
   currentUser = user;
   isOnlineMode = true;
+  isAdmin = (user.email === ADMIN_EMAIL);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('user-email-display').textContent=user.email;
   updateSyncStatus(true);
+  // Admin menü öğesini göster/gizle
+  var adminMenu = document.getElementById('admin-menu');
+  if(adminMenu) adminMenu.style.display = isAdmin ? 'block' : 'none';
   // Firestore'dan veriyi yükle
   loadFromFirestore();
 }
@@ -559,7 +639,7 @@ function today() { return new Date().toISOString().split('T')[0]; }
 
 // ===== NAVIGATION =====
 var curPage = 'oz', curPrj = 0;
-var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme']};
+var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme'],users:['Kullanıcı yönetimi','Kullanıcı onay ve yetki yönetimi']};
 
 document.querySelectorAll('.si[data-pg]').forEach(function(el) {
   el.addEventListener('click', function() {
@@ -603,7 +683,7 @@ function totalKDVExpense() { return DB.transactions.filter(function(t){return t.
 function render() {
   document.getElementById('sn-cnt').textContent = DB.projects.length;
   var c = document.getElementById('ct');
-  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup};
+  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup,users:rUsers};
   if(fn[curPage]) c.innerHTML = fn[curPage]();
   else c.innerHTML = '<div class="empty">Bu sayfa yapım aşamasında.</div>';
 }
@@ -3276,12 +3356,125 @@ function healthCheck() {
   return warnings;
 }
 
+
+// ===== v18: KULLANICI YÖNETİMİ =====
+function rUsers() {
+  if(!isAdmin) return '<div class="empty">Bu sayfaya erişim yetkiniz yok.</div>';
+  var h='<div class="warn" style="background:#E3F2FD;border-color:#90CAF9;color:#1565C0">Bu sayfadan kullanıcı kayıtlarını onaylayabilir veya reddedebilirsiniz. Sadece onaylanan kullanıcılar sisteme giriş yapabilir.</div>';
+  h+='<div id="users-list"><div class="empty">Kullanıcılar yükleniyor...</div></div>';
+  // Firestore'dan kullanıcıları çek
+  setTimeout(loadUsersList, 100);
+  return h;
+}
+
+function loadUsersList() {
+  db_fire.collection('app_users').orderBy('createdAt','desc').get().then(function(snapshot) {
+    var container = document.getElementById('users-list');
+    if(!container) return;
+    if(snapshot.empty) { container.innerHTML='<div class="empty">Henüz kayıtlı kullanıcı yok.</div>'; return; }
+
+    var pending=[], approved=[], rejected=[];
+    snapshot.forEach(function(doc) {
+      var d=doc.data(); d.uid=doc.id;
+      if(d.status==='pending') pending.push(d);
+      else if(d.status==='approved') approved.push(d);
+      else rejected.push(d);
+    });
+
+    var h='';
+
+    // İstatistikler
+    h+='<div class="sts s3" style="margin-bottom:14px">';
+    h+='<div class="st xa"><div class="stl">Onay bekleyen</div><div class="stv" style="color:var(--am)">'+pending.length+'</div></div>';
+    h+='<div class="st xg"><div class="stl">Onaylı kullanıcı</div><div class="stv" style="color:var(--gn)">'+approved.length+'</div></div>';
+    h+='<div class="st xr"><div class="stl">Reddedilen</div><div class="stv" style="color:var(--rd)">'+rejected.length+'</div></div>';
+    h+='</div>';
+
+    // Bekleyenler
+    if(pending.length>0) {
+      h+='<div class="cd" style="border-color:var(--am)"><div class="chd"><span class="cht" style="color:var(--am)">Onay bekleyenler</span></div>';
+      h+='<table class="tb"><thead><tr><th>E-posta</th><th>Ad</th><th>Kayıt tarihi</th><th>İşlem</th></tr></thead><tbody>';
+      pending.forEach(function(u){
+        var dateStr = u.createdAt ? new Date(u.createdAt.seconds*1000).toLocaleDateString('tr-TR') : '—';
+        h+='<tr><td style="font-weight:600">'+u.email+'</td>';
+        h+='<td>'+(u.displayName||'—')+'</td>';
+        h+='<td style="color:var(--t2)">'+dateStr+'</td>';
+        h+='<td><button class="btn bp bsm" onclick="approveUser(''+u.uid+'',''+u.email+'')" style="margin-right:4px">Onayla</button>';
+        h+='<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(''+u.uid+'',''+u.email+'')">Reddet</button></td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+
+    // Onaylılar
+    if(approved.length>0) {
+      h+='<div class="cd"><div class="chd"><span class="cht">Onaylı kullanıcılar</span></div>';
+      h+='<table class="tb"><thead><tr><th>E-posta</th><th>Ad</th><th>Rol</th><th>Kayıt tarihi</th><th>İşlem</th></tr></thead><tbody>';
+      approved.forEach(function(u){
+        var dateStr = u.createdAt ? new Date(u.createdAt.seconds*1000).toLocaleDateString('tr-TR') : '—';
+        var isMe = u.email===ADMIN_EMAIL;
+        h+='<tr><td style="font-weight:600">'+u.email+(isMe?' <span class="bg bga">Admin</span>':'')+'</td>';
+        h+='<td>'+(u.displayName||'—')+'</td>';
+        h+='<td><span class="bg bgg">'+(u.role||'user')+'</span></td>';
+        h+='<td style="color:var(--t2)">'+dateStr+'</td>';
+        h+='<td>'+(isMe?'—':'<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(''+u.uid+'',''+u.email+'')">Kaldır</button>')+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+
+    // Reddedilenler
+    if(rejected.length>0) {
+      h+='<div class="cd"><div class="chd"><span class="cht" style="color:var(--rd)">Reddedilen / kaldırılan</span></div>';
+      h+='<table class="tb"><thead><tr><th>E-posta</th><th>Ad</th><th>İşlem</th></tr></thead><tbody>';
+      rejected.forEach(function(u){
+        h+='<tr><td style="font-weight:600">'+u.email+'</td>';
+        h+='<td>'+(u.displayName||'—')+'</td>';
+        h+='<td><button class="btn bp bsm" onclick="approveUser(''+u.uid+'',''+u.email+'')">Tekrar onayla</button></td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+
+    container.innerHTML=h;
+  }).catch(function(err) {
+    console.error('Users list error:', err);
+    var container = document.getElementById('users-list');
+    if(container) container.innerHTML='<div class="empty" style="color:var(--rd)">Kullanıcı listesi yüklenemedi: '+err.message+'</div>';
+  });
+}
+
+function approveUser(uid, email) {
+  if(!confirm(email+' kullanıcısını onaylamak istediğinize emin misiniz?')) return;
+  db_fire.collection('app_users').doc(uid).update({
+    status: 'approved',
+    approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    approvedBy: currentUser.email
+  }).then(function(){
+    toast(email+' onaylandı');
+    loadUsersList();
+  }).catch(function(err){
+    toast('Hata: '+err.message);
+  });
+}
+
+function rejectUser(uid, email) {
+  if(!confirm(email+' kullanıcısını reddetmek / kaldırmak istediğinize emin misiniz?')) return;
+  db_fire.collection('app_users').doc(uid).update({
+    status: 'rejected',
+    rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    rejectedBy: currentUser.email
+  }).then(function(){
+    toast(email+' reddedildi');
+    loadUsersList();
+  }).catch(function(err){
+    toast('Hata: '+err.message);
+  });
+}
+
 // ===== INIT =====
 // v17: Auth state değişikliğini dinle
 auth.onAuthStateChanged(function(user) {
   if(user) {
-    // Kullanıcı zaten giriş yapmış (oturum devam ediyor)
-    onAuthSuccess(user);
+    // Kullanıcı zaten giriş yapmış — onay kontrolü yap
+    checkUserApproval(user);
   } else {
     // Giriş yapılmamış — login ekranını göster
     document.getElementById('login-screen').style.display='flex';
