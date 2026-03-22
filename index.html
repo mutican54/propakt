@@ -2869,12 +2869,50 @@ function saveCustomer() {
     // UPDATE existing customer
     var c=DB.customers.find(function(x){return x.id===parseInt(editId)});
     if(c) {
+      var oldProject=c.project;
+      var oldUnit=c.unit;
+      var newProject=document.getElementById('ms-proj').value;
+      var newUnit=document.getElementById('ms-unit').value;
+      // Proje veya birim değiştiyse BB'leri güncelle
+      if(oldProject!==newProject || oldUnit!==newUnit) {
+        // Eski BB'yi boşa al
+        DB.projects.forEach(function(p){
+          if(p.name===oldProject) {
+            p.blocks.forEach(function(b){
+              b.units.forEach(function(u){
+                if(u.no===oldUnit && u.customer===c.name) { u.status='free'; u.customer=null; }
+              });
+            });
+          }
+        });
+        // Yeni BB'yi satılmış yap
+        DB.projects.forEach(function(p){
+          if(p.name===newProject) {
+            p.blocks.forEach(function(b){
+              b.units.forEach(function(u){
+                if(u.no===newUnit && u.status==='free') { u.status='sold'; u.customer=name; }
+              });
+            });
+          }
+        });
+      } else if(c.name!==name) {
+        // Sadece isim değiştiyse BB'deki müşteri adını güncelle
+        DB.projects.forEach(function(p){
+          if(p.name===oldProject) {
+            p.blocks.forEach(function(b){
+              b.units.forEach(function(u){
+                if(u.no===oldUnit && u.customer===c.name) { u.customer=name; }
+              });
+            });
+          }
+        });
+      }
       c.name=name;
       c.email=document.getElementById('ms-email').value;
       c.phone=document.getElementById('ms-phone').value;
       c.phone2=document.getElementById('ms-phone2').value;
-      c.project=document.getElementById('ms-proj').value;
-      c.unit=document.getElementById('ms-unit').value;
+      c.project=newProject;
+      c.unit=newUnit;
       c.payType=document.getElementById('ms-pay').value;
     }
     save(); closeM('m-ms'); render(); toast(name+' güncellendi');
@@ -3093,12 +3131,19 @@ function saveUnitEdit() {
 }
 
 function cancelSale(pi,bi,ui) {
-  var u=DB.projects[pi].blocks[bi].units[ui];
-  if(!confirm(u.no+' satışını iptal edip daireyi tekrar boşa almak istediğinize emin misiniz?\n\nMüşteri: '+(u.customer||'—')+'\nDurum: '+u.status)) return;
+  var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
+  var custName=u.customer||'';
+  if(!confirm(u.no+' satışını iptal edip daireyi tekrar boşa almak istediğinize emin misiniz?\n\nMüşteri: '+(custName||'—')+'\nDurum: '+u.status+'\n\nMüşteri kaydı ve satış gelir kaydı da silinecektir.')) return;
+  // BB'yi boşa al
   u.status='free';
   u.customer=null;
   // targetPrice korunur (satış iptal olsa da hedef fiyat kalır)
-  save(); render(); toast(u.no+' satışı iptal edildi — daire tekrar boş');
+  // Müşteri kaydını bul ve sil
+  if(custName) {
+    var custIdx=DB.customers.findIndex(function(c){return c.name===custName && c.project===p.name && c.unit===u.no;});
+    if(custIdx>-1) DB.customers.splice(custIdx,1);
+  }
+  save(); render(); toast(u.no+' satışı iptal edildi — daire boş, müşteri kaydı silindi');
 }
 
 // ===== DELETE & EDIT =====
