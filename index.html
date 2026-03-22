@@ -1,0 +1,2830 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0F1B2D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Propakt">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>Propakt Group — İnşaat Yönetim Sistemi</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--nv:#0F1B2D;--nvl:#1A2942;--nvm:#243656;--am:#E8850C;--aml:#FFF3E0;--amd:#C66F00;--gn:#0D9461;--gnl:#E8F8F0;--rd:#C42B2B;--rdl:#FDF0F0;--bl:#1565C0;--bll:#E8F1FC;--pr:#7B1FA2;--prl:#F3E5F5;--tl:#00838F;--tll:#E0F7FA;--bg:#F4F3F0;--card:#FFF;--t1:#0F1B2D;--t2:#5C6A7E;--t3:#9CA5B4;--bd:#E4E7EC;--bl2:#F0F1F3}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--t1);font-size:13px;min-height:100vh}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sb{width:220px;background:var(--nv);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-l{padding:16px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:9px}
+.sb-lm{width:36px;height:36px;background:var(--am);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;letter-spacing:-.5px}
+.sb-lt{color:#fff;font-size:13px;font-weight:700}.sb-ls{color:var(--t3);font-size:9.5px;margin-top:1px}
+.ss{padding:12px 14px 4px;font-size:8.5px;text-transform:uppercase;letter-spacing:1.3px;color:#4A5568;font-weight:600}
+.si{display:flex;align-items:center;gap:8px;padding:8px 14px;margin:1px 7px;border-radius:7px;color:#B0BEC5;font-size:12px;cursor:pointer;font-weight:500;position:relative;transition:.12s;user-select:none}
+.si:hover{background:rgba(255,255,255,.06)}.si.on{background:rgba(232,133,12,.13);color:var(--am)}
+.si.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:16px;background:var(--am);border-radius:0 3px 3px 0}
+.si svg{width:16px;height:16px;flex-shrink:0;opacity:.6}.si.on svg{opacity:1}
+.sbb{margin-left:auto;background:var(--am);color:#fff;font-size:9px;padding:1px 6px;border-radius:7px;font-weight:600}
+
+/* MAIN */
+.mn{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tp{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#fff;border-bottom:.5px solid var(--bd)}
+.tp h1{font-size:17px;font-weight:700;color:var(--nv)}.tp p{font-size:11px;color:var(--t2);margin-top:1px}
+.tp-acts{display:flex;gap:6px;align-items:center}
+.btn{padding:7px 14px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:none;font-family:inherit;display:inline-flex;align-items:center;gap:5px;transition:.12s}
+.bp{background:var(--am);color:#fff}.bp:hover{background:var(--amd)}
+.bo{background:#fff;color:var(--t1);border:.5px solid var(--bd)}.bo:hover{background:var(--bg)}
+.bsm{padding:5px 10px;font-size:10.5px}
+.ct{flex:1;padding:16px 24px;overflow-y:auto}
+
+/* CARDS & STATS */
+.sts{display:grid;gap:8px;margin-bottom:14px}
+.s4{grid-template-columns:repeat(4,1fr)}.s3{grid-template-columns:repeat(3,1fr)}.s5{grid-template-columns:repeat(5,1fr)}.s6{grid-template-columns:repeat(6,1fr)}
+.st{background:#fff;border-radius:9px;padding:12px 14px;border:.5px solid var(--bd);position:relative;overflow:hidden}
+.st::after{content:'';position:absolute;top:0;left:0;right:0;height:2.5px}
+.st.xg::after{background:var(--gn)}.st.xr::after{background:var(--rd)}.st.xb::after{background:var(--bl)}.st.xa::after{background:var(--am)}.st.xp::after{background:var(--pr)}.st.xt::after{background:var(--tl)}
+.stl{font-size:9.5px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.stv{font-size:22px;font-weight:700;margin:4px 0 2px;letter-spacing:-.6px}
+.stc{font-size:10px;font-weight:500}
+.cd{background:#fff;border-radius:9px;border:.5px solid var(--bd);overflow:hidden;margin-bottom:12px}
+.chd{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:.5px solid var(--bl2)}
+.cht{font-size:12.5px;font-weight:700}.cha{font-size:10.5px;color:var(--am);cursor:pointer;font-weight:600}
+
+/* TABLES */
+.tb{width:100%;border-collapse:collapse;font-size:11.5px}
+.tb th{text-align:left;padding:7px 14px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);font-weight:600;background:var(--bg);position:sticky;top:0;z-index:1}
+.tb td{padding:8px 14px;border-bottom:.5px solid var(--bl2)}.tb tr:last-child td{border-bottom:none}
+.tb tr:hover td{background:#FAFAF8}
+.bg{padding:2px 8px;border-radius:12px;font-size:9px;font-weight:600;display:inline-block;white-space:nowrap}
+.bgg{background:var(--gnl);color:var(--gn)}.bgr{background:var(--rdl);color:var(--rd)}.bgb{background:var(--bll);color:var(--bl)}.bga{background:var(--aml);color:var(--amd)}.bgp{background:var(--prl);color:var(--pr)}.bgt{background:var(--tll);color:var(--tl)}
+
+/* TABS */
+.tbs{display:flex;border-bottom:.5px solid var(--bd);padding:0 14px;margin-bottom:12px}
+.tab{padding:8px 12px;font-size:11px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;font-weight:600;transition:.12s}
+.tab.on{color:var(--am);border-bottom-color:var(--am)}
+
+/* MODAL */
+.mdo{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.mdo.sh{display:flex}
+.mdl{background:#fff;border-radius:14px;width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.2)}
+.mdh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:.5px solid var(--bd);position:sticky;top:0;background:#fff;z-index:2;border-radius:14px 14px 0 0}
+.mdt{font-size:15px;font-weight:700}
+.mdx{width:28px;height:28px;border-radius:6px;border:none;background:var(--bg);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--t2)}
+.mdx:hover{background:var(--bd)}
+.mdb{padding:16px 20px}
+.mdf{padding:12px 20px;border-top:.5px solid var(--bd);display:flex;justify-content:flex-end;gap:6px;position:sticky;bottom:0;background:#fff;border-radius:0 0 14px 14px}
+
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fr3{grid-template-columns:1fr 1fr 1fr}.fr4{grid-template-columns:1fr 1fr 1fr 1fr}
+.fl{font-size:10.5px;font-weight:600;color:var(--t2)}
+.fi{padding:8px 10px;border:.5px solid var(--bd);border-radius:7px;font-size:12px;font-family:inherit;background:#fff;color:var(--t1);outline:none;transition:border .15s}
+.fi:focus{border-color:var(--am)}
+.fi::placeholder{color:var(--t3)}
+select.fi{cursor:pointer}
+textarea.fi{resize:vertical;min-height:50px}
+.sep{border:none;border-top:.5px solid var(--bd);margin:14px 0}
+.sec-t{font-size:12px;font-weight:700;margin-bottom:8px}
+
+/* MISC */
+.rgs{display:flex;border-radius:7px;overflow:hidden;border:.5px solid var(--bd);margin-bottom:10px}
+.rgo{flex:1;padding:7px;text-align:center;font-size:10.5px;font-weight:600;cursor:pointer;background:#fff;color:var(--t2);transition:.12s}
+.rgo.on{background:var(--nv);color:#fff}
+.rgo:hover:not(.on){background:var(--bg)}
+.kdv-box{background:var(--tll);border:.5px solid #B2EBF2;border-radius:8px;padding:12px 14px;margin:10px 0}
+.kdv-box .sec-t{color:var(--tl)}
+.warn{background:#FFF8E1;border:.5px solid #FFE082;border-radius:7px;padding:8px 12px;font-size:11px;color:#F57F17;margin-bottom:12px}
+.sum-bar{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--nv);border-radius:8px;margin-bottom:14px;flex-wrap:wrap}
+.sum-i{text-align:center;min-width:60px}.sum-i .v{font-size:17px;font-weight:700;color:#fff}.sum-i .l{font-size:8.5px;color:#78909C;margin-top:1px}
+.sum-d{width:1px;height:28px;background:rgba(255,255,255,.1)}
+.prg{height:5px;background:var(--bl2);border-radius:3px;overflow:hidden}.pf{height:100%;border-radius:3px}
+.empty{padding:40px;text-align:center;color:var(--t3);font-size:13px}
+.unit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:3px}
+.unit{aspect-ratio:1;border-radius:4px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;cursor:pointer;transition:.15s;user-select:none}
+.unit:hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.u-sold{background:var(--rd)}.u-rsv{background:var(--am)}.u-free{background:var(--gn)}.u-barter{background:var(--pr)}
+.blk-sec{background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:10px;border:.5px solid var(--bl2)}
+.blk-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.blk-hd span{font-size:12px;font-weight:700}
+.blk-hd small{font-size:10px;color:var(--t2)}
+.leg{display:flex;gap:14px;justify-content:center;padding:10px 0}
+.leg span{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--t2)}
+.leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.prj-sel{display:flex;gap:6px;padding:0 0 14px;flex-wrap:wrap}
+.prj-btn{padding:6px 16px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:.5px solid var(--bd);background:#fff;color:var(--t2);transition:.12s}
+.prj-btn.on{background:var(--nv);color:#fff;border-color:var(--nv)}
+.prj-btn:hover:not(.on){border-color:var(--am)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--nv);color:#fff;padding:12px 20px;border-radius:9px;font-size:12px;font-weight:600;z-index:2000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.2);animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* === RESPONSIVE === */
+@media(max-width:900px){
+  .app{flex-direction:column;height:auto;min-height:100vh}
+  .sb{width:100%;height:auto;flex-direction:row;flex-wrap:wrap;padding:8px;gap:2px;position:sticky;top:0;z-index:100;overflow-x:auto;flex-shrink:0}
+  .sb-l{display:none}
+  .ss{display:none}
+  .si{padding:6px 10px;font-size:10px;white-space:nowrap;border-radius:6px}
+  .si svg{width:14px;height:14px}
+  .sbb{font-size:8px;padding:1px 4px}
+  .mn{overflow:visible}
+  .ct{padding:10px 12px}
+  .tp{padding:10px 12px;flex-direction:column;gap:6px}
+  .tp h1{font-size:16px}
+  .tp p{font-size:11px}
+  .tp-acts{width:100%;display:flex;gap:6px}
+  .tp-acts .btn{flex:1;text-align:center}
+  .sts{grid-template-columns:repeat(2,1fr)!important}
+  .s3,.s4,.s5,.s6{grid-template-columns:repeat(2,1fr)!important}
+  .st{padding:8px 10px}
+  .stv{font-size:16px!important}
+  .stl{font-size:9px}
+  .cd{margin-bottom:8px}
+  .tb{font-size:10px}
+  .tb th,.tb td{padding:6px 5px}
+  .mdl{width:95vw!important;max-height:92vh}
+  .fr{flex-direction:column}.fr>div{width:100%!important}
+  .fr3,.fr4{flex-direction:column}
+  .fr3>div,.fr4>div{width:100%!important}
+  .sum-bar{flex-wrap:wrap;gap:8px;padding:12px}
+  .sum-i .v{font-size:20px}
+  .sum-i .l{font-size:9px}
+  .sum-d{display:none}
+  .unit-grid{gap:3px}
+  .unit{width:28px;height:28px;font-size:9px}
+  .blk-sec{margin-bottom:8px}
+  .prj-sel{gap:4px;padding-bottom:8px}
+  .prj-btn{padding:5px 10px;font-size:10px}
+  .leg{gap:8px;padding:6px 0;flex-wrap:wrap}
+  .leg span{font-size:9px}
+  .toast{bottom:10px;right:10px;left:10px;text-align:center;font-size:11px}
+  .warn{font-size:10px;padding:8px 10px}
+}
+@media(max-width:480px){
+  .sts{grid-template-columns:1fr!important}
+  .sum-bar{justify-content:center}
+  .tb{font-size:9px}
+  .tb th,.tb td{padding:4px 3px}
+  .unit{width:24px;height:24px;font-size:8px}
+}
+</style>
+</head>
+<body>
+<div id="pwa-install" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--nv);color:#fff;padding:12px 16px;z-index:3000;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.3)">
+<div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" style="width:36px;height:36px;border-radius:8px"><div><div style="font-weight:700;font-size:13px">Propakt Group'u yükle</div><div style="font-size:10px;opacity:.7">Ana ekrana ekle — uygulama gibi çalışsın</div></div></div>
+<div style="display:flex;gap:6px"><button onclick="pwaInstall()" style="background:var(--am);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Yükle</button><button onclick="pwaInstallDismiss()" style="background:transparent;color:rgba(255,255,255,.6);border:none;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
+</div>
+<div class="app">
+<div class="sb">
+<div class="sb-l"><div class="sb-lm">PG</div><div><div class="sb-lt">Propakt Group</div><div class="sb-ls">yönetim sistemi</div></div></div>
+<div class="ss">Genel</div>
+<div class="si on" data-pg="oz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Özet panel</div>
+<div class="ss">Finans</div>
+<div class="si" data-pg="gg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Gelir / gider</div>
+<div class="si" data-pg="kdv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>KDV takip</div>
+<div class="si" data-pg="ts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Taşeron yönetimi</div>
+<div class="si" data-pg="tk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Taksit takip</div>
+<div class="si" data-pg="pgt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>Proje gelir takip</div>
+<div class="si" data-pg="pgd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"/></svg>Proje gider takip</div>
+<div class="si" data-pg="banka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Banka hesapları</div>
+<div class="ss">Proje</div>
+<div class="si" data-pg="sn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/><rect x="9" y="12" width="6" height="8"/></svg>Şantiyeler<span class="sbb" id="sn-cnt">0</span></div>
+<div class="si" data-pg="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>Bağımsız bölümler</div>
+<div class="si" data-pg="mh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Maliyet hesaplama</div>
+<div class="ss">Analiz</div>
+<div class="si" data-pg="tg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Tablo & grafikler</div>
+<div class="si" data-pg="od"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Ödemeler dengesi</div>
+<div class="ss">Satış</div>
+<div class="si" data-pg="ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Müşteriler</div>
+<div class="si" data-pg="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Satış takip</div>
+<div style="flex:1"></div>
+<div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)">
+<div class="si" data-pg="backup" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Yedekle / geri yükle</div>
+</div>
+</div>
+
+<div class="mn">
+<div class="tp">
+<div><h1 id="pt">Özet panel</h1><p id="ps">Propakt Group — genel bakış</p></div>
+<div class="tp-acts">
+<button class="btn bo bsm" onclick="exportData()">↓ Yedekle</button>
+<button class="btn bp bsm" id="main-add">+ Yeni kayıt</button>
+</div>
+</div>
+<div class="ct" id="ct"></div>
+</div>
+</div>
+
+<!-- MODALS -->
+<div class="mdo" id="m-gg"><div class="mdl"><div class="mdh"><span class="mdt">Yeni gelir / gider kaydı</span><button class="mdx" onclick="closeM('m-gg')">✕</button></div><div class="mdb" id="m-gg-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-gg')">İptal</button><button class="btn bp" onclick="saveGG()">Kaydet</button></div></div></div>
+<div class="mdo" id="m-sn"><div class="mdl"><div class="mdh"><span class="mdt">Yeni şantiye ekle</span><button class="mdx" onclick="closeM('m-sn')">✕</button></div><div class="mdb" id="m-sn-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-sn')">İptal</button><button class="btn bp" onclick="saveSite()">Şantiyeyi kaydet</button></div></div></div>
+<div class="mdo" id="m-ts"><div class="mdl"><div class="mdh"><span class="mdt">Yeni taşeron anlaşması</span><button class="mdx" onclick="closeM('m-ts')">✕</button></div><div class="mdb" id="m-ts-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-ts')">İptal</button><button class="btn bp" onclick="saveTaskeron()">Kaydet</button></div></div></div>
+<div class="mdo" id="m-ms"><div class="mdl"><div class="mdh"><span class="mdt">Yeni müşteri / satış</span><button class="mdx" onclick="closeM('m-ms')">✕</button></div><div class="mdb" id="m-ms-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-ms')">İptal</button><button class="btn bp" onclick="saveCustomer()">Kaydet</button></div></div></div>
+<div class="mdo" id="m-sell"><div class="mdl"><div class="mdh"><span class="mdt">Satış kaydı</span><button class="mdx" onclick="closeM('m-sell')">✕</button></div><div class="mdb" id="m-sell-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-sell')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button></div></div></div>
+<div class="mdo" id="m-banka"><div class="mdl"><div class="mdh"><span class="mdt">Banka hesabı ekle</span><button class="mdx" onclick="closeM('m-banka')">✕</button></div><div class="mdb" id="m-banka-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-banka')">İptal</button><button class="btn bp" onclick="saveBanka()">Kaydet</button></div></div></div>
+<div class="mdo" id="m-bh"><div class="mdl"><div class="mdh"><span class="mdt">Banka hareketi ekle</span><button class="mdx" onclick="closeM('m-bh')">✕</button></div><div class="mdb" id="m-bh-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-bh')">İptal</button><button class="btn bp" onclick="saveBankaHareket()">Kaydet</button></div></div></div>
+<div class="mdo" id="m-mh"><div class="mdl"><div class="mdh"><span class="mdt">Maliyet sınıfı ayarla</span><button class="mdx" onclick="closeM('m-mh')">✕</button></div><div class="mdb" id="m-mh-body"></div><div class="mdf"><button class="btn bo" onclick="closeM('m-mh')">İptal</button><button class="btn bp" onclick="saveMHEdit()">Kaydet</button></div></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== DATA STORE =====
+var DB = {
+  projects: [],
+  transactions: [],
+  taserons: [],
+  customers: [],
+  settings: { nextId: 1 }
+};
+
+function load() {
+  try {
+    var d = localStorage.getItem('propakt_db');
+    if (d) DB = JSON.parse(d);
+    if (!DB.projects) DB.projects = [];
+    if (!DB.transactions) DB.transactions = [];
+    if (!DB.taserons) DB.taserons = [];
+    if (!DB.customers) DB.customers = [];
+    if (!DB.bankaHesaplari) DB.bankaHesaplari = [];
+    if (!DB.bankaHareketleri) DB.bankaHareketleri = [];
+    if (!DB.settings) DB.settings = { nextId: 1 };
+  } catch(e) { console.error('Load error', e); }
+}
+
+function save() {
+  try { localStorage.setItem('propakt_db', JSON.stringify(DB)); } catch(e) { console.error('Save error', e); }
+}
+
+function nid() { return DB.settings.nextId++; }
+function fmt(n) { return new Intl.NumberFormat('tr-TR').format(Math.round(n)); }
+function fmtK(n) { if(Math.abs(n)>=1e6) return (n/1e6).toFixed(1).replace('.0','')+'M'; if(Math.abs(n)>=1e3) return Math.round(n/1e3)+'K'; return fmt(n); }
+function toast(msg) { var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(function(){t.style.display='none'},2500); }
+function today() { return new Date().toISOString().split('T')[0]; }
+
+// ===== NAVIGATION =====
+var curPage = 'oz', curPrj = 0;
+var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme']};
+
+document.querySelectorAll('.si[data-pg]').forEach(function(el) {
+  el.addEventListener('click', function() {
+    curPage = this.dataset.pg;
+    document.querySelectorAll('.si').forEach(function(s){s.classList.remove('on')});
+    this.classList.add('on');
+    document.getElementById('pt').textContent = titles[curPage][0];
+    document.getElementById('ps').textContent = titles[curPage][1];
+    render();
+  });
+});
+
+document.getElementById('main-add').addEventListener('click', function() {
+  if(curPage==='sn') openSiteModal();
+  else if(curPage==='ts') openTaseronModal();
+  else if(curPage==='ms') openCustomerModal();
+  else if(curPage==='banka') openBankaModal();
+  else openGGModal();
+});
+
+function openM(id) { document.getElementById(id).classList.add('sh'); }
+function closeM(id) { document.getElementById(id).classList.remove('sh'); }
+
+// ===== COUNTS =====
+function totalBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){c+=b.units.length})}); return c; }
+function soldBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='sold'||u.status==='barter')c++})})}); return c; }
+function freeBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='free')c++})})}); return c; }
+function rsvBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='reserved')c++})})}); return c; }
+function barterBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='barter')c++})})}); return c; }
+function ownerBB() { var c=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status==='owner')c++})})}); return c; }
+function targetSalesTotal() { var t=0; DB.projects.forEach(function(p){p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status!=='owner')t+=(u.targetPrice||0)})})}); return t; }
+function targetSalesProject(pName) { var t=0; var p=DB.projects.find(function(x){return x.name===pName}); if(!p)return 0; p.blocks.forEach(function(b){b.units.forEach(function(u){if(u.status!=='owner')t+=(u.targetPrice||0)})}); return t; }
+function totalIncome() { return DB.transactions.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.total},0); }
+function totalExpense() { return DB.transactions.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.total},0); }
+function totalResmiIncome() { return DB.transactions.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.resmi},0); }
+function totalResmiExpense() { return DB.transactions.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.resmi},0); }
+function totalKDVIncome() { return DB.transactions.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0); }
+function totalKDVExpense() { return DB.transactions.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0); }
+
+// ===== RENDER =====
+function render() {
+  document.getElementById('sn-cnt').textContent = DB.projects.length;
+  var c = document.getElementById('ct');
+  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup};
+  if(fn[curPage]) c.innerHTML = fn[curPage]();
+  else c.innerHTML = '<div class="empty">Bu sayfa yapım aşamasında.</div>';
+}
+
+function rOzet() {
+  var ti=totalIncome(),te=totalExpense(),tb=totalBB(),sb2=soldBB(),fb=freeBB(),rb=rsvBB(),bb2=barterBB(),ob=ownerBB();
+  var pct=tb>0?Math.round((sb2)/(tb-ob)*100):0;
+  var h='<div class="sum-bar">';
+  h+='<div class="sum-i"><div class="v">'+DB.projects.length+'</div><div class="l">Proje</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v">'+tb+'</div><div class="l">Toplam BB</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v" style="color:#4CAF50">'+sb2+'</div><div class="l">Satılan</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v" style="color:#EF5350">'+fb+'</div><div class="l">Boş</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v" style="color:#CE93D8">'+bb2+'</div><div class="l">Barter</div></div><div class="sum-d"></div>';
+  h+='<div class="sum-i"><div class="v" style="color:var(--am)">%'+pct+'</div><div class="l">Satış oranı</div></div></div>';
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xg"><div class="stl">Toplam gelir</div><div class="stv" style="color:var(--gn)">₺'+fmtK(ti)+'</div><div class="stc" style="color:var(--t2)">R: ₺'+fmtK(totalResmiIncome())+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Toplam gider</div><div class="stv" style="color:var(--rd)">₺'+fmtK(te)+'</div><div class="stc" style="color:var(--t2)">R: ₺'+fmtK(totalResmiExpense())+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Net kâr</div><div class="stv" style="color:var(--bl)">₺'+fmtK(ti-te)+'</div></div>';
+  var tgt=targetSalesTotal();
+  h+='<div class="st xa"><div class="stl">Hedef satış geliri</div><div class="stv" style="color:var(--am)">₺'+fmtK(tgt)+'</div><div class="stc" style="color:var(--t2)">Gerçekleşen: %'+(tgt>0?Math.round(ti/tgt*100):0)+'</div></div>';
+  h+='<div class="st xt"><div class="stl">KDV fark</div><div class="stv" style="color:var(--tl)">₺'+fmtK(totalKDVIncome()-totalKDVExpense())+'</div><div class="stc">Hesap. - İndiri.</div></div>';
+  h+='</div>';
+
+  // Recent transactions
+  h+='<div class="cd"><div class="chd"><span class="cht">Son hareketler</span><span class="cha" onclick="openGGModal()">+ Yeni kayıt</span></div>';
+  var txs = DB.transactions.slice().reverse().slice(0,8);
+  if(txs.length===0) h+='<div class="empty">Henüz kayıt yok. "Yeni kayıt" ile başlayın.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Toplam</th><th>Resmi</th><th>KDV</th><th>G.Resmi</th><th>Tür</th></tr></thead><tbody>';
+    txs.forEach(function(t){
+      var c2=t.type==='gelir'?'var(--gn)':'var(--rd)';
+      var sign=t.type==='gelir'?'+':'-';
+      h+='<tr><td style="color:var(--t2)">'+t.date+'</td><td style="font-weight:600">'+t.desc+'</td>';
+      h+='<td style="font-weight:700;color:'+c2+'">'+sign+'₺'+fmt(t.total)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmt(t.resmi)+'</td>';
+      h+='<td style="color:var(--tl)">₺'+fmt(t.kdvTutar||0)+'</td>';
+      h+='<td style="color:var(--pr)">₺'+fmt(t.total-t.resmi)+'</td>';
+      h+='<td><span class="bg '+(t.type==='gelir'?'bgg':'bgr')+'">'+t.type.charAt(0).toUpperCase()+t.type.slice(1)+'</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+
+  // Projects summary
+  if(DB.projects.length>0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Proje bazlı BB özeti</span></div>';
+    h+='<table class="tb"><thead><tr><th>Proje</th><th>Toplam BB</th><th>Satılan</th><th>Boş</th><th>Hedef satış geliri</th><th>Satış %</th></tr></thead><tbody>';
+    DB.projects.forEach(function(p){
+      var pt=0,ps=0,pf=0;
+      p.blocks.forEach(function(b){b.units.forEach(function(u){pt++;if(u.status==='sold'||u.status==='barter')ps++;else if(u.status==='free')pf++})});
+      var pp=pt>0?Math.round(ps/pt*100):0;
+      var pTarget=targetSalesProject(p.name);
+      h+='<tr><td style="font-weight:600">'+p.name+'</td><td style="font-weight:700">'+pt+'</td><td style="color:var(--gn)">'+ps+'</td><td style="color:var(--rd)">'+pf+'</td>';
+      h+='<td style="font-weight:600;color:var(--am)">₺'+fmtK(pTarget)+'</td>';
+      h+='<td><div style="display:flex;align-items:center;gap:6px"><div class="prg" style="width:80px"><div class="pf" style="width:'+pp+'%;background:'+(pp>70?'var(--gn)':pp>40?'var(--am)':'var(--rd)')+'"></div></div><span style="font-weight:700;font-size:11px">%'+pp+'</span></div></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+var ggFilter={type:'all',project:'all'};
+function rGG() {
+  var h='<div class="warn">Gayri resmi kayıtlar sadece bu bilgisayarda saklanır.</div>';
+
+  // Filter bar
+  h+='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">';
+  h+='<span style="font-size:11px;font-weight:600;color:var(--t2);margin-right:4px">Tür:</span>';
+  h+='<div class="prj-btn'+(ggFilter.type==='all'?' on':'')+'" onclick="ggFilter.type=\'all\';render()">Tümü</div>';
+  h+='<div class="prj-btn'+(ggFilter.type==='gelir'?' on':'')+'" onclick="ggFilter.type=\'gelir\';render()">Gelirler</div>';
+  h+='<div class="prj-btn'+(ggFilter.type==='gider'?' on':'')+'" onclick="ggFilter.type=\'gider\';render()">Giderler</div>';
+  h+='<span style="font-size:11px;font-weight:600;color:var(--t2);margin:0 8px 0 16px">Şantiye:</span>';
+  h+='<div class="prj-btn'+(ggFilter.project==='all'?' on':'')+'" onclick="ggFilter.project=\'all\';render()">Tümü</div>';
+  h+='<div class="prj-btn'+(ggFilter.project==='Genel'?' on':'')+'" onclick="ggFilter.project=\'Genel\';render()">Şirket genel</div>';
+  DB.projects.forEach(function(p){
+    h+='<div class="prj-btn'+(ggFilter.project===p.name?' on':'')+'" onclick="ggFilter.project=\''+p.name.replace(/'/g,"\\'")+'\';render()">'+p.name+'</div>';
+  });
+  h+='</div>';
+
+  // Filter transactions
+  var filtered=DB.transactions.filter(function(t){
+    if(ggFilter.type!=='all'&&t.type!==ggFilter.type) return false;
+    if(ggFilter.project!=='all'&&(t.project||'Genel')!==ggFilter.project) return false;
+    return true;
+  });
+
+  var fGelir=filtered.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.total},0);
+  var fGider=filtered.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.total},0);
+  var fResmiG=filtered.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.resmi},0);
+  var fResmiD=filtered.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.resmi},0);
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xg"><div class="stl">Gelir</div><div class="stv" style="color:var(--gn)">₺'+fmtK(fGelir)+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Resmi gelir</div><div class="stv" style="color:var(--bl)">₺'+fmtK(fResmiG)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Gider</div><div class="stv" style="color:var(--rd)">₺'+fmtK(fGider)+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Resmi gider</div><div class="stv" style="color:var(--bl)">₺'+fmtK(fResmiD)+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Net</div><div class="stv" style="color:var(--am)">₺'+fmtK(fGelir-fGider)+'</div></div>';
+  h+='</div>';
+
+  h+='<div class="cd"><div class="chd"><span class="cht">Kayıtlar'+(ggFilter.project!=='all'?' — '+ggFilter.project:'')+(ggFilter.type!=='all'?' — '+ggFilter.type:'')+'</span><span class="cha" onclick="openGGModal()">+ Yeni kayıt</span></div>';
+  var txs=filtered.slice().reverse();
+  if(txs.length===0) h+='<div class="empty">Henüz kayıt yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Kategori</th><th>Proje</th><th>Toplam</th><th>Resmi</th><th>KDV %</th><th>KDV ₺</th><th>G.Resmi</th><th>İşlem</th></tr></thead><tbody>';
+    txs.forEach(function(t){
+      var c2=t.type==='gelir'?'var(--gn)':'var(--rd)';
+      var sign=t.type==='gelir'?'+':'-';
+      h+='<tr><td style="color:var(--t2)">'+t.date+'</td><td style="font-weight:600">'+t.desc+'</td>';
+      h+='<td><span class="bg bga">'+t.category+'</span></td>';
+      h+='<td style="color:var(--t2)">'+(t.project||'Genel')+'</td>';
+      h+='<td style="font-weight:700;color:'+c2+'">'+sign+'₺'+fmt(t.total)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmt(t.resmi)+'</td>';
+      h+='<td><span class="bg bgt">%'+(t.kdvOran||0)+'</span></td>';
+      h+='<td style="color:var(--tl)">₺'+fmt(t.kdvTutar||0)+'</td>';
+      h+='<td style="color:var(--pr)">₺'+fmt(t.total-t.resmi)+'</td>';
+      h+='<td><button class="btn bo bsm" onclick="editTx('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTx('+t.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function rKDV() {
+  var ki=totalKDVIncome(),ke=totalKDVExpense();
+
+  // Collect unique projects from transactions
+  var projMap={};
+  projMap['Tümü']=1;
+  projMap['Genel']=1;
+  DB.transactions.forEach(function(t){ if(t.project && t.project!=='Genel') projMap[t.project]=1; });
+  DB.projects.forEach(function(p){ projMap[p.name]=1; });
+  var projNames=Object.keys(projMap);
+
+  // Project selector tabs
+  var h='<div class="prj-sel" id="kdv-prj-sel">';
+  projNames.forEach(function(pn,i){
+    h+='<div class="prj-btn'+(i===0?' on':'')+'" onclick="kdvFilter(\''+pn.replace(/'/g,"\\'")+'\',this)">'+pn+'</div>';
+  });
+  h+='</div>';
+
+  // Main stats (will be replaced by filter)
+  h+='<div id="kdv-content">';
+  h+=kdvRender('Tümü');
+  h+='</div>';
+
+  return h;
+}
+
+function kdvFilter(proj,el) {
+  el.parentElement.querySelectorAll('.prj-btn').forEach(function(b){b.classList.remove('on')});
+  el.classList.add('on');
+  document.getElementById('kdv-content').innerHTML=kdvRender(proj);
+}
+
+function kdvRender(proj) {
+  var isAll=proj==='Tümü';
+  var txs=DB.transactions.filter(function(t){
+    if(isAll) return true;
+    return (t.project||'Genel')===proj;
+  });
+
+  var ki=txs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0);
+  var ke=txs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0);
+  var ri=txs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.resmi},0);
+  var re=txs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.resmi},0);
+  var ti=txs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.total},0);
+  var te=txs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.total},0);
+
+  var h='<div class="sts s5">';
+  h+='<div class="st xt"><div class="stl">Hesaplanan KDV</div><div class="stv" style="color:var(--tl)">₺'+fmtK(ki)+'</div><div class="stc">Gelirlerden</div></div>';
+  h+='<div class="st xt"><div class="stl">İndirilecek KDV</div><div class="stv" style="color:var(--tl)">₺'+fmtK(ke)+'</div><div class="stc">Giderlerden</div></div>';
+  h+='<div class="st xr"><div class="stl">Ödenecek KDV</div><div class="stv" style="color:var(--rd)">₺'+fmtK(ki-ke)+'</div><div class="stc">Hesap. - İndiri.</div></div>';
+  h+='<div class="st xg"><div class="stl">Resmi gelir</div><div class="stv" style="color:var(--gn)">₺'+fmtK(ri)+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Resmi gider</div><div class="stv" style="color:var(--bl)">₺'+fmtK(re)+'</div></div>';
+  h+='</div>';
+
+  // Proje bazlı özet tablo (sadece Tümü sekmesinde)
+  if(isAll && DB.projects.length>0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Şantiye bazlı KDV özeti</span></div>';
+    h+='<table class="tb"><thead><tr><th>Şantiye</th><th>Toplam gelir</th><th>Resmi gelir</th><th>KDV (gelir)</th><th>Toplam gider</th><th>Resmi gider</th><th>KDV (gider)</th><th>Net KDV</th></tr></thead><tbody>';
+
+    // Genel first
+    var projList=['Genel'];
+    DB.projects.forEach(function(p){projList.push(p.name)});
+    projList.forEach(function(pn){
+      var ptxs=DB.transactions.filter(function(t){return(t.project||'Genel')===pn});
+      if(ptxs.length===0) return;
+      var pki=ptxs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0);
+      var pke=ptxs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+(t.kdvTutar||0)},0);
+      var pri=ptxs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.resmi},0);
+      var pre=ptxs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.resmi},0);
+      var pti=ptxs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.total},0);
+      var pte=ptxs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.total},0);
+      var netKdv=pki-pke;
+      h+='<tr><td style="font-weight:600">'+pn+'</td>';
+      h+='<td style="color:var(--gn)">₺'+fmtK(pti)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmtK(pri)+'</td>';
+      h+='<td style="color:var(--tl);font-weight:600">₺'+fmtK(pki)+'</td>';
+      h+='<td style="color:var(--rd)">₺'+fmtK(pte)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmtK(pre)+'</td>';
+      h+='<td style="color:var(--tl);font-weight:600">₺'+fmtK(pke)+'</td>';
+      h+='<td style="font-weight:700;color:'+(netKdv>=0?'var(--rd)':'var(--gn)')+'">₺'+fmtK(netKdv)+'</td></tr>';
+    });
+
+    // Total row
+    h+='<tr style="background:var(--bg);font-weight:700"><td>TOPLAM</td>';
+    h+='<td style="color:var(--gn)">₺'+fmtK(ti)+'</td><td style="color:var(--bl)">₺'+fmtK(ri)+'</td>';
+    h+='<td style="color:var(--tl)">₺'+fmtK(ki)+'</td>';
+    h+='<td style="color:var(--rd)">₺'+fmtK(te)+'</td><td style="color:var(--bl)">₺'+fmtK(re)+'</td>';
+    h+='<td style="color:var(--tl)">₺'+fmtK(ke)+'</td>';
+    h+='<td style="color:var(--rd)">₺'+fmtK(ki-ke)+'</td></tr>';
+    h+='</tbody></table></div>';
+  }
+
+  // KDV'li işlemler
+  var kdvTxs=txs.filter(function(t){return(t.kdvTutar||0)>0}).slice().reverse().slice(0,15);
+  h+='<div class="cd"><div class="chd"><span class="cht">KDV\'li işlemler'+(isAll?'':' — '+proj)+'</span></div>';
+  if(kdvTxs.length===0) h+='<div class="empty">Bu '+(isAll?'':'şantiyede ')+'KDV\'li kayıt bulunamadı.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Açıklama</th><th>'+(isAll?'Şantiye':'')+'</th><th>Tür</th><th>Resmi</th><th>KDV %</th><th>KDV ₺</th></tr></thead><tbody>';
+    kdvTxs.forEach(function(t){
+      h+='<tr><td>'+t.date+'</td><td style="font-weight:600">'+t.desc+'</td>';
+      h+=(isAll?'<td style="color:var(--t2)">'+(t.project||'Genel')+'</td>':'<td></td>');
+      h+='<td><span class="bg '+(t.type==='gelir'?'bgg':'bgr')+'">'+t.type+'</span></td>';
+      h+='<td>₺'+fmt(t.resmi)+'</td><td>%'+t.kdvOran+'</td>';
+      h+='<td style="color:var(--tl);font-weight:700">₺'+fmt(t.kdvTutar)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function rTS() {
+  var h='<div class="sts s4">';
+  h+='<div class="st xa"><div class="stl">Aktif taşeron</div><div class="stv" style="color:var(--am)">'+DB.taserons.length+'</div></div>';
+  var ttot=DB.taserons.reduce(function(s,t){return s+t.total},0);
+  var tpaid=DB.taserons.reduce(function(s,t){return s+(t.paid||0)},0);
+  var tbarter=DB.taserons.reduce(function(s,t){return s+(t.barterVal||0)},0);
+  h+='<div class="st xg"><div class="stl">Toplam anlaşma</div><div class="stv" style="color:var(--gn)">₺'+fmtK(ttot)+'</div></div>';
+  h+='<div class="st xp"><div class="stl">Barter toplamı</div><div class="stv" style="color:var(--pr)">₺'+fmtK(tbarter)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Kalan borç</div><div class="stv" style="color:var(--rd)">₺'+fmtK(ttot-tpaid)+'</div></div>';
+  h+='</div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Taşeron anlaşmaları</span><span class="cha" onclick="openTaseronModal()">+ Yeni anlaşma</span></div>';
+  if(DB.taserons.length===0) h+='<div class="empty">Henüz taşeron kaydı yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Taşeron</th><th>İş kalemi</th><th>Şantiye</th><th>Toplam</th><th>Ödeme şekli</th><th>Nakit kısım</th><th>Barter kısım</th><th>Barter detay</th><th>Sil</th></tr></thead><tbody>';
+    DB.taserons.forEach(function(t){
+      var cashDisplay = '', barterDisplay = '', barterDetailDisplay = '';
+      if(t.payType==='Karma') {
+        cashDisplay = '₺'+fmt(t.cashVal||0)+' ('+(t.cashType||'Nakit')+')';
+        barterDisplay = '₺'+fmt(t.barterVal||0);
+        barterDetailDisplay = (t.barterType?t.barterType+': ':'')+(t.barterDesc||'')+(t.barterDetail?' ('+t.barterDetail+')':'');
+      } else if(t.payType==='Barter') {
+        cashDisplay = '—';
+        barterDisplay = '₺'+fmt(t.barterVal||t.total);
+        barterDetailDisplay = (t.barterType?t.barterType+': ':'')+(t.barterDesc||'')+(t.barterDetail?' ('+t.barterDetail+')':'');
+      } else if(t.payType==='Taksitli') {
+        cashDisplay = '₺'+fmt(t.total)+' (taksit)';
+        barterDisplay = '—';
+      } else {
+        cashDisplay = '₺'+fmt(t.total);
+        barterDisplay = '—';
+      }
+      h+='<tr><td style="font-weight:600">'+t.name+'</td><td>'+t.job+'</td><td style="color:var(--t2)">'+t.project+'</td>';
+      h+='<td style="font-weight:700">₺'+fmt(t.total)+'</td>';
+      h+='<td><span class="bg '+(t.payType==='Barter'?'bgp':t.payType==='Karma'?'bgp':'bga')+'">'+t.payType+'</span></td>';
+      h+='<td style="color:var(--gn)">'+cashDisplay+'</td>';
+      h+='<td style="color:var(--pr);font-weight:600">'+barterDisplay+'</td>';
+      h+='<td style="font-size:10px;color:var(--t2);max-width:160px">'+(barterDetailDisplay||'—')+'</td>';
+      h+='<td><button class="btn bo bsm" onclick="editTs('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTs('+t.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function rTK() {
+  var h='<div class="tbs"><div class="tab on" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Tüm taksitler</div><div class="tab" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Vadesi gelen</div><div class="tab" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Ara ödemeler</div></div>';
+
+  // Collect all taksitler from all customers
+  var allTaksit=[];
+  DB.customers.forEach(function(c,ci){
+    if(c.taksitler && c.taksitler.length>0) {
+      c.taksitler.forEach(function(t,ti){
+        allTaksit.push({custId:c.id, custIdx:ci, taksitIdx:ti, custName:c.name, project:c.project, unit:c.unit, no:t.no, total:t.total, date:t.date, amount:t.amount, paid:t.paid});
+      });
+    }
+  });
+
+  // Stats
+  var totalRemaining=DB.customers.reduce(function(s,c){return s+(c.remaining||0)},0);
+  var paidCount=allTaksit.filter(function(t){return t.paid}).length;
+  var unpaidCount=allTaksit.filter(function(t){return !t.paid}).length;
+  var todayStr=today();
+  var overdueCount=allTaksit.filter(function(t){return !t.paid && t.date<todayStr}).length;
+  var totalAraOdeme=DB.customers.reduce(function(s,c){return s+((c.araOdemeler||[]).reduce(function(s2,a){return s2+a.amount},0))},0);
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xa"><div class="stl">Toplam taksit alacağı</div><div class="stv" style="color:var(--am)">₺'+fmtK(totalRemaining)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Gecikmiş taksit</div><div class="stv" style="color:var(--rd)">'+overdueCount+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Bu ay vadeli</div><div class="stv" style="color:var(--bl)">'+unpaidCount+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Ödenen taksit</div><div class="stv" style="color:var(--gn)">'+paidCount+' / '+(paidCount+unpaidCount)+'</div></div>';
+  h+='<div class="st xt"><div class="stl">Ara ödemeler toplamı</div><div class="stv" style="color:var(--tl)">₺'+fmtK(totalAraOdeme)+'</div></div>';
+  h+='</div>';
+
+  // Müşteri bazlı kalan borç + ara ödeme butonu
+  var taksitliMusteri=DB.customers.filter(function(c){return(c.remaining||0)>0 && c.payType==='Taksitli'});
+  if(taksitliMusteri.length>0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Müşteri bazlı borç durumu ve ara ödeme</span></div>';
+    h+='<table class="tb"><thead><tr><th>Müşteri</th><th>Proje / daire</th><th>Toplam satış</th><th>Kapora</th><th>Taksit ödenen</th><th>Ara ödeme</th><th>Kalan borç</th><th>İşlem</th></tr></thead><tbody>';
+    taksitliMusteri.forEach(function(c,ci){
+      var taksitPaid=(c.taksitler||[]).filter(function(t){return t.paid}).reduce(function(s,t){return s+t.amount},0);
+      var araTotal=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+      var idx=DB.customers.indexOf(c);
+      h+='<tr><td style="font-weight:600">'+c.name+'</td>';
+      h+='<td style="color:var(--t2)">'+c.project+' — '+c.unit+'</td>';
+      h+='<td style="font-weight:700">₺'+fmt(c.total)+'</td>';
+      h+='<td>₺'+fmt(c.kapora||0)+'</td>';
+      h+='<td style="color:var(--gn)">₺'+fmt(taksitPaid)+'</td>';
+      h+='<td style="color:var(--tl);font-weight:600">₺'+fmt(araTotal)+'</td>';
+      h+='<td style="color:var(--rd);font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
+      h+='<td><button class="btn bp bsm" onclick="openAraOdeme('+idx+')">Ara ödeme al</button></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  // Unpaid taksitler sorted by date
+  var unpaid=allTaksit.filter(function(t){return !t.paid}).sort(function(a,b){return a.date.localeCompare(b.date)});
+  h+='<div class="cd"><div class="chd"><span class="cht">Bekleyen taksitler (tarihe göre)</span></div>';
+  if(unpaid.length===0) h+='<div class="empty">Bekleyen taksit yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Müşteri</th><th>Proje / daire</th><th>Taksit</th><th>Vade tarihi</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>';
+    unpaid.forEach(function(t){
+      var isOverdue=t.date<todayStr;
+      var isThisWeek=!isOverdue && t.date<=addDays(todayStr,7);
+      var statusCls=isOverdue?'bgr':isThisWeek?'bga':'bgb';
+      var statusTxt=isOverdue?'Gecikmiş':isThisWeek?'Bu hafta':'Bekliyor';
+      h+='<tr><td style="font-weight:600">'+t.custName+'</td>';
+      h+='<td style="color:var(--t2)">'+t.project+' — '+t.unit+'</td>';
+      h+='<td style="font-weight:600">'+t.no+'/'+t.total+'</td>';
+      h+='<td style="'+(isOverdue?'color:var(--rd);font-weight:700':'')+'">'+t.date+'</td>';
+      h+='<td style="font-weight:700">₺'+fmt(t.amount)+'</td>';
+      h+='<td><span class="bg '+statusCls+'">'+statusTxt+'</span></td>';
+      h+='<td><button class="btn bp bsm" onclick="markTaksitPaid('+t.custIdx+','+t.taksitIdx+')">Ödendi</button></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+
+  // Ara ödemeler geçmişi
+  var allAra=[];
+  DB.customers.forEach(function(c,ci){
+    (c.araOdemeler||[]).forEach(function(a){
+      allAra.push({custName:c.name, project:c.project, unit:c.unit, amount:a.amount, resmi:a.resmi||0, date:a.date, note:a.note||''});
+    });
+  });
+  if(allAra.length>0) {
+    allAra.sort(function(a,b){return b.date.localeCompare(a.date)});
+    h+='<div class="cd"><div class="chd"><span class="cht">Ara ödeme geçmişi</span></div>';
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Müşteri</th><th>Proje / daire</th><th>Tutar</th><th>Resmi</th><th>Not</th></tr></thead><tbody>';
+    allAra.forEach(function(a){
+      h+='<tr><td>'+a.date+'</td><td style="font-weight:600">'+a.custName+'</td>';
+      h+='<td style="color:var(--t2)">'+a.project+' — '+a.unit+'</td>';
+      h+='<td style="font-weight:700;color:var(--gn)">₺'+fmt(a.amount)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmt(a.resmi)+'</td>';
+      h+='<td style="color:var(--t2);font-size:10.5px">'+a.note+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  // Paid taksitler
+  var paidList=allTaksit.filter(function(t){return t.paid}).sort(function(a,b){return b.date.localeCompare(a.date)}).slice(0,15);
+  if(paidList.length>0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Son ödenen taksitler</span></div>';
+    h+='<table class="tb"><thead><tr><th>Müşteri</th><th>Proje</th><th>Taksit</th><th>Tarih</th><th>Tutar</th><th>Durum</th></tr></thead><tbody>';
+    paidList.forEach(function(t){
+      h+='<tr><td style="font-weight:600">'+t.custName+'</td><td style="color:var(--t2)">'+t.project+'</td><td>'+t.no+'/'+t.total+'</td><td>'+t.date+'</td><td style="font-weight:700">₺'+fmt(t.amount)+'</td><td><span class="bg bgg">Ödendi</span></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+function addDays(dateStr,days) {
+  var d=new Date(dateStr); d.setDate(d.getDate()+days);
+  return d.toISOString().split('T')[0];
+}
+
+function markTaksitPaid(custIdx,taksitIdx) {
+  var c=DB.customers[custIdx];
+  if(!c||!c.taksitler||!c.taksitler[taksitIdx]) return;
+  c.taksitler[taksitIdx].paid=true;
+  var paidAmount=c.taksitler[taksitIdx].amount;
+  c.remaining=Math.max(0,(c.remaining||0)-paidAmount);
+  // Record as income transaction
+  DB.transactions.push({
+    id:nid(), type:'gelir', desc:'Taksit tahsilat — '+c.name+' ('+c.taksitler[taksitIdx].no+'/'+c.taksitler[taksitIdx].total+')',
+    project:c.project, category:'Taksit tahsilat',
+    date:today(), total:paidAmount, resmi:c.total>0?Math.round(paidAmount*(c.resmi/c.total)):0, kdvOran:0, kdvTutar:0
+  });
+  save(); render(); toast('Taksit ödendi — '+c.name+' ('+paidAmount.toLocaleString('tr-TR')+' ₺)');
+}
+
+function openAraOdeme(custIdx) {
+  var c=DB.customers[custIdx];
+  if(!c) return;
+  document.getElementById('m-sell-body').innerHTML=
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-size:14px;font-weight:700">Ara ödeme — '+c.name+'</div>'+
+    '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+c.project+' — '+c.unit+'</div>'+
+    '<div style="font-size:12px;margin-top:6px">Kalan borç: <span style="color:var(--rd);font-weight:700">₺'+fmt(c.remaining||0)+'</span></div>'+
+    '</div>'+
+    '<input type="hidden" id="ara-cust-idx" value="'+custIdx+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Ara ödeme tutarı (₺)</label><input class="fi" id="ara-amount" type="number" placeholder="ör: 200.000" oninput="araCalc('+custIdx+')"></div><div class="fg"><label class="fl">Resmi kısmı (₺)</label><input class="fi" id="ara-resmi" type="number" placeholder="Resmi tutar"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Ödeme tarihi</label><input class="fi" id="ara-date" type="date" value="'+today()+'"></div><div class="fg"><label class="fl">Açıklama / not</label><input class="fi" id="ara-note" placeholder="ör: Ekstra nakit ödeme"></div></div>'+
+    '<div id="ara-preview" style="margin-top:8px"></div>';
+
+  document.querySelector('#m-sell .mdt').textContent='Ara ödeme al';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeAraOdeme()">İptal</button><button class="btn bp" onclick="saveAraOdeme()">Ödemeyi kaydet</button>';
+  openM('m-sell');
+}
+
+function araCalc(custIdx) {
+  var c=DB.customers[custIdx];
+  var amount=parseFloat(document.getElementById('ara-amount').value)||0;
+  var prev=document.getElementById('ara-preview');
+  if(amount>0 && c) {
+    var newRemaining=Math.max(0,(c.remaining||0)-amount);
+    prev.innerHTML='<div style="background:var(--gnl);border:.5px solid #A5D6A7;border-radius:8px;padding:10px 12px;font-size:12px">'+
+      '<div style="color:var(--gn);font-weight:600">Ödeme sonrası kalan borç: ₺'+fmt(newRemaining)+'</div>'+
+      (newRemaining===0?'<div style="color:var(--gn);margin-top:4px;font-weight:700">Borç tamamen kapanacak!</div>':'')+
+      '</div>';
+  } else prev.innerHTML='';
+}
+
+function closeAraOdeme() {
+  // Restore modal for normal sell use
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+  closeM('m-sell');
+}
+
+function saveAraOdeme() {
+  var custIdx=parseInt(document.getElementById('ara-cust-idx').value);
+  var c=DB.customers[custIdx];
+  if(!c) return;
+  var amount=parseFloat(document.getElementById('ara-amount').value)||0;
+  if(amount<=0){alert('Ödeme tutarı giriniz');return}
+  var resmi=parseFloat(document.getElementById('ara-resmi').value)||0;
+  var date=document.getElementById('ara-date').value;
+  var note=document.getElementById('ara-note').value;
+
+  // Add to customer's araOdemeler array
+  if(!c.araOdemeler) c.araOdemeler=[];
+  c.araOdemeler.push({amount:amount, resmi:resmi, date:date, note:note});
+
+  // Reduce remaining
+  c.remaining=Math.max(0,(c.remaining||0)-amount);
+
+  // Record as gelir transaction
+  DB.transactions.push({
+    id:nid(), type:'gelir',
+    desc:'Ara ödeme — '+c.name+' ('+c.unit+')'+(note?' — '+note:''),
+    project:c.project, category:'Ara ödeme',
+    date:date, total:amount, resmi:resmi, kdvOran:0, kdvTutar:0
+  });
+
+  // Restore modal
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+
+  save(); closeM('m-sell'); render();
+  toast('Ara ödeme kaydedildi — '+c.name+' ₺'+fmt(amount));
+}
+
+function rSN() {
+  var h='<div class="sts s3">';
+  h+='<div class="st xb"><div class="stl">Aktif şantiye</div><div class="stv" style="color:var(--bl)">'+DB.projects.length+'</div></div>';
+  var totBud=DB.projects.reduce(function(s,p){return s+p.budget},0);
+  h+='<div class="st xa"><div class="stl">Toplam bütçe</div><div class="stv" style="color:var(--am)">₺'+fmtK(totBud)+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Toplam BB</div><div class="stv" style="color:var(--gn)">'+totalBB()+'</div></div>';
+  h+='</div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Şantiye listesi</span><span class="cha" onclick="openSiteModal()">+ Yeni şantiye</span></div>';
+  if(DB.projects.length===0) h+='<div class="empty">Henüz şantiye eklenmedi. "+ Yeni şantiye" ile başlayın.</div>';
+  else {
+    DB.projects.forEach(function(p){
+      var pt=0,ps=0;
+      p.blocks.forEach(function(b){b.units.forEach(function(u){pt++;if(u.status==='sold'||u.status==='barter')ps++})});
+      var pp=pt>0?Math.round(ps/pt*100):0;
+      var isTaahhut=p.isTaahhut||p.type==='Taahhüt / İnşaat işi';
+      var iconBg=isTaahhut?'var(--bll)':'var(--aml)';
+      var iconColor=isTaahhut?'var(--bl)':'var(--am)';
+      h+='<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:.5px solid var(--bl2)">';
+      h+='<div style="width:38px;height:38px;border-radius:9px;background:'+iconBg+';display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+iconColor+'" stroke-width="2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/></svg></div>';
+      h+='<div style="flex:1"><div style="font-size:12.5px;font-weight:700">'+p.name;
+      if(isTaahhut) h+=' <span class="bg bgb" style="font-size:9px;vertical-align:middle">Taahhüt</span>';
+      h+='</div>';
+      if(isTaahhut) {
+        h+='<div style="font-size:10px;color:var(--t2);margin-top:2px">'+p.location+(p.contractClient?' — İşveren: '+p.contractClient:'')+'</div>';
+        if(p.contractDesc) h+='<div style="font-size:10px;color:var(--t3);margin-top:1px">'+p.contractDesc+'</div>';
+      } else {
+        h+='<div style="font-size:10px;color:var(--t2);margin-top:2px">'+p.location+' — '+p.blocks.length+' blok, '+pt+' BB</div>';
+        h+='<div class="prg" style="width:120px;margin-top:4px"><div class="pf" style="width:'+pp+'%;background:var(--am)"></div></div>';
+      }
+      h+='</div>';
+      h+='<div style="text-align:right"><div style="font-size:13px;font-weight:700">₺'+fmtK(isTaahhut?(p.contractTotal||p.budget):p.budget)+'</div>';
+      h+='<div style="font-size:10px;color:var(--t2)">'+(isTaahhut?'Anlaşma bedeli':'%'+pp+' satıldı')+'</div></div>';
+      h+='<span class="bg '+(p.status==='Devam ediyor'?'bgg':p.status==='Teslime yakın'?'bga':'bgb')+'" style="margin-left:8px">'+p.status+'</span>';
+      h+='<button class="btn bo bsm" onclick="openSiteModal('+p.id+')" style="margin-left:6px">Düzenle</button>';
+      h+='<span style="color:var(--rd);cursor:pointer;font-weight:700;margin-left:6px" onclick="delProject('+p.id+')">✕</span>';
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  return h;
+}
+
+function rBB() {
+  if(DB.projects.length===0) return '<div class="empty">Henüz proje eklenmedi. Önce "Şantiyeler" sayfasından proje ekleyin.</div>';
+  if(curPrj>=DB.projects.length) curPrj=0;
+  var h='<div class="prj-sel">';
+  DB.projects.forEach(function(p,i){ h+='<div class="prj-btn'+(i===curPrj?' on':'')+'" onclick="selPrj('+i+')">'+p.name+'</div>'; });
+  h+='</div>';
+  var p=DB.projects[curPrj];
+  var pt=0,ps=0,pf=0,pr2=0,pb=0,po=0;
+  p.blocks.forEach(function(b){b.units.forEach(function(u){pt++;if(u.status==='sold')ps++;else if(u.status==='free')pf++;else if(u.status==='reserved')pr2++;else if(u.status==='barter')pb++;else if(u.status==='owner')po++})});
+  var pTarget=targetSalesProject(p.name);
+  h+='<div class="sts s6">';
+  h+='<div class="st xb"><div class="stl">Toplam BB</div><div class="stv" style="color:var(--bl)">'+pt+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Satılan</div><div class="stv" style="color:var(--gn)">'+(ps+pb)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Satılabilir boş</div><div class="stv" style="color:var(--rd)">'+pf+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Opsiyonlu</div><div class="stv" style="color:var(--am)">'+pr2+'</div></div>';
+  h+='<div class="st" style="border-left:2px solid #78909C"><div class="stl">Arsa sahibi</div><div class="stv" style="color:#546E7A">'+po+'</div></div>';
+  h+='<div class="st" style="border-left:2px solid var(--am)"><div class="stl">Hedef satış geliri</div><div class="stv" style="color:var(--am);font-size:14px">₺'+fmtK(pTarget)+'</div></div>';
+  h+='</div>';
+  h+='<div class="leg"><span><i style="background:var(--rd)"></i> Satıldı</span><span><i style="background:var(--am)"></i> Opsiyonlu</span><span><i style="background:var(--pr)"></i> Barter</span><span><i style="background:var(--gn)"></i> Boş</span><span><i style="background:#78909C"></i> Arsa sahibi</span></div>';
+  p.blocks.forEach(function(b,bi){
+    var bs=b.units.filter(function(u){return u.status==='sold'||u.status==='barter'}).length;
+    var bo=b.units.filter(function(u){return u.status==='owner'}).length;
+    h+='<div class="blk-sec"><div class="blk-hd"><span>'+b.name+' ('+b.units.length+' '+b.unitType+')</span><small>Satılan: '+bs+' / Arsa sahibi: '+bo+'</small></div>';
+    h+='<div class="unit-grid">';
+    b.units.forEach(function(u,ui){
+      var cl=u.status==='sold'?'u-sold':u.status==='reserved'?'u-rsv':u.status==='barter'?'u-barter':u.status==='owner'?'':'u-free';
+      var ownerStyle=u.status==='owner'?'background:#78909C;cursor:default;':'';
+      var tip=u.no+': '+(u.daireType||b.unitType);
+      if(u.brutM2) tip+=' | '+u.brutM2+'m² brüt';
+      if(u.netM2) tip+=' / '+u.netM2+'m² net';
+      if(u.targetPrice && u.status!=='owner') tip+=' | Hedef: ₺'+fmt(u.targetPrice);
+      tip+='\n'+(u.status==='sold'?'Satıldı — '+(u.customer||''):u.status==='reserved'?'Opsiyonlu':u.status==='barter'?'Barter':u.status==='owner'?'ARSA SAHİBİ (satışa kapalı)':'Boş — tıklayın');
+      h+='<div class="unit '+cl+'" style="'+ownerStyle+'" title="'+tip+'" onclick="'+(u.status==='owner'?'alert(\'Bu daire arsa sahibine aittir. Satışa kapalıdır.\')':'clickUnit('+curPrj+','+bi+','+ui+')')+'">'+u.no.split('-').pop()+'</div>';
+    });
+    h+='</div></div>';
+  });
+  // Detail table
+  h+='<div class="cd"><div class="chd"><span class="cht">'+p.name+' — tüm bağımsız bölüm detayı</span></div>';
+  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Daire tipi</th><th>Brüt m²</th><th>Net m²</th><th>Hedef fiyat</th><th>Sahip</th><th>Durum</th><th>Müşteri</th></tr></thead><tbody>';
+  p.blocks.forEach(function(b){b.units.forEach(function(u){
+    var sc=u.status==='sold'?'bgr':u.status==='reserved'?'bga':u.status==='barter'?'bgp':u.status==='owner'?'':'bgg';
+    var ownerBg=u.status==='owner'?'background:#ECEFF1;color:#546E7A':'';
+    var sl=u.status==='sold'?'Satıldı':u.status==='reserved'?'Opsiyonlu':u.status==='barter'?'Barter':u.status==='owner'?'Arsa sahibi':'Boş';
+    h+='<tr><td style="font-weight:600">'+u.no+'</td><td style="color:var(--t2)">'+b.name+'</td>';
+    h+='<td style="font-weight:500">'+(u.daireType||b.unitType)+'</td>';
+    h+='<td>'+(u.brutM2||'—')+'</td><td>'+(u.netM2||'—')+'</td>';
+    h+='<td style="font-weight:600;color:var(--am)">'+(u.status==='owner'?'—':(u.targetPrice?'₺'+fmt(u.targetPrice):'—'))+'</td>';
+    h+='<td>'+(u.status==='owner'?'<span class="bg" style="'+ownerBg+'">Arsa sahibi</span>':'Firma')+'</td>';
+    h+='<td><span class="bg '+sc+'"'+(u.status==='owner'?' style="'+ownerBg+'"':'')+'>'+sl+'</span></td>';
+    h+='<td>'+(u.customer||'—')+'</td></tr>';
+  })});
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function rMS() {
+  var h='<div class="sts s3">';
+  h+='<div class="st xb"><div class="stl">Toplam müşteri</div><div class="stv" style="color:var(--bl)">'+DB.customers.length+'</div></div>';
+  var totSales=DB.customers.reduce(function(s,c){return s+c.total},0);
+  h+='<div class="st xg"><div class="stl">Toplam satış</div><div class="stv" style="color:var(--gn)">₺'+fmtK(totSales)+'</div></div>';
+  var totRem=DB.customers.reduce(function(s,c){return s+(c.remaining||0)},0);
+  h+='<div class="st xr"><div class="stl">Kalan alacak</div><div class="stv" style="color:var(--rd)">₺'+fmtK(totRem)+'</div></div>';
+  h+='</div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Müşteri listesi</span><span class="cha" onclick="openCustomerModal()">+ Yeni müşteri</span></div>';
+  if(DB.customers.length===0) h+='<div class="empty">Henüz müşteri kaydı yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Müşteri</th><th>İletişim</th><th>Proje / daire</th><th>Toplam</th><th>Ödeme</th><th>Kalan</th><th>İşlem</th></tr></thead><tbody>';
+    DB.customers.forEach(function(c){
+      var contact=c.phone||'';
+      if(c.phone2) contact+=' / '+c.phone2;
+      if(c.email) contact+='<br><span style="color:var(--bl);font-size:10px">'+c.email+'</span>';
+      h+='<tr><td style="font-weight:600">'+c.name+'</td><td style="color:var(--t2);font-size:10.5px">'+contact+'</td>';
+      h+='<td style="color:var(--t2)">'+c.project+' — '+c.unit+'</td>';
+      h+='<td style="font-weight:700">₺'+fmt(c.total)+'</td>';
+      h+='<td><span class="bg bga">'+c.payType+'</span></td>';
+      h+='<td style="color:'+(c.remaining>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
+      h+='<td><button class="btn bo bsm" onclick="openCustomerModal('+c.id+')" style="margin-right:4px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delCust('+c.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// ===== TABLO & GRAFİKLER =====
+function rTG() {
+  if(DB.transactions.length===0 && DB.projects.length===0) return '<div class="empty">Henüz veri girilmedi. Gelir/gider, satış veya proje ekledikçe grafikler burada görünecek.</div>';
+  var h='';
+
+  // --- 1. AYLIK GELİR-GİDER TREND ÇUBUK GRAFİK ---
+  var aylik={};
+  DB.transactions.forEach(function(t){
+    var ay=t.date?t.date.substring(0,7):'Belirsiz';
+    if(!aylik[ay]) aylik[ay]={gelir:0,gider:0,resmiG:0,resmiGd:0};
+    if(t.type==='gelir'){aylik[ay].gelir+=t.total;aylik[ay].resmiG+=t.resmi;}
+    else{aylik[ay].gider+=t.total;aylik[ay].resmiGd+=t.resmi;}
+  });
+  var aylar=Object.keys(aylik).sort();
+  if(aylar.length>0){
+    var maxVal=0;
+    aylar.forEach(function(a){maxVal=Math.max(maxVal,aylik[a].gelir,aylik[a].gider);});
+    h+='<div class="cd"><div class="chd"><span class="cht">Aylık gelir — gider trendi</span></div>';
+    h+='<div style="padding:16px;overflow-x:auto"><div style="display:flex;align-items:flex-end;gap:6px;min-width:'+(aylar.length*70)+'px;height:220px">';
+    aylar.forEach(function(a){
+      var gH=maxVal>0?Math.round(aylik[a].gelir/maxVal*180):0;
+      var eH=maxVal>0?Math.round(aylik[a].gider/maxVal*180):0;
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">';
+      h+='<div style="display:flex;gap:2px;align-items:flex-end;height:180px">';
+      h+='<div style="width:20px;height:'+gH+'px;background:var(--gn);border-radius:3px 3px 0 0" title="Gelir: ₺'+fmt(aylik[a].gelir)+'"></div>';
+      h+='<div style="width:20px;height:'+eH+'px;background:var(--rd);border-radius:3px 3px 0 0" title="Gider: ₺'+fmt(aylik[a].gider)+'"></div>';
+      h+='</div>';
+      h+='<div style="font-size:9px;color:var(--t2);writing-mode:vertical-rl;transform:rotate(180deg);height:30px;overflow:hidden">'+a+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:16px;margin-top:8px;font-size:10px"><span style="color:var(--gn)">■ Gelir</span><span style="color:var(--rd)">■ Gider</span></div>';
+    h+='</div></div>';
+  }
+
+  // --- 2. KATEGORİ BAZLI GİDER DAĞILIMI ---
+  var katGider={};
+  DB.transactions.filter(function(t){return t.type==='gider'}).forEach(function(t){
+    var k=t.category||'Diğer';
+    katGider[k]=(katGider[k]||0)+t.total;
+  });
+  var katKeys=Object.keys(katGider).sort(function(a,b){return katGider[b]-katGider[a]});
+  var topGider=katKeys.reduce(function(s,k){return s+katGider[k]},0);
+  if(katKeys.length>0){
+    var renk=['#EF5350','#FF7043','#FFA726','#FFCA28','#66BB6A','#26A69A','#42A5F5','#5C6BC0','#AB47BC','#EC407A','#78909C','#8D6E63'];
+    h+='<div class="cd"><div class="chd"><span class="cht">Gider dağılımı (kategoriye göre)</span></div>';
+    h+='<div style="padding:16px;display:flex;gap:20px;flex-wrap:wrap">';
+    // Yatay bar grafik
+    h+='<div style="flex:1;min-width:280px">';
+    katKeys.forEach(function(k,i){
+      var pct=topGider>0?Math.round(katGider[k]/topGider*100):0;
+      var c=renk[i%renk.length];
+      h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px"><span style="font-weight:600">'+k+'</span><span style="color:var(--t2)">₺'+fmtK(katGider[k])+' (%'+pct+')</span></div>';
+      h+='<div style="height:14px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px"></div></div></div>';
+    });
+    h+='</div>';
+    h+='</div></div>';
+  }
+
+  // --- 3. KATEGORİ BAZLI GELİR DAĞILIMI ---
+  var katGelir={};
+  DB.transactions.filter(function(t){return t.type==='gelir'}).forEach(function(t){
+    var k=t.category||'Diğer';
+    katGelir[k]=(katGelir[k]||0)+t.total;
+  });
+  var gelirKeys=Object.keys(katGelir).sort(function(a,b){return katGelir[b]-katGelir[a]});
+  var topGelir=gelirKeys.reduce(function(s,k){return s+katGelir[k]},0);
+  if(gelirKeys.length>0){
+    var renkG=['#4CAF50','#66BB6A','#81C784','#A5D6A7','#43A047','#2E7D32','#1B5E20','#00C853','#69F0AE','#B9F6CA'];
+    h+='<div class="cd"><div class="chd"><span class="cht">Gelir dağılımı (kategoriye göre)</span></div>';
+    h+='<div style="padding:16px"><div style="min-width:280px">';
+    gelirKeys.forEach(function(k,i){
+      var pct=topGelir>0?Math.round(katGelir[k]/topGelir*100):0;
+      var c=renkG[i%renkG.length];
+      h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px"><span style="font-weight:600">'+k+'</span><span style="color:var(--t2)">₺'+fmtK(katGelir[k])+' (%'+pct+')</span></div>';
+      h+='<div style="height:14px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px"></div></div></div>';
+    });
+    h+='</div></div></div>';
+  }
+
+  // --- 4. PROJE BAZLI GELİR-GİDER KARŞILAŞTIRMA ---
+  if(DB.projects.length>0){
+    h+='<div class="cd"><div class="chd"><span class="cht">Proje bazlı gelir — gider karşılaştırma</span></div>';
+    h+='<table class="tb"><thead><tr><th>Proje</th><th>Gelir</th><th>Gider</th><th>Net kâr</th><th>Kâr %</th><th>Hedef gelir</th><th>Gerçekleşme %</th></tr></thead><tbody>';
+    DB.projects.forEach(function(p){
+      var pGelir=DB.transactions.filter(function(t){return t.type==='gelir'&&t.project===p.name}).reduce(function(s,t){return s+t.total},0);
+      var pGider=DB.transactions.filter(function(t){return t.type==='gider'&&t.project===p.name}).reduce(function(s,t){return s+t.total},0);
+      var net=pGelir-pGider;
+      var karPct=pGelir>0?Math.round(net/pGelir*100):0;
+      var hedef=targetSalesProject(p.name);
+      var gercek=hedef>0?Math.round(pGelir/hedef*100):0;
+      h+='<tr><td style="font-weight:600">'+p.name+'</td>';
+      h+='<td style="color:var(--gn);font-weight:600">₺'+fmtK(pGelir)+'</td>';
+      h+='<td style="color:var(--rd);font-weight:600">₺'+fmtK(pGider)+'</td>';
+      h+='<td style="font-weight:700;color:'+(net>=0?'var(--gn)':'var(--rd)')+'">₺'+fmtK(net)+'</td>';
+      h+='<td style="font-weight:600">%'+karPct+'</td>';
+      h+='<td style="color:var(--am);font-weight:600">₺'+fmtK(hedef)+'</td>';
+      h+='<td><div style="display:flex;align-items:center;gap:6px"><div class="prg" style="width:80px"><div class="pf" style="width:'+Math.min(gercek,100)+'%;background:'+(gercek>70?'var(--gn)':gercek>40?'var(--am)':'var(--rd)')+'"></div></div><span style="font-weight:700;font-size:11px">%'+gercek+'</span></div></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  // --- 5. BB SATIŞ DURUM DAĞILIMI ---
+  var bbSold=soldBB(),bbFree=freeBB(),bbRsv=rsvBB(),bbBart=barterBB(),bbOwn=ownerBB(),bbTot=totalBB();
+  if(bbTot>0){
+    h+='<div class="cd"><div class="chd"><span class="cht">Bağımsız bölüm durum dağılımı</span></div>';
+    h+='<div style="padding:16px">';
+    // Stacked bar
+    h+='<div style="display:flex;height:32px;border-radius:6px;overflow:hidden;margin-bottom:12px">';
+    if(bbSold-bbBart>0) h+='<div style="flex:'+(bbSold-bbBart)+';background:var(--rd)" title="Satılan: '+(bbSold-bbBart)+'"></div>';
+    if(bbBart>0) h+='<div style="flex:'+bbBart+';background:var(--pr)" title="Barter: '+bbBart+'"></div>';
+    if(bbRsv>0) h+='<div style="flex:'+bbRsv+';background:var(--am)" title="Opsiyonlu: '+bbRsv+'"></div>';
+    if(bbFree>0) h+='<div style="flex:'+bbFree+';background:var(--gn)" title="Boş: '+bbFree+'"></div>';
+    if(bbOwn>0) h+='<div style="flex:'+bbOwn+';background:#78909C" title="Arsa sahibi: '+bbOwn+'"></div>';
+    h+='</div>';
+    h+='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px">';
+    h+='<span style="color:var(--rd)">■ Satılan: '+(bbSold-bbBart)+' (%'+Math.round((bbSold-bbBart)/bbTot*100)+')</span>';
+    h+='<span style="color:var(--pr)">■ Barter: '+bbBart+' (%'+Math.round(bbBart/bbTot*100)+')</span>';
+    h+='<span style="color:var(--am)">■ Opsiyonlu: '+bbRsv+' (%'+Math.round(bbRsv/bbTot*100)+')</span>';
+    h+='<span style="color:var(--gn)">■ Boş: '+bbFree+' (%'+Math.round(bbFree/bbTot*100)+')</span>';
+    h+='<span style="color:#78909C">■ Arsa sahibi: '+bbOwn+' (%'+Math.round(bbOwn/bbTot*100)+')</span>';
+    h+='</div>';
+    // Proje bazlı satış oranları
+    h+='<div style="margin-top:16px">';
+    DB.projects.filter(function(p){return !p.isTaahhut}).forEach(function(p){
+      var pt2=0,ps2=0;
+      p.blocks.forEach(function(b){b.units.forEach(function(u){pt2++;if(u.status==='sold'||u.status==='barter')ps2++})});
+      var pct2=pt2>0?Math.round(ps2/pt2*100):0;
+      h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px"><span style="font-weight:600">'+p.name+'</span><span style="color:var(--t2)">'+ps2+'/'+pt2+' (%'+pct2+')</span></div>';
+      h+='<div style="height:10px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+pct2+'%;background:'+(pct2>70?'var(--gn)':pct2>40?'var(--am)':'var(--rd)')+';border-radius:4px"></div></div></div>';
+    });
+    h+='</div></div></div>';
+  }
+
+  // --- 6. RESMİ vs GAYRİ RESMİ DAĞILIM ---
+  var totResmiG=totalResmiIncome(),totResmiGd=totalResmiExpense();
+  var totGayriG=totalIncome()-totResmiG,totGayriGd=totalExpense()-totResmiGd;
+  if(totalIncome()>0||totalExpense()>0){
+    h+='<div class="cd"><div class="chd"><span class="cht">Resmi — gayri resmi dağılımı</span></div>';
+    h+='<table class="tb"><thead><tr><th></th><th>Toplam</th><th>Resmi</th><th>Gayri resmi</th><th>Resmi oranı</th></tr></thead><tbody>';
+    var ti2=totalIncome(),te2=totalExpense();
+    h+='<tr><td style="font-weight:700;color:var(--gn)">Gelirler</td><td style="font-weight:600">₺'+fmtK(ti2)+'</td><td style="color:var(--bl)">₺'+fmtK(totResmiG)+'</td><td style="color:var(--pr)">₺'+fmtK(totGayriG)+'</td>';
+    h+='<td>%'+(ti2>0?Math.round(totResmiG/ti2*100):0)+'</td></tr>';
+    h+='<tr><td style="font-weight:700;color:var(--rd)">Giderler</td><td style="font-weight:600">₺'+fmtK(te2)+'</td><td style="color:var(--bl)">₺'+fmtK(totResmiGd)+'</td><td style="color:var(--pr)">₺'+fmtK(totGayriGd)+'</td>';
+    h+='<td>%'+(te2>0?Math.round(totResmiGd/te2*100):0)+'</td></tr>';
+    h+='</tbody></table></div>';
+  }
+
+  // --- 7. TAŞERON ÖZET TABLOSU ---
+  if(DB.taserons.length>0){
+    var tsToplam=DB.taserons.reduce(function(s,t){return s+t.total},0);
+    var tsOdenen=DB.taserons.reduce(function(s,t){return s+(t.paid||0)},0);
+    var tsBarter=DB.taserons.reduce(function(s,t){return s+(t.barterVal||0)},0);
+    var tsKalan=tsToplam-tsOdenen-tsBarter;
+    h+='<div class="cd"><div class="chd"><span class="cht">Taşeron ödeme özeti</span></div>';
+    h+='<div style="padding:16px">';
+    h+='<div style="display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:12px">';
+    if(tsOdenen>0) h+='<div style="flex:'+tsOdenen+';background:var(--gn)" title="Ödenen: ₺'+fmt(tsOdenen)+'"></div>';
+    if(tsBarter>0) h+='<div style="flex:'+tsBarter+';background:var(--pr)" title="Barter: ₺'+fmt(tsBarter)+'"></div>';
+    if(tsKalan>0) h+='<div style="flex:'+tsKalan+';background:var(--am)" title="Kalan: ₺'+fmt(tsKalan)+'"></div>';
+    h+='</div>';
+    h+='<div style="display:flex;gap:14px;font-size:11px">';
+    h+='<span style="color:var(--gn)">■ Ödenen: ₺'+fmtK(tsOdenen)+' (%'+Math.round(tsOdenen/tsToplam*100)+')</span>';
+    h+='<span style="color:var(--pr)">■ Barter: ₺'+fmtK(tsBarter)+' (%'+Math.round(tsBarter/tsToplam*100)+')</span>';
+    h+='<span style="color:var(--am)">■ Kalan: ₺'+fmtK(tsKalan)+' (%'+Math.round(tsKalan/tsToplam*100)+')</span>';
+    h+='</div></div></div>';
+  }
+
+  // --- 8. MÜŞTERİ ALACAK ANALİZİ ---
+  if(DB.customers.length>0){
+    var topSatis=DB.customers.reduce(function(s,c){return s+c.total},0);
+    var topTahsil=DB.customers.reduce(function(s,c){return s+(c.total-(c.remaining||0))},0);
+    var topKalan=DB.customers.reduce(function(s,c){return s+(c.remaining||0)},0);
+    h+='<div class="cd"><div class="chd"><span class="cht">Müşteri alacak analizi</span></div>';
+    h+='<div style="padding:16px">';
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">';
+    h+='<div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px"><div style="font-size:10px;color:var(--t2)">Toplam satış</div><div style="font-size:20px;font-weight:800;color:var(--bl)">₺'+fmtK(topSatis)+'</div></div>';
+    h+='<div style="text-align:center;padding:12px;background:var(--gnl);border-radius:8px"><div style="font-size:10px;color:var(--t2)">Tahsil edilen</div><div style="font-size:20px;font-weight:800;color:var(--gn)">₺'+fmtK(topTahsil)+'</div></div>';
+    h+='<div style="text-align:center;padding:12px;background:var(--rdl);border-radius:8px"><div style="font-size:10px;color:var(--t2)">Kalan alacak</div><div style="font-size:20px;font-weight:800;color:var(--rd)">₺'+fmtK(topKalan)+'</div></div>';
+    h+='</div>';
+    h+='<div style="height:14px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+(topSatis>0?Math.round(topTahsil/topSatis*100):0)+'%;background:var(--gn);border-radius:4px"></div></div>';
+    h+='<div style="font-size:10px;color:var(--t2);text-align:center;margin-top:4px">Tahsilat oranı: %'+(topSatis>0?Math.round(topTahsil/topSatis*100):0)+'</div>';
+    h+='</div></div>';
+  }
+
+  // --- 9. BANKA BAKİYELERİ ÖZET ---
+  if(DB.bankaHesaplari && DB.bankaHesaplari.length>0){
+    var topBakiye=DB.bankaHesaplari.reduce(function(s,b){return s+b.bakiye},0);
+    h+='<div class="cd"><div class="chd"><span class="cht">Banka bakiyeleri</span></div>';
+    h+='<div style="padding:16px">';
+    DB.bankaHesaplari.forEach(function(b){
+      var pct=topBakiye>0?Math.round(b.bakiye/topBakiye*100):0;
+      h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="font-weight:600">'+b.banka+' — '+b.hesapAdi+'</span><span style="font-weight:700;color:var(--bl)">₺'+fmt(b.bakiye)+'</span></div>';
+      h+='<div style="height:10px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:var(--bl);border-radius:4px"></div></div></div>';
+    });
+    h+='<div style="text-align:right;font-size:12px;font-weight:700;margin-top:8px;color:var(--bl)">Toplam: ₺'+fmt(topBakiye)+'</div>';
+    h+='</div></div>';
+  }
+
+  // --- 10. PROJE BÜTÇE KULLANIM KARŞILAŞTIRMASI ---
+  var budgetProjs=DB.projects.filter(function(p){return p.budget>0;});
+  if(budgetProjs.length>0){
+    h+='<div class="cd"><div class="chd"><span class="cht">Proje bütçe kullanım durumu</span></div>';
+    h+='<div style="padding:16px">';
+    budgetProjs.forEach(function(p){
+      var pGider=DB.transactions.filter(function(t){return t.type==='gider'&&t.project===p.name}).reduce(function(s,t){return s+t.total},0);
+      var pct3=p.budget>0?Math.round(pGider/p.budget*100):0;
+      var renk3=pct3>90?'var(--rd)':pct3>70?'var(--am)':'var(--gn)';
+      h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px">';
+      h+='<span style="font-weight:600">'+p.name+'</span>';
+      h+='<span style="color:var(--t2)">₺'+fmtK(pGider)+' / ₺'+fmtK(p.budget)+' (%'+pct3+')</span></div>';
+      h+='<div style="height:14px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct3,100)+'%;background:'+renk3+';border-radius:4px"></div></div></div>';
+    });
+    h+='</div></div>';
+  }
+
+  // --- 11. KDV ÖZET ANALİZİ ---
+  var kdvGelir=totalKDVIncome(),kdvGider=totalKDVExpense();
+  if(kdvGelir>0||kdvGider>0){
+    var kdvNet=kdvGelir-kdvGider;
+    h+='<div class="cd"><div class="chd"><span class="cht">KDV analizi</span></div>';
+    h+='<div style="padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
+    h+='<div style="text-align:center;padding:12px;background:var(--gnl);border-radius:8px"><div style="font-size:10px;color:var(--t2)">Hesaplanan KDV (gelir)</div><div style="font-size:18px;font-weight:800;color:var(--gn)">₺'+fmtK(kdvGelir)+'</div></div>';
+    h+='<div style="text-align:center;padding:12px;background:var(--rdl);border-radius:8px"><div style="font-size:10px;color:var(--t2)">İndirilecek KDV (gider)</div><div style="font-size:18px;font-weight:800;color:var(--rd)">₺'+fmtK(kdvGider)+'</div></div>';
+    h+='<div style="text-align:center;padding:12px;background:'+(kdvNet>=0?'#FFF8E1':'var(--gnl)');
+    h+=';border-radius:8px"><div style="font-size:10px;color:var(--t2)">Ödenecek / Devreden KDV</div><div style="font-size:18px;font-weight:800;color:'+(kdvNet>=0?'var(--am)':'var(--gn)')+'">₺'+fmtK(Math.abs(kdvNet))+'</div>';
+    h+='<div style="font-size:9px;color:var(--t2)">'+(kdvNet>=0?'Vergi dairesine ödenecek':'Sonraki aya devreden')+'</div></div>';
+    h+='</div></div>';
+  }
+
+  // --- 12. GENEL ÖZET KARTLARI ---
+  var ti3=totalIncome(),te3=totalExpense(),tgt3=targetSalesTotal();
+  h+='<div class="cd"><div class="chd"><span class="cht">Genel finansal özet</span></div>';
+  h+='<div style="padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">';
+  h+='<div style="text-align:center;padding:14px;background:var(--gnl);border-radius:10px;border:1px solid #C8E6C9"><div style="font-size:10px;color:var(--t2)">Toplam gelir</div><div style="font-size:22px;font-weight:800;color:var(--gn)">₺'+fmtK(ti3)+'</div></div>';
+  h+='<div style="text-align:center;padding:14px;background:var(--rdl);border-radius:10px;border:1px solid #FFCDD2"><div style="font-size:10px;color:var(--t2)">Toplam gider</div><div style="font-size:22px;font-weight:800;color:var(--rd)">₺'+fmtK(te3)+'</div></div>';
+  h+='<div style="text-align:center;padding:14px;background:#E3F2FD;border-radius:10px;border:1px solid #BBDEFB"><div style="font-size:10px;color:var(--t2)">Net kâr</div><div style="font-size:22px;font-weight:800;color:'+(ti3-te3>=0?'var(--bl)':'var(--rd)')+'">₺'+fmtK(ti3-te3)+'</div></div>';
+  h+='<div style="text-align:center;padding:14px;background:#FFF8E1;border-radius:10px;border:1px solid #FFE082"><div style="font-size:10px;color:var(--t2)">Hedef satış geliri</div><div style="font-size:22px;font-weight:800;color:var(--am)">₺'+fmtK(tgt3)+'</div><div style="font-size:9px;color:var(--t2)">Gerçekleşme: %'+(tgt3>0?Math.round(ti3/tgt3*100):0)+'</div></div>';
+  h+='</div></div>';
+
+  return h;
+}
+
+// ===== ÖDEMELER DENGESİ =====
+function rOD() {
+  if(DB.transactions.length===0) return '<div class="empty">Henüz gelir/gider kaydı yok. Kayıt ekledikçe aylık nakit akışı burada görünecek.</div>';
+  var h='';
+
+  // Tüm tarihleri aylara grupla
+  var aylik={};
+  DB.transactions.forEach(function(t){
+    var ay=t.date?t.date.substring(0,7):'Belirsiz';
+    if(!aylik[ay]) aylik[ay]={gelir:0,gider:0,resmiG:0,resmiGd:0,gayriG:0,gayriGd:0,items:[]};
+    if(t.type==='gelir'){
+      aylik[ay].gelir+=t.total;
+      aylik[ay].resmiG+=t.resmi;
+      aylik[ay].gayriG+=(t.total-t.resmi);
+    } else {
+      aylik[ay].gider+=t.total;
+      aylik[ay].resmiGd+=t.resmi;
+      aylik[ay].gayriGd+=(t.total-t.resmi);
+    }
+    aylik[ay].items.push(t);
+  });
+
+  // Gelecek taksitleri de ekle
+  DB.customers.forEach(function(c){
+    if(!c.taksitler) return;
+    c.taksitler.forEach(function(tk){
+      if(tk.paid) return;
+      var ay=tk.date?tk.date.substring(0,7):'Belirsiz';
+      if(!aylik[ay]) aylik[ay]={gelir:0,gider:0,resmiG:0,resmiGd:0,gayriG:0,gayriGd:0,items:[]};
+      aylik[ay].gelir+=tk.amount;
+      aylik[ay].items.push({type:'gelir',desc:'Beklenen taksit — '+c.name+' ('+tk.no+'/'+tk.total+')',total:tk.amount,date:tk.date,isFuture:true});
+    });
+  });
+
+  var aylar=Object.keys(aylik).sort();
+  var ayIsimleri={
+    '01':'Ocak','02':'Şubat','03':'Mart','04':'Nisan','05':'Mayıs','06':'Haziran',
+    '07':'Temmuz','08':'Ağustos','09':'Eylül','10':'Ekim','11':'Kasım','12':'Aralık'
+  };
+
+  // Özet istatistikler
+  var topG=0,topE=0;
+  aylar.forEach(function(a){topG+=aylik[a].gelir;topE+=aylik[a].gider;});
+  var netToplam=topG-topE;
+  var ortG=aylar.length>0?Math.round(topG/aylar.length):0;
+  var ortE=aylar.length>0?Math.round(topE/aylar.length):0;
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xg"><div class="stl">Toplam gelir</div><div class="stv" style="color:var(--gn)">₺'+fmtK(topG)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Toplam gider</div><div class="stv" style="color:var(--rd)">₺'+fmtK(topE)+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Net nakit akışı</div><div class="stv" style="color:'+(netToplam>=0?'var(--gn)':'var(--rd)')+'">₺'+fmtK(netToplam)+'</div></div>';
+  h+='<div class="st" style="border-left:2px solid var(--gn)"><div class="stl">Ort. aylık gelir</div><div class="stv" style="color:var(--gn);font-size:14px">₺'+fmtK(ortG)+'</div></div>';
+  h+='<div class="st" style="border-left:2px solid var(--rd)"><div class="stl">Ort. aylık gider</div><div class="stv" style="color:var(--rd);font-size:14px">₺'+fmtK(ortE)+'</div></div>';
+  h+='</div>';
+
+  // Aylık nakit akışı çubuk grafiği
+  if(aylar.length>0){
+    var maxBar=0;
+    aylar.forEach(function(a){var net2=aylik[a].gelir-aylik[a].gider;maxBar=Math.max(maxBar,Math.abs(net2));});
+    h+='<div class="cd"><div class="chd"><span class="cht">Aylık net nakit akışı</span></div>';
+    h+='<div style="padding:16px;overflow-x:auto"><div style="display:flex;align-items:center;gap:4px;min-width:'+(aylar.length*60)+'px;height:200px;position:relative">';
+    // Sıfır çizgisi
+    h+='<div style="position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--t2);z-index:0"></div>';
+    aylar.forEach(function(a){
+      var net2=aylik[a].gelir-aylik[a].gider;
+      var bH=maxBar>0?Math.round(Math.abs(net2)/maxBar*80):0;
+      var isPos=net2>=0;
+      var ayParts=a.split('-');
+      var ayAdi=ayIsimleri[ayParts[1]]||ayParts[1];
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:200px;position:relative;z-index:1">';
+      if(isPos){
+        h+='<div style="flex:1;display:flex;align-items:flex-end;justify-content:center"><div style="width:28px;height:'+bH+'px;background:var(--gn);border-radius:3px 3px 0 0" title="Fazla: +₺'+fmt(net2)+'"></div></div>';
+        h+='<div style="flex:1"></div>';
+      } else {
+        h+='<div style="flex:1"></div>';
+        h+='<div style="flex:1;display:flex;align-items:flex-start;justify-content:center"><div style="width:28px;height:'+bH+'px;background:var(--rd);border-radius:0 0 3px 3px" title="Açık: -₺'+fmt(Math.abs(net2))+'"></div></div>';
+      }
+      h+='<div style="font-size:8px;color:var(--t2);text-align:center;margin-top:2px">'+ayAdi.substring(0,3)+'<br>'+ayParts[0].substring(2)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:16px;margin-top:4px;font-size:10px"><span style="color:var(--gn)">■ Fazla (gelir > gider)</span><span style="color:var(--rd)">■ Açık (gider > gelir)</span></div>';
+    h+='</div></div>';
+  }
+
+  // Aylık detay tablosu
+  h+='<div class="cd"><div class="chd"><span class="cht">Aylık gelir — gider detay tablosu</span></div>';
+  h+='<table class="tb"><thead><tr><th>Ay</th><th>Gelir</th><th>Gider</th><th>Net</th><th>Durum</th><th>Kümülatif</th></tr></thead><tbody>';
+  var kumulatif=0;
+  aylar.forEach(function(a){
+    var d=aylik[a];
+    var net2=d.gelir-d.gider;
+    kumulatif+=net2;
+    var ayParts=a.split('-');
+    var ayAdi=(ayIsimleri[ayParts[1]]||ayParts[1])+' '+ayParts[0];
+    var durum='';
+    if(net2>0) durum='<span class="bg bgg">₺'+fmtK(net2)+' fazla</span>';
+    else if(net2<0) durum='<span class="bg bgr">₺'+fmtK(Math.abs(net2))+' açık</span>';
+    else durum='<span class="bg">Dengede</span>';
+    h+='<tr>';
+    h+='<td style="font-weight:600">'+ayAdi+'</td>';
+    h+='<td style="color:var(--gn);font-weight:600">₺'+fmtK(d.gelir)+'</td>';
+    h+='<td style="color:var(--rd);font-weight:600">₺'+fmtK(d.gider)+'</td>';
+    h+='<td style="font-weight:700;color:'+(net2>=0?'var(--gn)':'var(--rd)')+'">'+( net2>=0?'+':'')+' ₺'+fmtK(net2)+'</td>';
+    h+='<td>'+durum+'</td>';
+    h+='<td style="font-weight:700;color:'+(kumulatif>=0?'var(--bl)':'var(--rd)')+'">₺'+fmtK(kumulatif)+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Finansman ihtiyacı uyarısı
+  var acikAylar=aylar.filter(function(a){return aylik[a].gelir-aylik[a].gider<0;});
+  if(acikAylar.length>0){
+    var topAcik=acikAylar.reduce(function(s,a){return s+Math.abs(aylik[a].gelir-aylik[a].gider);},0);
+    h+='<div class="warn" style="background:var(--rdl);border-color:var(--rd);color:var(--rd)">';
+    h+='<b>⚠ Finansman ihtiyacı:</b> '+acikAylar.length+' ayda gider geliri aşıyor. Toplam açık: ₺'+fmtK(topAcik)+'. Bu aylarda nakit akışı sağlamak için planlama yapmanız önerilir.';
+    h+='</div>';
+  }
+  var fazlaAylar=aylar.filter(function(a){return aylik[a].gelir-aylik[a].gider>0;});
+  if(fazlaAylar.length>0){
+    var topFazla=fazlaAylar.reduce(function(s,a){return s+(aylik[a].gelir-aylik[a].gider);},0);
+    h+='<div class="warn" style="background:var(--gnl);border-color:var(--gn);color:#2E7D32">';
+    h+='<b>✓ Nakit fazlası:</b> '+fazlaAylar.length+' ayda gelir gideri aşıyor. Toplam fazla: ₺'+fmtK(topFazla)+'.';
+    h+='</div>';
+  }
+
+  return h;
+}
+
+// ===== MALİYET HESAPLAMA MOTORU =====
+var MH_FIYATLAR = [
+  {kod:'III-A', label:'III. Sınıf A — 3 kata kadar konutlar, kreşler, otoparklar', fiyat:19800, aciklama:'Apartman (≤3 kat), kapalı otoparklar, kreşler'},
+  {kod:'III-B', label:'III. Sınıf B — Konutlar (yük. <21.50m, 3 kat üzeri)', fiyat:21050, aciklama:'Konutlar (3 kat üzeri, h≤21.50m), müstakil (<200m²), okullar'},
+  {kod:'III-C', label:'III. Sınıf C — Konutlar (21.50-30.50m), iş mrk., müstakil (200-500m²)', fiyat:23400, aciklama:'Konutlar (h: 21.50-30.50m), iş mrk. (3+ kat), müstakil konut (200-500m²)'},
+  {kod:'IV-A', label:'IV. Sınıf A — Yüksek konut (30.50-51.50m), AVM, üniversite', fiyat:26450, aciklama:'Konutlar (h: 30.50-51.50m), AVM, üniversiteler, büyük spor salonları'},
+  {kod:'IV-B', label:'IV. Sınıf B — Büyük hastaneler, 3 yıldız otel, müstakil (500m²+)', fiyat:33900, aciklama:'Büyük hastaneler, oteller (3★), müstakil konutlar (≥500m²)'},
+  {kod:'IV-C', label:'IV. Sınıf C — Yüksek güvenlikli kamu binaları', fiyat:40500, aciklama:'Yüksek güvenlikli kamu yapıları, özel tesisler'},
+  {kod:'V-A', label:'V. Sınıf A — Karma yapılar, iş mrk. (51.50m+), stadyumlar', fiyat:42350, aciklama:'51.50m üzeri iş merkezleri, karma yapılar (AVM+konut+ofis), stadyumlar'}
+];
+var MH_EK = [
+  {kod:'asansor', label:'Asansör tesisatı', oran:6},
+  {kod:'kalorifer', label:'Kalorifer / klima tesisatı', oran:8},
+  {kod:'sismik', label:'Sismik izolatör sistemi', oran:12},
+  {kod:'cevre', label:'Çevre düzenlemesi / peyzaj', oran:5},
+  {kod:'altyapi', label:'Altyapı (elektrik, su, kanalizasyon)', oran:4},
+  {kod:'zemin', label:'Zemin iyileştirme', oran:6}
+];
+
+function rMH() {
+  var h='<div class="warn" style="background:#E3F2FD;border-color:#90CAF9;color:#1565C0">2026 yılı resmi birim fiyatları (03.02.2026 Resmî Gazete, Sayı: 33157). KDV hariç, %15 genel gider + %10 yüklenici kârı dahildir.</div>';
+
+  // Mevcut projeler için hızlı hesaplama
+  var nonTaahhut = DB.projects.filter(function(p){return !p.isTaahhut;});
+  if(nonTaahhut.length > 0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Mevcut projeleriniz — tahmini maliyet</span></div>';
+    h+='<table class="tb"><thead><tr><th>Proje</th><th>Brüt m²</th><th>Yapı sınıfı</th><th>Birim fiyat</th><th>Baz maliyet</th><th>Ek kalemler</th><th>Tahmini toplam</th><th>İşlem</th></tr></thead><tbody>';
+    nonTaahhut.forEach(function(p) {
+      var sinif = p.mhSinif || 'III-B';
+      var ekler = p.mhEkler || [];
+      var f = MH_FIYATLAR.find(function(x){return x.kod===sinif;});
+      var birimFiyat = f ? f.fiyat : 21050;
+      if(!p.brutM2 || p.brutM2 <= 0) {
+        h+='<tr><td style="font-weight:600">'+p.name+'</td>';
+        h+='<td colspan="5" style="color:var(--rd);font-size:11px">⚠ Brüt m² bilgisi girilmemiş — Şantiyeler sayfasından düzenleyin</td>';
+        h+='<td></td>';
+        h+='<td><button class="btn bp bsm" onclick="openMHEdit('+p.id+')">⚙ Sınıf & ek ayarla</button></td>';
+        h+='</tr>';
+        return;
+      }
+      var bazMaliyet = p.brutM2 * birimFiyat;
+      var ekOran = 0;
+      ekler.forEach(function(e) {
+        var ek = MH_EK.find(function(x){return x.kod===e;});
+        if(ek) ekOran += ek.oran;
+      });
+      var ekTutar = Math.round(bazMaliyet * ekOran / 100);
+      var toplam = bazMaliyet + ekTutar;
+      h+='<tr>';
+      h+='<td style="font-weight:600">'+p.name+'</td>';
+      h+='<td style="font-weight:700">'+fmt(p.brutM2)+' m²</td>';
+      h+='<td style="font-size:11px">'+(p.mhSinif||'<span style="color:var(--am)">varsayılan: III-B</span>')+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmt(birimFiyat)+'/m²</td>';
+      h+='<td>₺'+fmtK(bazMaliyet)+'</td>';
+      h+='<td style="color:var(--am)">'+(ekOran>0?'+%'+ekOran+' (₺'+fmtK(ekTutar)+')':'—')+'</td>';
+      h+='<td style="font-weight:700;color:var(--pr)">₺'+fmtK(toplam)+'</td>';
+      h+='<td><button class="btn bp bsm" onclick="openMHEdit('+p.id+')">⚙ Sınıf & ek ayarla</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  } else if(DB.projects.length > 0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Mevcut projeleriniz — tahmini maliyet</span></div>';
+    h+='<div class="empty">Taahhüt dışı projeniz yok veya henüz proje eklenmedi.</div></div>';
+  }
+
+  // Serbest hesaplama
+  h+='<div class="cd"><div class="chd"><span class="cht">Serbest maliyet hesaplama</span></div>';
+  h+='<div style="padding:16px">';
+  h+='<div class="fr fr3">';
+  h+='<div class="fg"><label class="fl">Brüt inşaat alanı (m²)</label><input class="fi" id="mh-m2" type="number" placeholder="ör: 12000" oninput="mhCalc()"></div>';
+  h+='<div class="fg"><label class="fl">Yapı sınıfı / grubu</label><select class="fi" id="mh-sinif" onchange="mhCalc()">';
+  MH_FIYATLAR.forEach(function(f){ h+='<option value="'+f.kod+'">'+f.label+' — ₺'+fmt(f.fiyat)+'/m²</option>'; });
+  h+='</select></div>';
+  h+='<div class="fg"><label class="fl">Birim fiyat (TL/m²)</label><input class="fi" id="mh-birim" type="number" readonly style="background:#E3F2FD;font-weight:700"></div>';
+  h+='</div>';
+
+  h+='<div style="margin:12px 0 8px;font-size:12px;font-weight:700;color:var(--t1)">Ek maliyet kalemleri</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:8px" id="mh-ekler">';
+  MH_EK.forEach(function(e) {
+    h+='<label style="display:flex;align-items:center;gap:5px;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--b2);cursor:pointer;background:var(--bg)">';
+    h+='<input type="checkbox" value="'+e.kod+'" onchange="mhCalc()"> '+e.label+' (+%'+e.oran+')';
+    h+='</label>';
+  });
+  h+='</div>';
+
+  h+='<div id="mh-result" style="margin-top:16px"></div>';
+  h+='</div></div>';
+
+  // Birim fiyat referans tablosu
+  h+='<div class="cd"><div class="chd"><span class="cht">2026 Yapı Yaklaşık Birim Maliyetleri — Referans Tablosu</span></div>';
+  h+='<table class="tb"><thead><tr><th>Sınıf / Grup</th><th>Birim Fiyat (TL/m²)</th><th>Kapsam</th></tr></thead><tbody>';
+  MH_FIYATLAR.forEach(function(f) {
+    h+='<tr><td style="font-weight:700">'+f.kod+'</td><td style="font-weight:700;color:var(--bl)">₺'+fmt(f.fiyat)+'</td><td style="font-size:11px;color:var(--t2)">'+f.aciklama+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  h+='<div style="padding:10px 14px;font-size:10px;color:var(--t2)">Kaynak: 03.02.2026 Resmî Gazete (Sayı: 33157) — Çevre, Şehircilik ve İklim Değişikliği Bakanlığı tebliği. Arsa bedeli, çevre düzenlemesi ve altyapı giderleri dahil değildir.</div>';
+  h+='</div>';
+
+  return h;
+}
+
+function mhCalc() {
+  var m2 = parseFloat(document.getElementById('mh-m2').value) || 0;
+  var sinif = document.getElementById('mh-sinif').value;
+  var f = MH_FIYATLAR.find(function(x){return x.kod===sinif;});
+  var birimFiyat = f ? f.fiyat : 21050;
+  document.getElementById('mh-birim').value = birimFiyat;
+  var res = document.getElementById('mh-result');
+  if(m2 <= 0) { res.innerHTML = ''; return; }
+
+  var bazMaliyet = m2 * birimFiyat;
+  var ekOran = 0;
+  var ekDetay = [];
+  document.querySelectorAll('#mh-ekler input:checked').forEach(function(cb) {
+    var ek = MH_EK.find(function(x){return x.kod===cb.value;});
+    if(ek) { ekOran += ek.oran; ekDetay.push(ek.label + ' +%' + ek.oran); }
+  });
+  var ekTutar = Math.round(bazMaliyet * ekOran / 100);
+  var toplam = bazMaliyet + ekTutar;
+
+  var rh = '<div style="background:var(--bg);border-radius:10px;padding:16px">';
+  rh += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">';
+  rh += '<div style="text-align:center"><div style="font-size:10px;color:var(--t2)">Baz maliyet</div><div style="font-size:18px;font-weight:800;color:var(--bl)">₺'+fmtK(bazMaliyet)+'</div><div style="font-size:10px;color:var(--t2)">'+fmt(m2)+' m² × ₺'+fmt(birimFiyat)+'</div></div>';
+  rh += '<div style="text-align:center"><div style="font-size:10px;color:var(--t2)">Ek kalemler</div><div style="font-size:18px;font-weight:800;color:var(--am)">₺'+fmtK(ekTutar)+'</div><div style="font-size:10px;color:var(--t2)">+%'+ekOran+'</div></div>';
+  rh += '<div style="text-align:center"><div style="font-size:10px;color:var(--t2)">Tahmini toplam</div><div style="font-size:22px;font-weight:800;color:var(--pr)">₺'+fmtK(toplam)+'</div></div>';
+  rh += '<div style="text-align:center"><div style="font-size:10px;color:var(--t2)">m² toplam maliyet</div><div style="font-size:18px;font-weight:800;color:var(--gn)">₺'+fmt(Math.round(toplam/m2))+'</div></div>';
+  rh += '</div>';
+  if(ekDetay.length > 0) {
+    rh += '<div style="font-size:10px;color:var(--t2)">Ek kalemler: '+ekDetay.join(', ')+'</div>';
+  }
+  rh += '</div>';
+  res.innerHTML = rh;
+}
+
+function openMHEdit(projId) {
+  var p = DB.projects.find(function(x){return x.id===projId;});
+  if(!p) return;
+  var sinifOpts = '';
+  MH_FIYATLAR.forEach(function(f) {
+    sinifOpts += '<option value="'+f.kod+'"'+(p.mhSinif===f.kod?' selected':'')+'>'+f.label+' — ₺'+fmt(f.fiyat)+'/m²</option>';
+  });
+  if(!p.mhSinif) sinifOpts = sinifOpts.replace('value="III-B"','value="III-B" selected');
+
+  var ekCheckboxes = '';
+  MH_EK.forEach(function(e) {
+    var checked = (p.mhEkler||[]).indexOf(e.kod) > -1 ? ' checked' : '';
+    ekCheckboxes += '<label style="display:flex;align-items:center;gap:5px;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--b2);cursor:pointer;background:var(--bg)">';
+    ekCheckboxes += '<input type="checkbox" value="'+e.kod+'"'+checked+'> '+e.label+' (+%'+e.oran+')';
+    ekCheckboxes += '</label>';
+  });
+
+  document.getElementById('m-mh-body').innerHTML =
+    '<input type="hidden" id="mh-edit-id" value="'+projId+'">'+
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">Brüt m²: '+fmt(p.brutM2||0)+' | Bütçe: ₺'+fmtK(p.budget||0)+'</div></div>'+
+    '<div class="fg"><label class="fl">Yapı sınıfı / grubu</label><select class="fi" id="mh-edit-sinif">'+sinifOpts+'</select></div>'+
+    '<div style="margin:10px 0 6px;font-size:12px;font-weight:700;color:var(--t1)">Ek maliyet kalemleri</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px" id="mh-edit-ekler">'+ekCheckboxes+'</div>';
+
+  document.querySelector('#m-mh .mdt').textContent = 'Maliyet sınıfı ayarla — '+p.name;
+  openM('m-mh');
+}
+
+function saveMHEdit() {
+  var projId = parseInt(document.getElementById('mh-edit-id').value);
+  var p = DB.projects.find(function(x){return x.id===projId;});
+  if(!p) return;
+  p.mhSinif = document.getElementById('mh-edit-sinif').value;
+  p.mhEkler = [];
+  document.querySelectorAll('#mh-edit-ekler input:checked').forEach(function(cb) {
+    p.mhEkler.push(cb.value);
+  });
+  save(); closeM('m-mh'); render(); toast('Maliyet ayarları kaydedildi');
+}
+
+function rST() {
+  if(DB.projects.length===0) return '<div class="empty">Önce şantiye ekleyin.</div>';
+  if(curPrj>=DB.projects.length) curPrj=0;
+  var h='<div class="prj-sel">';
+  DB.projects.forEach(function(p,i){ h+='<div class="prj-btn'+(i===curPrj?' on':'')+'" onclick="selPrjS('+i+')">'+p.name+'</div>'; });
+  h+='</div>';
+  var p=DB.projects[curPrj];
+  var pt=0,ps=0,pf=0;
+  p.blocks.forEach(function(b){b.units.forEach(function(u){pt++;if(u.status==='sold'||u.status==='barter')ps++;else if(u.status==='free')pf++})});
+  h+='<div class="sts s5">';
+  h+='<div class="st xb"><div class="stl">Toplam BB</div><div class="stv" style="color:var(--bl)">'+pt+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Satılan</div><div class="stv" style="color:var(--gn)">'+ps+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Kalan boş</div><div class="stv" style="color:var(--rd)">'+pf+'</div></div>';
+  var stTarget=targetSalesProject(p.name);
+  h+='<div class="st" style="border-left:2px solid var(--am)"><div class="stl">Hedef satış geliri</div><div class="stv" style="color:var(--am);font-size:14px">₺'+fmtK(stTarget)+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Satış oranı</div><div class="stv" style="color:var(--am)">%'+(pt>0?Math.round(ps/pt*100):0)+'</div></div>';
+  h+='</div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Satış durumu — '+p.name+'</span></div>';
+  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Tip</th><th>Daire tipi</th><th>m²</th><th>Hedef fiyat</th><th>Durum</th><th>Müşteri</th><th>İşlem</th></tr></thead><tbody>';
+  p.blocks.forEach(function(b,bi){b.units.forEach(function(u,ui){
+    var sc=u.status==='sold'?'bgr':u.status==='reserved'?'bga':u.status==='barter'?'bgp':u.status==='owner'?'':'bgg';
+    var owStyle=u.status==='owner'?'background:#ECEFF1;color:#546E7A':'';
+    var sl=u.status==='sold'?'Satıldı':u.status==='reserved'?'Opsiyonlu':u.status==='barter'?'Barter':u.status==='owner'?'Arsa sahibi':'Boş';
+    var acts='';
+    if(u.status==='free') {
+      acts='<button class="btn bp bsm" onclick="openSellModal('+curPrj+','+bi+','+ui+')">Satış yap</button>';
+    } else if(u.status==='sold'||u.status==='barter'||u.status==='reserved') {
+      acts='<button class="btn bo bsm" onclick="editUnit('+curPrj+','+bi+','+ui+')" style="margin-right:3px">Düzenle</button>';
+      acts+='<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="cancelSale('+curPrj+','+bi+','+ui+')">İptal</button>';
+    } else if(u.status==='owner') {
+      acts='<button class="btn bo bsm" onclick="editUnit('+curPrj+','+bi+','+ui+')">Düzenle</button>';
+    }
+    h+='<tr><td style="font-weight:600">'+u.no+'</td><td style="color:var(--t2)">'+b.name+'</td><td>'+b.unitType+'</td>';
+    h+='<td style="font-size:10.5px">'+(u.daireType||'—')+'</td>';
+    h+='<td style="font-size:10.5px;color:var(--t2)">'+(u.brutM2?u.brutM2+'b/':'')+(u.netM2?u.netM2+'n':'—')+'</td>';
+    h+='<td style="font-weight:600;color:var(--am);font-size:11px">'+(u.status==='owner'?'—':(u.targetPrice?'₺'+fmt(u.targetPrice):'—'))+'</td>';
+    h+='<td><span class="bg '+sc+'"'+(u.status==='owner'?' style="'+owStyle+'"':'')+'>'+sl+'</span></td>';
+    h+='<td>'+(u.customer||'—')+'</td><td>'+acts+'</td></tr>';
+  })});
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function rPGT() {
+  var h='';
+  var totGelir=totalIncome();
+  var genelGider=DB.transactions.filter(function(t){return t.type==='gider'&&(t.project==='Genel'||!t.project)}).reduce(function(s,t){return s+t.total},0);
+  var topBudget=DB.projects.reduce(function(s,p){return s+p.budget},0);
+  var totGider=totalExpense();
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xg"><div class="stl">Toplam gelir</div><div class="stv" style="color:var(--gn)">₺'+fmtK(totGelir)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Toplam gider</div><div class="stv" style="color:var(--rd)">₺'+fmtK(totGider)+'</div></div>';
+  h+='<div class="st xb"><div class="stl">Net kâr</div><div class="stv" style="color:var(--bl)">₺'+fmtK(totGelir-totGider)+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Genel gider</div><div class="stv" style="color:var(--am)">₺'+fmtK(genelGider)+'</div><div class="stc">Bütçe oranıyla dağıtılır</div></div>';
+  h+='<div class="st xt"><div class="stl">Kâr marjı</div><div class="stv" style="color:var(--tl)">'+(totGelir>0?Math.round((totGelir-totGider)/totGelir*100):0)+'%</div></div>';
+  h+='</div>';
+
+  // Proje bazlı gelir-kâr tablosu
+  h+='<div class="cd"><div class="chd"><span class="cht">Şantiye bazlı gelir ve kâr analizi</span></div>';
+  h+='<table class="tb"><thead><tr><th>Şantiye</th><th>Süre</th><th>Gelir</th><th>Direkt gider</th><th>Genel gider payı</th><th>Net kâr</th><th>m² maliyet</th><th>Kâr %</th></tr></thead><tbody>';
+
+  DB.projects.forEach(function(p){
+    var txs=DB.transactions.filter(function(t){return t.project===p.name});
+    var gi=txs.filter(function(t){return t.type==='gelir'}).reduce(function(s,t){return s+t.total},0);
+    var gd=txs.filter(function(t){return t.type==='gider'}).reduce(function(s,t){return s+t.total},0);
+    var genelPay=topBudget>0?Math.round(genelGider*(p.budget/topBudget)):0;
+    var topGider=gd+genelPay;
+    var net=gi-topGider;
+    var margin=gi>0?Math.round(net/gi*100):0;
+    var m2Cost=p.brutM2>0?Math.round(topGider/p.brutM2):0;
+    var sure='—';
+    if(p.dateBaslama&&p.dateBitis){var d1=new Date(p.dateBaslama),d2=new Date(p.dateBitis);sure=Math.round((d2-d1)/(1000*60*60*24*30))+' ay';}
+    else if(p.dateBaslama){var d1=new Date(p.dateBaslama),d2=new Date();sure=Math.round((d2-d1)/(1000*60*60*24*30))+' ay (devam)';}
+    h+='<tr><td style="font-weight:600">'+p.name+'</td>';
+    h+='<td style="font-size:10px;color:var(--t2)">'+sure+'</td>';
+    h+='<td style="color:var(--gn);font-weight:600">₺'+fmtK(gi)+'</td>';
+    h+='<td style="color:var(--rd)">₺'+fmtK(gd)+'</td>';
+    h+='<td style="color:var(--am)">₺'+fmtK(genelPay)+'</td>';
+    h+='<td style="font-weight:700;color:'+(net>=0?'var(--gn)':'var(--rd)')+'">₺'+fmtK(net)+'</td>';
+    h+='<td style="color:var(--tl)">'+(m2Cost>0?'₺'+fmt(m2Cost)+'/m²':'—')+'</td>';
+    h+='<td style="font-weight:700;color:'+(margin>=0?'var(--gn)':'var(--rd)')+'">'+margin+'%</td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Proje seçici
+  h+='<div class="prj-sel" style="margin-top:14px">';
+  DB.projects.forEach(function(p,i){h+='<div class="prj-btn'+(i===curPrj?' on':'')+'" onclick="curPrj='+i+';render()">'+p.name+'</div>'});
+  h+='</div>';
+
+  if(DB.projects.length>0 && curPrj>=0 && curPrj<DB.projects.length) {
+    var sp=DB.projects[curPrj];
+    // Proje bilgi kartı
+    h+='<div class="cd"><div class="chd"><span class="cht">'+sp.name+' — proje bilgileri</span></div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;padding:12px;font-size:11px">';
+    h+='<div><span style="color:var(--t2)">Arsa m²:</span> <b>'+(sp.arsaM2||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Brüt m²:</span> <b>'+(sp.brutM2||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Net m²:</span> <b>'+(sp.netM2||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">BB sayısı:</span> <b>'+(sp.bbCount||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Anlaşma:</span> <b>'+(sp.dateAnlasma||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Ruhsat:</span> <b>'+(sp.dateRuhsat||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Başlama:</span> <b>'+(sp.dateBaslama||'—')+'</b></div>';
+    h+='<div><span style="color:var(--t2)">Bitiş:</span> <b>'+(sp.dateBitis||'—')+'</b></div>';
+    h+='</div></div>';
+
+    // Gelir kayıtları with düzenle
+    var gelirTxs=DB.transactions.filter(function(t){return t.type==='gelir'&&t.project===sp.name}).sort(function(a,b){return b.date.localeCompare(a.date)});
+    h+='<div class="cd"><div class="chd"><span class="cht">'+sp.name+' — gelir kayıtları</span><span class="cha" onclick="openGGModal()">+ Yeni gelir</span></div>';
+    if(gelirTxs.length===0) h+='<div class="empty">Bu projede gelir kaydı yok.</div>';
+    else {
+      h+='<table class="tb"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Kategori</th><th>Toplam</th><th>Resmi</th><th>KDV</th><th>G.Resmi</th><th>İşlem</th></tr></thead><tbody>';
+      gelirTxs.forEach(function(t){
+        h+='<tr><td style="color:var(--t2)">'+t.date+'</td><td style="font-weight:600">'+t.desc+'</td>';
+        h+='<td><span class="bg bga">'+t.category+'</span></td>';
+        h+='<td style="font-weight:700;color:var(--gn)">+₺'+fmt(t.total)+'</td>';
+        h+='<td style="color:var(--bl)">₺'+fmt(t.resmi)+'</td>';
+        h+='<td style="color:var(--tl)">₺'+fmt(t.kdvTutar||0)+'</td>';
+        h+='<td style="color:var(--pr)">₺'+fmt(t.total-t.resmi)+'</td>';
+        h+='<td><button class="btn bo bsm" onclick="editTx('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTx('+t.id+')">✕</span></td></tr>';
+      });
+      h+='</tbody></table>';
+    }
+    h+='</div>';
+  }
+  return h;
+}
+
+function rPGD() {
+  var h='';
+  var genelGider=DB.transactions.filter(function(t){return t.type==='gider'&&(t.project==='Genel'||!t.project)}).reduce(function(s,t){return s+t.total},0);
+  var topBudget=DB.projects.reduce(function(s,p){return s+p.budget},0);
+  var totGider=totalExpense();
+
+  h+='<div class="sts s4">';
+  h+='<div class="st xr"><div class="stl">Toplam gider</div><div class="stv" style="color:var(--rd)">₺'+fmtK(totGider)+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Şirket genel gider</div><div class="stv" style="color:var(--am)">₺'+fmtK(genelGider)+'</div><div class="stc">Bütçe oranıyla dağıtılır</div></div>';
+  var projGider=totGider-genelGider;
+  h+='<div class="st xb"><div class="stl">Şantiye direkt gider</div><div class="stv" style="color:var(--bl)">₺'+fmtK(projGider)+'</div></div>';
+  h+='<div class="st xt"><div class="stl">Ort. m² maliyet</div><div class="stv" style="color:var(--tl)">';
+  var totBrut=DB.projects.reduce(function(s,p){return s+(p.brutM2||0)},0);
+  h+=(totBrut>0?'₺'+fmt(Math.round(totGider/totBrut))+'/m²':'—');
+  h+='</div></div></div>';
+
+  // Proje bazlı gider tablosu
+  h+='<div class="cd"><div class="chd"><span class="cht">Şantiye bazlı gider analizi (genel gider bütçe oranıyla dağıtılmış)</span></div>';
+  h+='<table class="tb"><thead><tr><th>Şantiye</th><th>Bütçe</th><th>Direkt gider</th><th>Genel gider payı</th><th>Toplam gider</th><th>m² maliyet</th><th>Bütçe kullanım</th></tr></thead><tbody>';
+
+  DB.projects.forEach(function(p){
+    var gd=DB.transactions.filter(function(t){return t.type==='gider'&&t.project===p.name}).reduce(function(s,t){return s+t.total},0);
+    var genelPay=topBudget>0?Math.round(genelGider*(p.budget/topBudget)):0;
+    var topG=gd+genelPay;
+    var m2Cost=p.brutM2>0?Math.round(topG/p.brutM2):0;
+    var budgetPct=p.budget>0?Math.round(topG/p.budget*100):0;
+    h+='<tr><td style="font-weight:600">'+p.name+'</td>';
+    h+='<td>₺'+fmtK(p.budget)+'</td>';
+    h+='<td style="color:var(--rd)">₺'+fmtK(gd)+'</td>';
+    h+='<td style="color:var(--am)">₺'+fmtK(genelPay)+'</td>';
+    h+='<td style="color:var(--rd);font-weight:700">₺'+fmtK(topG)+'</td>';
+    h+='<td style="color:var(--tl)">'+(m2Cost>0?'₺'+fmt(m2Cost)+'/m²':'—')+'</td>';
+    h+='<td><div style="display:flex;align-items:center;gap:6px"><div class="prg" style="width:70px"><div class="pf" style="width:'+Math.min(budgetPct,100)+'%;background:'+(budgetPct>90?'var(--rd)':budgetPct>70?'var(--am)':'var(--gn)')+'"></div></div><span style="font-weight:700;font-size:11px;color:'+(budgetPct>90?'var(--rd)':budgetPct>70?'var(--am)':'var(--gn)')+'">%'+budgetPct+'</span></div></td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Proje seçici
+  h+='<div class="prj-sel" style="margin-top:14px">';
+  h+='<div class="prj-btn'+(curPrj===-1?' on':'')+'" onclick="curPrj=-1;render()">Şirket genel</div>';
+  DB.projects.forEach(function(p,i){h+='<div class="prj-btn'+(i===curPrj?' on':'')+'" onclick="curPrj='+i+';render()">'+p.name+'</div>'});
+  h+='</div>';
+
+  // Seçili projenin giderleri
+  var filterProj=curPrj===-1?'Genel':(DB.projects[curPrj]?DB.projects[curPrj].name:'');
+  var giderTxs=DB.transactions.filter(function(t){
+    if(t.type!=='gider') return false;
+    if(curPrj===-1) return !t.project||t.project==='Genel';
+    return t.project===filterProj;
+  }).sort(function(a,b){return b.date.localeCompare(a.date)});
+
+  h+='<div class="cd"><div class="chd"><span class="cht">Gider kayıtları — '+(curPrj===-1?'Şirket genel':filterProj)+'</span><span class="cha" onclick="openGGModal()">+ Yeni gider</span></div>';
+  if(giderTxs.length===0) h+='<div class="empty">Bu '+(curPrj===-1?'kategoride':'projede')+' gider kaydı yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Kategori</th><th>Toplam</th><th>Resmi</th><th>KDV</th><th>G.Resmi</th><th>İşlem</th></tr></thead><tbody>';
+    giderTxs.forEach(function(t){
+      h+='<tr><td style="color:var(--t2)">'+t.date+'</td><td style="font-weight:600">'+t.desc+'</td>';
+      h+='<td><span class="bg bga">'+t.category+'</span></td>';
+      h+='<td style="font-weight:700;color:var(--rd)">₺'+fmt(t.total)+'</td>';
+      h+='<td style="color:var(--bl)">₺'+fmt(t.resmi)+'</td>';
+      h+='<td style="color:var(--tl)">₺'+fmt(t.kdvTutar||0)+'</td>';
+      h+='<td style="color:var(--pr)">₺'+fmt(t.total-t.resmi)+'</td>';
+      h+='<td><button class="btn bo bsm" onclick="editTx('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTx('+t.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function rBanka() {
+  // Toplam bakiye
+  var topBakiye=DB.bankaHesaplari.reduce(function(s,b){return s+b.bakiye},0);
+  var topGiren=DB.bankaHareketleri.filter(function(h){return h.type==='giren'}).reduce(function(s,h){return s+h.amount},0);
+  var topCikan=DB.bankaHareketleri.filter(function(h){return h.type==='cikan'}).reduce(function(s,h){return s+h.amount},0);
+
+  var h='<div class="sts s4">';
+  h+='<div class="st xg"><div class="stl">Toplam bakiye</div><div class="stv" style="color:var(--gn)">₺'+fmtK(topBakiye)+'</div><div class="stc">'+DB.bankaHesaplari.length+' hesap</div></div>';
+  h+='<div class="st xb"><div class="stl">Toplam giren</div><div class="stv" style="color:var(--bl)">₺'+fmtK(topGiren)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Toplam çıkan</div><div class="stv" style="color:var(--rd)">₺'+fmtK(topCikan)+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Net hareket</div><div class="stv" style="color:var(--am)">₺'+fmtK(topGiren-topCikan)+'</div></div>';
+  h+='</div>';
+
+  // Hesap listesi
+  h+='<div class="cd"><div class="chd"><span class="cht">Banka hesapları</span><span class="cha" onclick="openBankaModal()">+ Yeni hesap</span></div>';
+  if(DB.bankaHesaplari.length===0) h+='<div class="empty">Henüz banka hesabı eklenmedi.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Banka</th><th>Hesap adı</th><th>Bakiye</th><th>İşlem</th></tr></thead><tbody>';
+    DB.bankaHesaplari.forEach(function(b){
+      h+='<tr><td style="font-weight:600">'+b.banka+'</td><td>'+b.hesapAdi+'</td>';
+      
+      h+='<td style="font-weight:700;color:'+(b.bakiye>=0?'var(--gn)':'var(--rd)')+'">₺'+fmt(b.bakiye)+'</td>';
+      h+='<td><button class="btn bp bsm" onclick="openBankaHareket('+b.id+')" style="margin-right:3px">Hareket ekle</button>';
+      h+='<button class="btn bo bsm" onclick="editBanka('+b.id+')" style="margin-right:3px">Düzenle</button>';
+      h+='<span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delBanka('+b.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+
+  // Son hareketler
+  var hareketler=DB.bankaHareketleri.slice().reverse().slice(0,20);
+  h+='<div class="cd"><div class="chd"><span class="cht">Son banka hareketleri</span></div>';
+  if(hareketler.length===0) h+='<div class="empty">Henüz hareket yok.</div>';
+  else {
+    h+='<table class="tb"><thead><tr><th>Tarih</th><th>Banka</th><th>Açıklama</th><th>Giren</th><th>Çıkan</th><th>Bakiye sonrası</th><th>Sil</th></tr></thead><tbody>';
+    hareketler.forEach(function(hr){
+      var banka=DB.bankaHesaplari.find(function(b){return b.id===hr.bankaId});
+      var bankaAdi=banka?banka.banka+' — '+banka.hesapAdi:'?';
+      h+='<tr><td style="color:var(--t2)">'+hr.date+'</td><td style="font-size:10.5px">'+bankaAdi+'</td>';
+      h+='<td style="font-weight:600">'+hr.desc+'</td>';
+      h+='<td style="color:var(--gn);font-weight:600">'+(hr.type==='giren'?'₺'+fmt(hr.amount):'—')+'</td>';
+      h+='<td style="color:var(--rd);font-weight:600">'+(hr.type==='cikan'?'₺'+fmt(hr.amount):'—')+'</td>';
+      h+='<td style="font-weight:700">₺'+fmt(hr.bakiyeSonrasi||0)+'</td>';
+      h+='<td><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delBankaHareket('+hr.id+')">✕</span></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function openBankaModal(editId) {
+  var b=editId?DB.bankaHesaplari.find(function(x){return x.id===editId}):null;
+  document.querySelector('#m-banka .mdt').textContent=b?'Hesap düzenle':'Banka hesabı ekle';
+  document.getElementById('m-banka-body').innerHTML=
+    '<input type="hidden" id="bk-edit-id" value="'+(editId||'')+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Banka adı</label><select class="fi" id="bk-banka"><option'+(b&&b.banka==='Ziraat Bankası'?' selected':'')+'>Ziraat Bankası</option><option'+(b&&b.banka==='İş Bankası'?' selected':'')+'>İş Bankası</option><option'+(b&&b.banka==='Garanti BBVA'?' selected':'')+'>Garanti BBVA</option><option'+(b&&b.banka==='Yapı Kredi'?' selected':'')+'>Yapı Kredi</option><option'+(b&&b.banka==='Akbank'?' selected':'')+'>Akbank</option><option'+(b&&b.banka==='Halkbank'?' selected':'')+'>Halkbank</option><option'+(b&&b.banka==='Vakıfbank'?' selected':'')+'>Vakıfbank</option><option'+(b&&b.banka==='QNB Finansbank'?' selected':'')+'>QNB Finansbank</option><option'+(b&&b.banka==='Denizbank'?' selected':'')+'>Denizbank</option><option'+(b&&b.banka==='TEB'?' selected':'')+'>TEB</option><option'+(b&&b.banka==='Diğer'?' selected':'')+'>Diğer</option></select></div><div class="fg"><label class="fl">Hesap adı / açıklama</label><input class="fi" id="bk-ad" placeholder="ör: Şirket TL hesabı" value="'+(b?b.hesapAdi:'')+'"></div></div>'+
+    '<div class="fg"><label class="fl">Mevcut bakiye (₺)</label><input class="fi" id="bk-bakiye" type="number" value="'+(b?b.bakiye:'0')+'"></div>';
+  openM('m-banka');
+}
+
+function editBanka(id) { openBankaModal(id); }
+
+function saveBanka() {
+  var editId=document.getElementById('bk-edit-id').value;
+  var banka=document.getElementById('bk-banka').value;
+  var ad=document.getElementById('bk-ad').value.trim();
+  if(!ad){alert('Hesap adı giriniz');return}
+  var bakiye=parseFloat(document.getElementById('bk-bakiye').value)||0;
+  if(editId) {
+    var b=DB.bankaHesaplari.find(function(x){return x.id===parseInt(editId)});
+    if(b){b.banka=banka;b.hesapAdi=ad;b.bakiye=bakiye;}
+    save(); closeM('m-banka'); render(); toast('Hesap güncellendi');
+  } else {
+    DB.bankaHesaplari.push({id:nid(),banka:banka,hesapAdi:ad,bakiye:bakiye});
+    save(); closeM('m-banka'); render(); toast('Banka hesabı eklendi');
+  }
+}
+
+function openBankaHareket(bankaId) {
+  var b=DB.bankaHesaplari.find(function(x){return x.id===bankaId});
+  if(!b) return;
+  document.getElementById('m-bh-body').innerHTML=
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-size:14px;font-weight:700">'+b.banka+' — '+b.hesapAdi+'</div>'+
+    '<div style="font-size:12px;margin-top:4px">Mevcut bakiye: <span style="font-weight:700;color:'+(b.bakiye>=0?'var(--gn)':'var(--rd)')+'">₺'+fmt(b.bakiye)+'</span></div></div>'+
+    '<input type="hidden" id="bh-banka-id" value="'+bankaId+'">'+
+    '<div class="rgs" id="bh-type"><div class="rgo on" onclick="sRgo(this)">Para girişi</div><div class="rgo" onclick="sRgo(this)">Para çıkışı</div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Tutar (₺)</label><input class="fi" id="bh-amount" type="number" placeholder="ör: 500.000"></div><div class="fg"><label class="fl">Tarih</label><input class="fi" id="bh-date" type="date" value="'+today()+'"></div></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><input class="fi" id="bh-desc" placeholder="ör: Müşteri havalesi, fatura ödemesi"></div>'+
+    '<div class="fg"><label class="fl">İlgili proje (opsiyonel)</label><select class="fi" id="bh-proj"><option value="">Genel</option></select></div>';
+  var projSel=document.getElementById('bh-proj');
+  DB.projects.forEach(function(p){var o=document.createElement('option');o.value=p.name;o.textContent=p.name;projSel.appendChild(o)});
+  openM('m-bh');
+}
+
+function saveBankaHareket() {
+  var bankaId=parseInt(document.getElementById('bh-banka-id').value);
+  var b=DB.bankaHesaplari.find(function(x){return x.id===bankaId});
+  if(!b) return;
+  var amount=parseFloat(document.getElementById('bh-amount').value)||0;
+  if(amount<=0){alert('Tutar giriniz');return}
+  var type=document.querySelector('#bh-type .rgo.on').textContent.indexOf('giriş')>-1?'giren':'cikan';
+  var desc=document.getElementById('bh-desc').value||'Banka hareketi';
+  var date=document.getElementById('bh-date').value;
+  var proj=document.getElementById('bh-proj').value;
+
+  // Update bakiye
+  if(type==='giren') b.bakiye+=amount; else b.bakiye-=amount;
+
+  DB.bankaHareketleri.push({
+    id:nid(), bankaId:bankaId, type:type, amount:amount,
+    desc:desc, date:date, project:proj, bakiyeSonrasi:b.bakiye
+  });
+  save(); closeM('m-bh'); render();
+  toast((type==='giren'?'Giriş':'Çıkış')+' kaydedildi — ₺'+fmt(amount));
+}
+
+function delBanka(id) {
+  if(!confirm('Bu banka hesabını silmek istediğinize emin misiniz?')) return;
+  DB.bankaHesaplari=DB.bankaHesaplari.filter(function(b){return b.id!==id});
+  DB.bankaHareketleri=DB.bankaHareketleri.filter(function(h){return h.bankaId!==id});
+  save(); render(); toast('Banka hesabı silindi');
+}
+
+function delBankaHareket(id) {
+  if(!confirm('Bu hareketi silmek istediğinize emin misiniz? Bakiye geri alınacak.')) return;
+  var hr=DB.bankaHareketleri.find(function(h){return h.id===id});
+  if(hr) {
+    var b=DB.bankaHesaplari.find(function(b){return b.id===hr.bankaId});
+    if(b) { if(hr.type==='giren') b.bakiye-=hr.amount; else b.bakiye+=hr.amount; }
+  }
+  DB.bankaHareketleri=DB.bankaHareketleri.filter(function(h){return h.id!==id});
+  save(); render(); toast('Hareket silindi, bakiye güncellendi');
+}
+
+function rBackup() {
+  var h='<div class="sts s3">';
+  h+='<div class="st xg"><div class="stl">Proje sayısı</div><div class="stv" style="color:var(--gn)">'+DB.projects.length+'</div></div>';
+  h+='<div class="st xb"><div class="stl">İşlem sayısı</div><div class="stv" style="color:var(--bl)">'+DB.transactions.length+'</div></div>';
+  h+='<div class="st xa"><div class="stl">Müşteri sayısı</div><div class="stv" style="color:var(--am)">'+DB.customers.length+'</div></div>';
+  h+='</div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Veri yedekleme</span></div><div style="padding:16px">';
+  h+='<p style="margin-bottom:12px;color:var(--t2);font-size:12px">Tüm verilerinizi bir JSON dosyası olarak bilgisayarınıza kaydedin. Bu dosyayı başka bir bilgisayarda da geri yükleyebilirsiniz.</p>';
+  h+='<button class="btn bp" onclick="exportData()" style="margin-right:8px">↓ Verileri dışa aktar (JSON)</button>';
+  h+='</div></div>';
+  h+='<div class="cd"><div class="chd"><span class="cht">Veri geri yükleme</span></div><div style="padding:16px">';
+  h+='<p style="margin-bottom:12px;color:var(--t2);font-size:12px">Daha önce yedeklediğiniz JSON dosyasını seçerek verilerinizi geri yükleyin.</p>';
+  h+='<input type="file" accept=".json" onchange="importData(event)" style="font-family:inherit;font-size:12px">';
+  h+='</div></div>';
+  h+='<div class="cd" style="border-color:var(--rd)"><div class="chd"><span class="cht" style="color:var(--rd)">Tehlikeli alan</span></div><div style="padding:16px">';
+  h+='<button class="btn" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="if(confirm(\'TÜM VERİLER SİLİNECEK. Emin misiniz?\')){localStorage.removeItem(\'propakt_db\');location.reload()}">Tüm verileri sil</button>';
+  h+='</div></div>';
+  return h;
+}
+
+// ===== MODALS =====
+function openGGModal(editId) {
+  var t = editId ? DB.transactions.find(function(x){return x.id===editId}) : null;
+  var isEdit = !!t;
+  document.querySelector('#m-gg .mdt').textContent = isEdit ? 'Kaydı düzenle' : 'Yeni gelir / gider kaydı';
+
+  var prjOpts='<option value="Genel">Genel (şirket)</option>';
+  DB.projects.forEach(function(p){prjOpts+='<option value="'+p.name+'"'+(t&&t.project===p.name?' selected':'')+'>'+p.name+'</option>'});
+
+  var catOpts='<option>Daire satışı</option><option>Kapora / peşinat</option><option>Taksit tahsilat</option><option>Taahhüt geliri (iş bedeli)</option><option>Hakediş geliri</option><option>Malzeme</option><option>İşçilik</option><option>Taşeron</option><option>SGK / vergi</option><option>Yakıt</option><option>Kira</option><option>Genel yönetim</option><option>Barter</option><option>Diğer</option>';
+
+  document.getElementById('m-gg-body').innerHTML=
+    '<input type="hidden" id="gg-edit-id" value="'+(editId||'')+'">'+
+    '<div class="rgs" id="gg-ty"><div class="rgo'+((!t||t.type==='gelir')?' on':'')+'" onclick="sRgo(this)">Gelir</div><div class="rgo'+((t&&t.type==='gider')?' on':'')+'" onclick="sRgo(this)">Gider</div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Açıklama</label><input class="fi" id="gg-desc" placeholder="ör: Daire satışı A-5" value="'+(t?t.desc:'')+'"></div><div class="fg"><label class="fl">Proje</label><select class="fi" id="gg-proj">'+prjOpts+'</select></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Kategori</label><select class="fi" id="gg-cat">'+catOpts+'</select></div><div class="fg"><label class="fl">Tarih</label><input class="fi" type="date" id="gg-date" value="'+(t?t.date:today())+'"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Tutar + KDV (resmi / gayri resmi)</div>'+
+    '<div class="warn">Gayri resmi kayıtlar sadece bu bilgisayarda saklanır.</div>'+
+    '<div class="fr fr4"><div class="fg"><label class="fl">Toplam tutar (₺)</label><input class="fi" id="gg-tot" type="number" oninput="ggCalc()" value="'+(t?t.total:'')+'"></div><div class="fg"><label class="fl">Resmi tutar (₺)</label><input class="fi" id="gg-res" type="number" oninput="ggCalc()" value="'+(t?t.resmi:'')+'"></div><div class="fg"><label class="fl">Gayri resmi</label><input class="fi" id="gg-gay" readonly style="background:#FFF8E1"></div><div class="fg"><label class="fl">KDV oranı</label><select class="fi" id="gg-kdv" onchange="ggCalc()"><option value="20"'+(t&&t.kdvOran==20?' selected':'')+'>%20</option><option value="10"'+(t&&t.kdvOran==10?' selected':'')+'>%10</option><option value="1"'+(t&&t.kdvOran==1?' selected':'')+'>%1</option><option value="0"'+(t&&t.kdvOran==0?' selected':'')+'>KDV hariç</option></select></div></div>'+
+    '<div class="kdv-box"><div class="sec-t">KDV hesaplaması</div><div class="fr fr3"><div class="fg"><label class="fl">KDV tutarı</label><input class="fi" id="gg-kdvt" readonly style="background:#E0F7FA;font-weight:700;color:var(--tl)"></div><div class="fg"><label class="fl">KDV hariç matrah</label><input class="fi" id="gg-kdvh" readonly style="background:#E0F7FA"></div><div class="fg"><label class="fl">KDV dahil</label><input class="fi" id="gg-kdvd" readonly style="background:#E0F7FA"></div></div><div style="font-size:9px;color:var(--tl);margin-top:2px">KDV sadece resmi tutar üzerinden hesaplanır.</div></div>';
+
+  // Set category and project after DOM is ready
+  if(t) {
+    setTimeout(function(){
+      var catSel=document.getElementById('gg-cat');
+      for(var i=0;i<catSel.options.length;i++){if(catSel.options[i].value===t.category)catSel.selectedIndex=i;}
+      var projSel=document.getElementById('gg-proj');
+      for(var i=0;i<projSel.options.length;i++){if(projSel.options[i].value===(t.project||'Genel'))projSel.selectedIndex=i;}
+      ggCalc();
+    },50);
+  }
+  openM('m-gg');
+}
+
+function editTx(id) { openGGModal(id); }
+
+function ggCalc() {
+  var tot=parseFloat(document.getElementById('gg-tot').value)||0;
+  var res=parseFloat(document.getElementById('gg-res').value)||0;
+  var rate=parseFloat(document.getElementById('gg-kdv').value)||0;
+  document.getElementById('gg-gay').value=Math.max(0,tot-res);
+  var kdv=Math.round(res-(res/(1+rate/100)));
+  if(rate===0) kdv=0;
+  document.getElementById('gg-kdvt').value=fmt(kdv)+' ₺';
+  document.getElementById('gg-kdvh').value=fmt(res-kdv)+' ₺';
+  document.getElementById('gg-kdvd').value=fmt(res)+' ₺';
+}
+
+function saveGG() {
+  var desc=document.getElementById('gg-desc').value.trim();
+  if(!desc){alert('Açıklama giriniz');return}
+  var tot=parseFloat(document.getElementById('gg-tot').value)||0;
+  var res=parseFloat(document.getElementById('gg-res').value)||0;
+  var rate=parseFloat(document.getElementById('gg-kdv').value)||0;
+  var kdv=rate>0?Math.round(res-(res/(1+rate/100))):0;
+  var type=document.querySelector('#gg-ty .rgo.on').textContent.toLowerCase();
+  var editId=document.getElementById('gg-edit-id').value;
+
+  if(editId) {
+    // UPDATE
+    var t=DB.transactions.find(function(x){return x.id===parseInt(editId)});
+    if(t) {
+      t.type=type; t.desc=desc;
+      t.project=document.getElementById('gg-proj').value;
+      t.category=document.getElementById('gg-cat').value||'Genel';
+      t.date=document.getElementById('gg-date').value;
+      t.total=tot; t.resmi=res; t.kdvOran=rate; t.kdvTutar=kdv;
+    }
+    save(); closeM('m-gg'); render(); toast('Kayıt güncellendi');
+    return;
+  }
+
+  // NEW
+  DB.transactions.push({
+    id:nid(), type:type, desc:desc,
+    project:document.getElementById('gg-proj').value,
+    category:document.getElementById('gg-cat').value||'Genel',
+    date:document.getElementById('gg-date').value,
+    total:tot, resmi:res, kdvOran:rate, kdvTutar:kdv
+  });
+  save(); closeM('m-gg'); render(); toast('Kayıt eklendi');
+}
+
+function openSiteModal(editId) {
+  var p = editId ? DB.projects.find(function(x){return x.id===editId}) : null;
+  var isEdit = !!p;
+  document.querySelector('#m-sn .mdt').textContent = isEdit ? 'Şantiye düzenle' : 'Yeni şantiye ekle';
+
+  document.getElementById('m-sn-body').innerHTML=
+    '<input type="hidden" id="sn-edit-id" value="'+(editId||'')+'">'+
+    '<div class="fg"><label class="fl">Proje adı</label><input class="fi" id="sn-name" placeholder="ör: Koru Evleri" value="'+(p?p.name:'')+'"></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Lokasyon</label><input class="fi" id="sn-loc" placeholder="ör: Serdivan, Sakarya" value="'+(p?p.location:'')+'"></div><div class="fg"><label class="fl">Bütçe (₺)</label><input class="fi" id="sn-bud" type="number" placeholder="18500000" value="'+(p?p.budget:'')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Proje tipi</label><select class="fi" id="sn-type" onchange="snTypeChange()">'+(isEdit?
+      '<option'+(p.type==='Konut (satılık daireli)'?' selected':'')+'>Konut (satılık daireli)</option><option'+(p.type==='Konut + Ticari'?' selected':'')+'>Konut + Ticari</option><option'+(p.type==='Ticari'?' selected':'')+'>Ticari</option><option'+(p.type==='Villa (satılık)'?' selected':'')+'>Villa (satılık)</option><option'+((p.isTaahhut||p.type==='Taahhüt / İnşaat işi')?' selected':'')+'>Taahhüt / İnşaat işi</option>'
+      :'<option>Konut (satılık daireli)</option><option>Konut + Ticari</option><option>Ticari</option><option>Villa (satılık)</option><option>Taahhüt / İnşaat işi</option>')+'</select></div><div class="fg"><label class="fl">Durum</label><select class="fi" id="sn-status">'+(isEdit?
+      '<option'+(p.status==='Yeni başlandı'?' selected':'')+'>Yeni başlandı</option><option'+(p.status==='Devam ediyor'?' selected':'')+'>Devam ediyor</option><option'+(p.status==='Teslime yakın'?' selected':'')+'>Teslime yakın</option><option'+(p.status==='Tamamlandı'?' selected':'')+'>Tamamlandı</option>'
+      :'<option>Yeni başlandı</option><option>Devam ediyor</option><option>Teslime yakın</option><option>Tamamlandı</option>')+'</select></div></div>'+
+    '<hr class="sep"><div class="sec-t">Proje tarihleri</div>'+
+    '<div class="fr fr4"><div class="fg"><label class="fl">Anlaşma tarihi</label><input class="fi" type="date" id="sn-date-anlasma" value="'+(p&&p.dateAnlasma||'')+'"></div><div class="fg"><label class="fl">Ruhsat tarihi</label><input class="fi" type="date" id="sn-date-ruhsat" value="'+(p&&p.dateRuhsat||'')+'"></div><div class="fg"><label class="fl">İşe başlama</label><input class="fi" type="date" id="sn-date-baslama" value="'+(p&&p.dateBaslama||'')+'"></div><div class="fg"><label class="fl">Tamamlanma</label><input class="fi" type="date" id="sn-date-bitis" value="'+(p&&p.dateBitis||'')+'"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Proje metraj bilgileri</div>'+
+    '<div class="fr fr4"><div class="fg"><label class="fl">Arsa m²</label><input class="fi" type="number" id="sn-arsa-m2" value="'+(p&&p.arsaM2||'')+'"></div><div class="fg"><label class="fl">Toplam brüt m²</label><input class="fi" type="number" id="sn-brut-m2" value="'+(p&&p.brutM2||'')+'"></div><div class="fg"><label class="fl">Toplam net m²</label><input class="fi" type="number" id="sn-net-m2" value="'+(p&&p.netM2||'')+'"></div><div class="fg"><label class="fl">Toplam BB sayısı</label><input class="fi" type="number" id="sn-bb-count" value="'+(p&&p.bbCount||'')+'"></div></div>'+
+    '<div id="sn-type-detail"></div>';
+
+  if(isEdit && (p.isTaahhut || p.type==='Taahhüt / İnşaat işi')) {
+    // Fill taahhut details
+    snTypeChange();
+    setTimeout(function(){
+      var el;
+      el=document.getElementById('sn-contract-total'); if(el) el.value=p.contractTotal||'';
+      el=document.getElementById('sn-contract-resmi'); if(el) el.value=p.contractResmi||'';
+      el=document.getElementById('sn-contract-client'); if(el) el.value=p.contractClient||'';
+      el=document.getElementById('sn-contract-desc'); if(el) el.value=p.contractDesc||'';
+    },50);
+  } else if(isEdit) {
+    // Show edit info for normal projects (no block re-creation, just basic info edit)
+    var area=document.getElementById('sn-type-detail');
+    area.innerHTML=
+      '<hr class="sep"><div style="background:var(--bll);border:.5px solid #90CAF9;border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:11px;color:var(--bl);font-weight:600">Mevcut bloklar ve bağımsız bölümler korunacaktır.</div>'+
+      '<div style="font-size:10px;color:var(--t2);margin-top:4px">Blok yapısını değiştirmek için: mevcut projeyi silin ve yeniden oluşturun. Veya "Bağımsız bölümler" sayfasından tek tek düzenleme yapın.</div>'+
+      '</div>'+
+      '<div class="sec-t">Mevcut blok özeti</div>';
+    p.blocks.forEach(function(b){
+      var sold=b.units.filter(function(u){return u.status==='sold'||u.status==='barter'}).length;
+      var owner=b.units.filter(function(u){return u.status==='owner'}).length;
+      area.innerHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);border-radius:6px;margin-bottom:4px;font-size:11px"><span style="font-weight:600">'+b.name+' ('+b.units.length+' '+b.unitType+')</span><span style="color:var(--t2)">Satılan: '+sold+' | Arsa sahibi: '+owner+' | Boş: '+(b.units.length-sold-owner)+'</span></div>';
+    });
+  } else {
+    snTypeChange();
+  }
+  openM('m-sn');
+}
+
+function snTypeChange() {
+  var type=document.getElementById('sn-type').value;
+  var area=document.getElementById('sn-type-detail');
+  if(type==='Taahhüt / İnşaat işi') {
+    area.innerHTML=
+      '<hr class="sep"><div class="sec-t">Taahhüt anlaşma bilgileri</div>'+
+      '<div style="background:var(--bll);border:.5px solid #90CAF9;border-radius:8px;padding:12px;margin-bottom:10px">'+
+      '<div style="font-size:10.5px;color:var(--bl);margin-bottom:8px">Bu proje daire satışı yapılmayan bir inşaat taahhüt işidir. Gelir, iş karşılığı alınan ücrettir.</div>'+
+      '<div class="fr fr3">'+
+      '<div class="fg"><label class="fl">Anlaşma tutarı (₺)</label><input class="fi" id="sn-contract-total" type="number" placeholder="Toplam anlaşma bedeli"></div>'+
+      '<div class="fg"><label class="fl">Resmi tutar (₺)</label><input class="fi" id="sn-contract-resmi" type="number" placeholder="Resmi kısım"></div>'+
+      '<div class="fg"><label class="fl">İşveren / müşteri</label><input class="fi" id="sn-contract-client" placeholder="ör: Mehmet Yılmaz"></div>'+
+      '</div>'+
+      '<div class="fg"><label class="fl">İş tanımı</label><input class="fi" id="sn-contract-desc" placeholder="ör: 3 katlı villa inşaatı, anahtar teslim"></div>'+
+      '</div>';
+  } else {
+    area.innerHTML=
+      '<hr class="sep"><div class="sec-t">Blok / bölüm tanımlama</div>'+
+      '<div id="sn-blocks"></div>'+
+      '<button class="btn bo bsm" onclick="addBlockRow()">+ Blok ekle</button>';
+    document.getElementById('sn-blocks').innerHTML='';
+    blkIdx=0;
+    addBlockRow();
+  }
+}
+
+var blkIdx=0;
+function addBlockRow() {
+  blkIdx++;
+  var d=document.createElement('div');
+  d.style.marginBottom='12px';
+  d.innerHTML=
+    '<div style="background:var(--bg);border-radius:8px;padding:10px 12px;border:.5px solid var(--bd)">'+
+    '<div style="font-size:11px;font-weight:700;margin-bottom:8px">Blok / bölüm #'+blkIdx+'</div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Blok adı</label><input class="fi" data-bn="'+blkIdx+'" placeholder="ör: A Blok"></div><div class="fg"><label class="fl">Birim sayısı</label><input class="fi" type="number" data-bc="'+blkIdx+'" placeholder="24"></div><div class="fg"><label class="fl">Birim tipi</label><select class="fi" data-bt="'+blkIdx+'"><option>Daire</option><option>Dükkan</option><option>Ofis</option><option>Villa</option></select></div></div>'+
+    '<div class="fg"><label class="fl">Daire tipleri (virgülle ayırın)</label><input class="fi" data-bdt="'+blkIdx+'" placeholder="ör: 2+1 açık mutfak, 3+1 kapalı mutfak, 4+1 dubleks"></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Brüt m² (varsayılan)</label><input class="fi" type="number" data-bbm="'+blkIdx+'" placeholder="ör: 125"></div><div class="fg"><label class="fl">Net m² (varsayılan)</label><input class="fi" type="number" data-bnm="'+blkIdx+'" placeholder="ör: 95"></div><div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" type="number" data-btp="'+blkIdx+'" placeholder="ör: 5.000.000"></div></div>'+
+    '<div class="fg"><label class="fl">Arsa sahibine ait daireler (numara, virgülle)</label><input class="fi" data-bow="'+blkIdx+'" placeholder="ör: 1,5,10,15 (boş bırakırsanız hepsi size ait)"></div>'+
+    '</div>';
+  document.getElementById('sn-blocks').appendChild(d);
+}
+
+function saveSite() {
+  var name=document.getElementById('sn-name').value.trim();
+  if(!name){alert('Proje adı giriniz');return}
+  var type=document.getElementById('sn-type').value;
+  var editId=document.getElementById('sn-edit-id').value;
+
+  // EDIT MODE
+  if(editId) {
+    var p=DB.projects.find(function(x){return x.id===parseInt(editId)});
+    if(p) {
+      var oldName=p.name;
+      p.name=name;
+      p.location=document.getElementById('sn-loc').value;
+      p.budget=parseFloat(document.getElementById('sn-bud').value)||0;
+      p.type=type;
+      p.status=document.getElementById('sn-status').value;
+
+      // Save dates and metraj
+      p.dateAnlasma=document.getElementById('sn-date-anlasma').value;
+      p.dateRuhsat=document.getElementById('sn-date-ruhsat').value;
+      p.dateBaslama=document.getElementById('sn-date-baslama').value;
+      p.dateBitis=document.getElementById('sn-date-bitis').value;
+      p.arsaM2=parseFloat(document.getElementById('sn-arsa-m2').value)||0;
+      p.brutM2=parseFloat(document.getElementById('sn-brut-m2').value)||0;
+      p.netM2=parseFloat(document.getElementById('sn-net-m2').value)||0;
+      p.bbCount=parseInt(document.getElementById('sn-bb-count').value)||0;
+
+      if(type==='Taahhüt / İnşaat işi') {
+        p.isTaahhut=true;
+        var ct=document.getElementById('sn-contract-total');
+        var cr=document.getElementById('sn-contract-resmi');
+        var cc=document.getElementById('sn-contract-client');
+        var cd=document.getElementById('sn-contract-desc');
+        if(ct) p.contractTotal=parseFloat(ct.value)||0;
+        if(cr) p.contractResmi=parseFloat(cr.value)||0;
+        if(cc) p.contractClient=cc.value;
+        if(cd) p.contractDesc=cd.value;
+      } else {
+        p.isTaahhut=false;
+      }
+
+      // Update project name in transactions, customers, taserons
+      if(oldName!==name) {
+        DB.transactions.forEach(function(t){if(t.project===oldName)t.project=name});
+        DB.customers.forEach(function(c){if(c.project===oldName)c.project=name});
+        DB.taserons.forEach(function(t){if(t.project===oldName)t.project=name});
+      }
+    }
+    save(); closeM('m-sn'); render(); toast(name+' güncellendi');
+    return;
+  }
+
+  // NEW - Taahhüt project
+  if(type==='Taahhüt / İnşaat işi') {
+    DB.projects.push({
+      id:nid(), name:name, location:document.getElementById('sn-loc').value,
+      budget:parseFloat(document.getElementById('sn-bud').value)||0,
+      type:type, status:document.getElementById('sn-status').value,
+      blocks:[], isTaahhut:true,
+      dateAnlasma:document.getElementById('sn-date-anlasma').value,
+      dateRuhsat:document.getElementById('sn-date-ruhsat').value,
+      dateBaslama:document.getElementById('sn-date-baslama').value,
+      dateBitis:document.getElementById('sn-date-bitis').value,
+      arsaM2:parseFloat(document.getElementById('sn-arsa-m2').value)||0,
+      brutM2:parseFloat(document.getElementById('sn-brut-m2').value)||0,
+      netM2:parseFloat(document.getElementById('sn-net-m2').value)||0,
+      bbCount:parseInt(document.getElementById('sn-bb-count').value)||0,
+      contractTotal:parseFloat(document.getElementById('sn-contract-total').value)||0,
+      contractResmi:parseFloat(document.getElementById('sn-contract-resmi').value)||0,
+      contractClient:document.getElementById('sn-contract-client').value,
+      contractDesc:document.getElementById('sn-contract-desc').value
+    });
+    blkIdx=0; save(); closeM('m-sn'); render(); toast(name+' (taahhüt) eklendi');
+    return;
+  }
+
+  // NEW - Normal project with blocks
+  var blocks=[];
+  for(var i=1;i<=blkIdx;i++){
+    var bn=document.querySelector('[data-bn="'+i+'"]');
+    var bc=document.querySelector('[data-bc="'+i+'"]');
+    var bt=document.querySelector('[data-bt="'+i+'"]');
+    var bdt=document.querySelector('[data-bdt="'+i+'"]');
+    var bbm=document.querySelector('[data-bbm="'+i+'"]');
+    var bnm=document.querySelector('[data-bnm="'+i+'"]');
+    var bow=document.querySelector('[data-bow="'+i+'"]');
+    var btp=document.querySelector('[data-btp="'+i+'"]');
+    if(bn&&bc&&bn.value.trim()&&parseInt(bc.value)>0){
+      var cnt=parseInt(bc.value),pfx=bn.value.trim().charAt(0).toUpperCase(),units=[];
+      var daireTypes=(bdt&&bdt.value)?bdt.value.split(',').map(function(s){return s.trim();}):[];
+      var brutM2=parseFloat((bbm&&bbm.value)||0);
+      var netM2=parseFloat((bnm&&bnm.value)||0);
+      var targetPrice=parseFloat((btp&&btp.value)||0);
+      var ownerNums=(bow&&bow.value)?bow.value.split(',').map(function(s){return parseInt(s.trim());}):[];
+      for(var j=1;j<=cnt;j++){
+        var isOwner=ownerNums.indexOf(j)>-1;
+        units.push({
+          no:pfx+'-'+j,
+          status:isOwner?'owner':'free',
+          customer:isOwner?'Arsa sahibi':null,
+          daireType:daireTypes.length>0?daireTypes[(j-1)%daireTypes.length]:'',
+          brutM2:brutM2,
+          netM2:netM2,
+          targetPrice:isOwner?0:targetPrice
+        });
+      }
+      blocks.push({name:bn.value.trim(),unitType:bt.value,units:units});
+    }
+  }
+  if(blocks.length===0){alert('En az bir blok ekleyiniz');return}
+  DB.projects.push({
+    id:nid(), name:name, location:document.getElementById('sn-loc').value,
+    budget:parseFloat(document.getElementById('sn-bud').value)||0,
+    type:type, status:document.getElementById('sn-status').value,
+    blocks:blocks, isTaahhut:false,
+    dateAnlasma:document.getElementById('sn-date-anlasma').value,
+    dateRuhsat:document.getElementById('sn-date-ruhsat').value,
+    dateBaslama:document.getElementById('sn-date-baslama').value,
+    dateBitis:document.getElementById('sn-date-bitis').value,
+    arsaM2:parseFloat(document.getElementById('sn-arsa-m2').value)||0,
+    brutM2:parseFloat(document.getElementById('sn-brut-m2').value)||0,
+    netM2:parseFloat(document.getElementById('sn-net-m2').value)||0,
+    bbCount:parseInt(document.getElementById('sn-bb-count').value)||0
+  });
+  blkIdx=0; save(); closeM('m-sn'); render(); toast(name+' eklendi');
+}
+
+function openTaseronModal() {
+  var prjOpts=''; DB.projects.forEach(function(p){prjOpts+='<option>'+p.name+'</option>'});
+  document.getElementById('m-ts-body').innerHTML=
+    '<div class="fr"><div class="fg"><label class="fl">Taşeron adı</label><input class="fi" id="ts-name" placeholder="ör: Yılmaz Mühendislik"></div><div class="fg"><label class="fl">Şantiye</label><select class="fi" id="ts-proj">'+prjOpts+'</select></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">İş kalemi</label><select class="fi" id="ts-job"><option>Kaba inşaat</option><option>İnce inşaat</option><option>Elektrik tesisat</option><option>Mekanik tesisat</option><option>Boya / sıva</option><option>Alüminyum doğrama</option><option>Çelik konstrüksiyon</option><option>Peyzaj</option><option>Diğer</option></select></div><div class="fg"><label class="fl">Ödeme şekli</label><select class="fi" id="ts-pay" onchange="tsPayChange()"><option>Nakit</option><option>Taksitli</option><option>Barter</option><option>Karma</option></select></div></div>'+
+    '<hr class="sep"><div class="sec-t">Anlaşma tutarı + KDV</div>'+
+    '<div class="fr fr4"><div class="fg"><label class="fl">Toplam anlaşma (₺)</label><input class="fi" id="ts-tot" type="number" oninput="tsCalcTotals()"></div><div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="ts-res" type="number" oninput="tsCalcTotals()"></div><div class="fg"><label class="fl">Gayri resmi</label><input class="fi" id="ts-gay" readonly style="background:#FFF8E1"></div><div class="fg"><label class="fl">KDV %</label><select class="fi" id="ts-kdv"><option value="20">%20</option><option value="10">%10</option><option value="0">Hariç</option></select></div></div>'+
+    '<div id="ts-pay-detail"></div>'+
+    '<div class="fg"><label class="fl">Not</label><textarea class="fi" id="ts-note" placeholder="Ek bilgi, özel şartlar..."></textarea></div>';
+  tsPayChange();
+  openM('m-ts');
+}
+
+function tsPayChange() {
+  var pay = document.getElementById('ts-pay').value;
+  var d = document.getElementById('ts-pay-detail');
+  if (pay === 'Barter') {
+    d.innerHTML =
+      '<hr class="sep"><div class="sec-t">Barter detayları</div>'+
+      '<div style="background:var(--prl);border:.5px solid #CE93D8;border-radius:8px;padding:12px 14px;margin-bottom:10px">'+
+      '<div style="font-size:10px;color:var(--pr);margin-bottom:8px;font-weight:600">Anlaşmanın tamamı barter ile ödenecek</div>'+
+      '<div class="fg"><label class="fl">Barter türü</label><select class="fi" id="ts-barter-type" onchange="tsBarterTypeChange()"><option>Bağımsız bölüm (daire/dükkan)</option><option>Araç</option><option>Arsa / arazi</option><option>Diğer mal</option></select></div>'+
+      '<div id="ts-bb-select-area"></div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Barter açıklaması</label><input class="fi" id="ts-barter-desc" placeholder="ör: Koru Evleri A-5 daire, 120m²"></div><div class="fg"><label class="fl">Barter değeri (₺)</label><input class="fi" id="ts-barter-val" type="number" placeholder="Toplam tutara eşit olmalı" oninput="tsCheckBarter()"></div></div>'+
+      '<div class="fg"><label class="fl">Ek detay (plaka, daire no, marka vs.)</label><input class="fi" id="ts-barter-detail" placeholder="ör: 34 SK 1234 veya B Blok 8 No"></div>'+
+      '<div id="ts-barter-warn"></div>'+
+      '</div>';
+    setTimeout(function(){ tsBarterTypeChange(); }, 50);
+  } else if (pay === 'Karma') {
+    d.innerHTML =
+      '<hr class="sep"><div class="sec-t">Karma ödeme dağılımı (nakit + barter)</div>'+
+      '<div style="background:#E8F5E9;border:.5px solid #A5D6A7;border-radius:8px;padding:12px 14px;margin-bottom:10px">'+
+      '<div style="font-size:11px;font-weight:700;color:#2E7D32;margin-bottom:8px">Nakit / taksit kısmı</div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Nakit tutar (₺)</label><input class="fi" id="ts-cash-val" type="number" placeholder="ör: 2.500.000" oninput="tsCalcKarma()"></div><div class="fg"><label class="fl">Nakit ödeme şekli</label><select class="fi" id="ts-cash-type"><option>Nakit (tek seferde)</option><option>Taksitli</option></select></div></div>'+
+      '</div>'+
+      '<div style="background:var(--prl);border:.5px solid #CE93D8;border-radius:8px;padding:12px 14px;margin-bottom:10px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--pr);margin-bottom:8px">Barter kısmı</div>'+
+      '<div class="fg"><label class="fl">Barter türü</label><select class="fi" id="ts-barter-type" onchange="tsBarterTypeChange()"><option>Bağımsız bölüm (daire/dükkan)</option><option>Araç</option><option>Arsa / arazi</option><option>Diğer mal</option></select></div>'+
+      '<div id="ts-bb-select-area"></div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Barter açıklaması</label><input class="fi" id="ts-barter-desc" placeholder="ör: Koru Evleri A-5 daire, 120m²"></div><div class="fg"><label class="fl">Barter değeri (₺)</label><input class="fi" id="ts-barter-val" type="number" placeholder="ör: 2.500.000" oninput="tsCalcKarma()"></div></div>'+
+      '<div class="fg"><label class="fl">Ek detay (plaka, daire no, marka vs.)</label><input class="fi" id="ts-barter-detail" placeholder="ör: 34 SK 1234 veya B Blok 8 No"></div>'+
+      '</div>'+
+      '<div id="ts-karma-check" style="padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600"></div>';
+    setTimeout(function(){ tsBarterTypeChange(); }, 50);
+  } else if (pay === 'Taksitli') {
+    d.innerHTML =
+      '<hr class="sep"><div class="sec-t">Taksit bilgileri</div>'+
+      '<div class="fr fr3"><div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="ts-taksit-n" type="number" value="4" min="1"></div><div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="ts-taksit-date" type="date" value="'+today()+'"></div><div class="fg"><label class="fl">Aralık</label><select class="fi" id="ts-taksit-period"><option>Aylık</option><option>2 ayda bir</option><option>Haftalık</option></select></div></div>';
+  } else {
+    d.innerHTML = '';
+  }
+}
+
+function tsCalcTotals() {
+  var tot = parseFloat(document.getElementById('ts-tot').value) || 0;
+  var res = parseFloat(document.getElementById('ts-res').value) || 0;
+  document.getElementById('ts-gay').value = Math.max(0, tot - res);
+  tsCalcKarma();
+  tsCheckBarter();
+}
+
+function tsBarterTypeChange() {
+  var bt = document.getElementById('ts-barter-type');
+  if (!bt) return;
+  var bbArea = document.getElementById('ts-bb-select-area');
+  if (!bbArea) return;
+  if (bt.value === 'Bağımsız bölüm (daire/dükkan)') {
+    var prjOpts = '<option value="">— Proje seçin —</option>';
+    DB.projects.forEach(function(p) {
+      if (p.isTaahhut) return;
+      var hasFreeBB = false;
+      p.blocks.forEach(function(b) { b.units.forEach(function(u) { if (u.status === 'free') hasFreeBB = true; }); });
+      if (hasFreeBB) prjOpts += '<option value="' + p.name + '">' + p.name + '</option>';
+    });
+    bbArea.innerHTML =
+      '<div class="fr"><div class="fg"><label class="fl">BB\'nin bulunduğu proje</label><select class="fi" id="ts-bb-proj" onchange="tsBarterProjChange()">' + prjOpts + '</select></div>' +
+      '<div class="fg"><label class="fl">Bağımsız bölüm</label><select class="fi" id="ts-bb-unit" onchange="tsBarterUnitChange()"><option value="">— Önce proje seçin —</option></select></div></div>';
+  } else {
+    bbArea.innerHTML = '';
+    document.getElementById('ts-barter-desc').value = '';
+    document.getElementById('ts-barter-desc').readOnly = false;
+    document.getElementById('ts-barter-detail').value = '';
+    document.getElementById('ts-barter-detail').readOnly = false;
+  }
+}
+
+function tsBarterProjChange() {
+  var projName = document.getElementById('ts-bb-proj').value;
+  var unitSel = document.getElementById('ts-bb-unit');
+  if (!projName) { unitSel.innerHTML = '<option value="">— Önce proje seçin —</option>'; return; }
+  var p = DB.projects.find(function(x) { return x.name === projName; });
+  if (!p) return;
+  var opts = '<option value="">— BB seçin —</option>';
+  p.blocks.forEach(function(b) {
+    b.units.forEach(function(u, ui) {
+      if (u.status === 'free') {
+        var label = b.name + ' — No: ' + u.no;
+        if (u.daireType) label += ' (' + u.daireType + ')';
+        if (u.brutM2) label += ' ' + u.brutM2 + 'm²';
+        opts += '<option value="' + b.name + '|' + ui + '">' + label + '</option>';
+      }
+    });
+  });
+  unitSel.innerHTML = opts;
+}
+
+function tsBarterUnitChange() {
+  var projName = (document.getElementById('ts-bb-proj') || {}).value;
+  var unitVal = (document.getElementById('ts-bb-unit') || {}).value;
+  if (!projName || !unitVal) return;
+  var parts = unitVal.split('|');
+  var blockName = parts[0], unitIdx = parseInt(parts[1]);
+  var p = DB.projects.find(function(x) { return x.name === projName; });
+  if (!p) return;
+  var b = p.blocks.find(function(x) { return x.name === blockName; });
+  if (!b || !b.units[unitIdx]) return;
+  var u = b.units[unitIdx];
+  var desc = projName + ' / ' + blockName + ' — No: ' + u.no;
+  if (u.daireType) desc += ' (' + u.daireType + ')';
+  if (u.brutM2) desc += ' ' + u.brutM2 + 'm²';
+  document.getElementById('ts-barter-desc').value = desc;
+  document.getElementById('ts-barter-desc').readOnly = true;
+  document.getElementById('ts-barter-detail').value = blockName + ' ' + u.no + ' No';
+  document.getElementById('ts-barter-detail').readOnly = true;
+}
+
+function tsMarkBarterBB() {
+  var projName = (document.getElementById('ts-bb-proj') || {}).value;
+  var unitVal = (document.getElementById('ts-bb-unit') || {}).value;
+  if (!projName || !unitVal) return;
+  var parts = unitVal.split('|');
+  var blockName = parts[0], unitIdx = parseInt(parts[1]);
+  var pi = DB.projects.findIndex(function(x) { return x.name === projName; });
+  if (pi < 0) return;
+  var bi = DB.projects[pi].blocks.findIndex(function(x) { return x.name === blockName; });
+  if (bi < 0) return;
+  DB.projects[pi].blocks[bi].units[unitIdx].status = 'barter';
+  DB.projects[pi].blocks[bi].units[unitIdx].customer = document.getElementById('ts-name').value.trim() || 'Taşeron barter';
+}
+
+function tsCheckBarter() {
+  var warnEl = document.getElementById('ts-barter-warn');
+  if (!warnEl) return;
+  var tot = parseFloat(document.getElementById('ts-tot').value) || 0;
+  var bVal = parseFloat(document.getElementById('ts-barter-val').value) || 0;
+  if (bVal > 0 && tot > 0) {
+    if (Math.abs(bVal - tot) < 1) {
+      warnEl.innerHTML = '<div style="color:var(--gn);font-size:11px;font-weight:600;margin-top:6px">Barter değeri = Toplam anlaşma tutarı ✓</div>';
+    } else {
+      warnEl.innerHTML = '<div style="color:var(--rd);font-size:11px;font-weight:600;margin-top:6px">Barter değeri (₺' + fmt(bVal) + ') ≠ Toplam anlaşma (₺' + fmt(tot) + '). Kontrol edin.</div>';
+    }
+  } else { warnEl.innerHTML = ''; }
+}
+
+function tsCalcKarma() {
+  var checkEl = document.getElementById('ts-karma-check');
+  if (!checkEl) return;
+  var tot = parseFloat(document.getElementById('ts-tot').value) || 0;
+  var cashVal = parseFloat(document.getElementById('ts-cash-val').value) || 0;
+  var barterVal = parseFloat(document.getElementById('ts-barter-val').value) || 0;
+  var sum = cashVal + barterVal;
+  if (sum > 0 && tot > 0) {
+    if (Math.abs(sum - tot) < 1) {
+      checkEl.style.background = 'var(--gnl)';
+      checkEl.style.color = 'var(--gn)';
+      checkEl.innerHTML = '✓ Nakit (₺' + fmt(cashVal) + ') + Barter (₺' + fmt(barterVal) + ') = Toplam ₺' + fmt(tot) + ' — Doğru!';
+    } else {
+      checkEl.style.background = 'var(--rdl)';
+      checkEl.style.color = 'var(--rd)';
+      checkEl.innerHTML = '✗ Nakit (₺' + fmt(cashVal) + ') + Barter (₺' + fmt(barterVal) + ') = ₺' + fmt(sum) + ' ≠ Toplam ₺' + fmt(tot) + ' — Fark: ₺' + fmt(Math.abs(tot - sum));
+    }
+  } else { checkEl.innerHTML = ''; checkEl.style.background = 'transparent'; }
+}
+
+function saveTaskeron() {
+  var name=document.getElementById('ts-name').value.trim();
+  if(!name){alert('Taşeron adı giriniz');return}
+  var tot=parseFloat(document.getElementById('ts-tot').value)||0;
+  var res=parseFloat(document.getElementById('ts-res').value)||0;
+  var rate=parseFloat(document.getElementById('ts-kdv').value)||0;
+  var kdv=rate>0?Math.round(res-(res/(1+rate/100))):0;
+  var payType=document.getElementById('ts-pay').value;
+
+  var barterVal=0, barterDesc='', barterDetail='', barterType='', cashVal=0, cashType='';
+
+  if(payType==='Barter') {
+    barterVal=parseFloat(document.getElementById('ts-barter-val').value)||0;
+    barterDesc=document.getElementById('ts-barter-desc').value;
+    barterDetail=document.getElementById('ts-barter-detail').value;
+    barterType=(document.getElementById('ts-barter-type')||{}).value||'';
+    if(Math.abs(barterVal-tot)>1 && tot>0){if(!confirm('Barter değeri (₺'+fmt(barterVal)+') toplam anlaşma tutarından (₺'+fmt(tot)+') farklı. Devam etmek istiyor musunuz?'))return;}
+  } else if(payType==='Karma') {
+    cashVal=parseFloat(document.getElementById('ts-cash-val').value)||0;
+    cashType=(document.getElementById('ts-cash-type')||{}).value||'Nakit';
+    barterVal=parseFloat(document.getElementById('ts-barter-val').value)||0;
+    barterDesc=document.getElementById('ts-barter-desc').value;
+    barterDetail=document.getElementById('ts-barter-detail').value;
+    barterType=(document.getElementById('ts-barter-type')||{}).value||'';
+    var sum=cashVal+barterVal;
+    if(Math.abs(sum-tot)>1 && tot>0){if(!confirm('Nakit (₺'+fmt(cashVal)+') + Barter (₺'+fmt(barterVal)+') = ₺'+fmt(sum)+' ≠ Toplam ₺'+fmt(tot)+'. Devam?'))return;}
+  }
+
+  DB.taserons.push({
+    id:nid(), name:name, project:document.getElementById('ts-proj').value,
+    job:document.getElementById('ts-job').value, payType:payType,
+    total:tot, resmi:res, kdv:kdv, paid:0,
+    cashVal:cashVal, cashType:cashType,
+    barterVal:barterVal, barterDesc:barterDesc, barterDetail:barterDetail, barterType:barterType,
+    barterBBProj:(document.getElementById('ts-bb-proj')||{}).value||'',
+    barterBBUnit:(document.getElementById('ts-bb-unit')||{}).value||'',
+    note:document.getElementById('ts-note').value
+  });
+  // BB seçildiyse barter olarak işaretle
+  if(barterType==='Bağımsız bölüm (daire/dükkan)') { tsMarkBarterBB(); }
+  save(); closeM('m-ts'); render(); toast('Taşeron kaydedildi');
+}
+
+function openCustomerModal(editId) {
+  var prjOpts=''; DB.projects.forEach(function(p){prjOpts+='<option>'+p.name+'</option>'});
+  var c = editId ? DB.customers.find(function(x){return x.id===editId}) : null;
+  var isEdit = !!c;
+  document.querySelector('#m-ms .mdt').textContent = isEdit ? 'Müşteri düzenle' : 'Yeni müşteri / satış';
+  document.getElementById('m-ms-body').innerHTML=
+    '<input type="hidden" id="ms-edit-id" value="'+(editId||'')+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="ms-name" placeholder="ör: Ahmet Yılmaz" value="'+(c?c.name:'')+'"></div><div class="fg"><label class="fl">E-posta</label><input class="fi" id="ms-email" type="email" placeholder="ör: ahmet@email.com" value="'+(c?c.email||'':'')+'"></div></div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Telefon 1</label><input class="fi" id="ms-phone" placeholder="0532 xxx xx xx" value="'+(c?c.phone||'':'')+'"></div><div class="fg"><label class="fl">Telefon 2</label><input class="fi" id="ms-phone2" placeholder="İkinci numara (opsiyonel)" value="'+(c?c.phone2||'':'')+'"></div><div class="fg"><label class="fl">Proje</label><select class="fi" id="ms-proj">'+prjOpts+'</select></div></div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Daire / birim no</label><input class="fi" id="ms-unit" placeholder="ör: A-5" value="'+(c?c.unit||'':'')+'"></div><div class="fg"><label class="fl">Ödeme yöntemi</label><select class="fi" id="ms-pay" onchange="msPayChange()">'+(isEdit?'<option'+(c.payType==='Peşin'?' selected':'')+'>Peşin</option><option'+(c.payType==='Taksitli'?' selected':'')+'>Taksitli</option><option'+(c.payType==='Banka kredisi'?' selected':'')+'>Banka kredisi</option>':'<option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option>')+'</select></div><div class="fg"><label class="fl">KDV oranı</label><select class="fi" id="ms-kdv"><option value="1">%1 (konut)</option><option value="20">%20</option><option value="10">%10</option><option value="0">Hariç</option></select></div></div>'+
+    (isEdit?'':'<hr class="sep"><div class="sec-t">Tutar bilgisi</div><div class="fr fr3"><div class="fg"><label class="fl">Toplam (₺)</label><input class="fi" id="ms-tot" type="number" oninput="msCalcTaksit()"></div><div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="ms-res" type="number"></div><div class="fg"><label class="fl">Kapora / peşinat (₺)</label><input class="fi" id="ms-paid" type="number" value="0" oninput="msCalcTaksit()"></div></div><div id="ms-taksit-area"></div>');
+  if(c && c.project) { var sel=document.getElementById('ms-proj'); for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===c.project)sel.selectedIndex=i;} }
+  openM('m-ms');
+}
+
+function msPayChange() {
+  var pay=document.getElementById('ms-pay').value;
+  var area=document.getElementById('ms-taksit-area');
+  if(!area) return;
+  if(pay==='Taksitli') {
+    area.innerHTML=
+      '<hr class="sep"><div class="sec-t">Taksit planı</div>'+
+      '<div class="fr fr3">'+
+      '<div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="ms-taksit-n" type="number" value="12" min="1" max="120" oninput="msCalcTaksit()"></div>'+
+      '<div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="ms-taksit-date" type="date" value="'+nextMonth()+'"></div>'+
+      '<div class="fg"><label class="fl">Taksit aralığı</label><select class="fi" id="ms-taksit-period"><option value="1">Aylık</option><option value="2">2 ayda bir</option><option value="3">3 ayda bir</option></select></div>'+
+      '</div>'+
+      '<div id="ms-taksit-preview" style="margin-top:8px"></div>'+
+      '<hr class="sep"><div class="sec-t">Ara ödemeler (opsiyonel)</div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-bottom:8px">Taksitlerin dışında yapılacak ara ödemeleri buradan planlayabilirsiniz.</div>'+
+      '<div id="ms-ara-list"></div>'+
+      '<button class="btn bo bsm" onclick="addAraOdemeRow()" style="margin-bottom:8px">+ Ara ödeme ekle</button>'+
+      '<div id="ms-toplam-ozet"></div>';
+    msCalcTaksit();
+  } else {
+    area.innerHTML='';
+  }
+}
+
+var araIdx=0;
+function addAraOdemeRow() {
+  araIdx++;
+  var d=document.createElement('div');
+  d.className='fr fr3';
+  d.style.marginBottom='6px';
+  d.id='ara-row-'+araIdx;
+  d.innerHTML=
+    '<div class="fg"><label class="fl">Ara ödeme tutarı (₺)</label><input class="fi" type="number" data-ara-amount="'+araIdx+'" placeholder="ör: 200.000" oninput="msCalcTaksit()"></div>'+
+    '<div class="fg"><label class="fl">Tarih</label><input class="fi" type="date" data-ara-date="'+araIdx+'" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><div style="display:flex;gap:4px"><input class="fi" data-ara-note="'+araIdx+'" placeholder="ör: 2. ara ödeme" style="flex:1"><button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd);padding:4px 8px" onclick="document.getElementById(\'ara-row-'+araIdx+'\').remove();msCalcTaksit()">✕</button></div></div>';
+  document.getElementById('ms-ara-list').appendChild(d);
+  msCalcTaksit();
+}
+
+function nextMonth() {
+  var d=new Date(); d.setMonth(d.getMonth()+1); d.setDate(1);
+  return d.toISOString().split('T')[0];
+}
+
+function msCalcTaksit() {
+  var prev=document.getElementById('ms-taksit-preview');
+  if(!prev) return;
+  var tot=parseFloat(document.getElementById('ms-tot').value)||0;
+  var paid=parseFloat(document.getElementById('ms-paid').value)||0;
+  var n=parseInt(document.getElementById('ms-taksit-n').value)||1;
+
+  // Ara ödeme toplamı
+  var araTotal=0;
+  document.querySelectorAll('[data-ara-amount]').forEach(function(el){araTotal+=parseFloat(el.value)||0});
+
+  var remaining=tot-paid-araTotal;
+  if(remaining<=0||n<=0){
+    prev.innerHTML=remaining<0?'<div style="color:var(--rd);font-size:11px;font-weight:600;padding:8px">Kapora + ara ödemeler toplamı satış tutarını aşıyor!</div>':'';
+    updateToplamOzet(tot,paid,araTotal,0,n);
+    return;
+  }
+  var perTaksit=Math.round(remaining/n);
+  var startDate=document.getElementById('ms-taksit-date').value;
+  var period=parseInt(document.getElementById('ms-taksit-period').value)||1;
+  var h='<div style="background:var(--bg);border-radius:8px;padding:12px;border:.5px solid var(--bd)">';
+  h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;font-weight:700">Taksit önizleme</span><span style="font-size:11px;color:var(--t2)">Taksit kalan: ₺'+fmt(remaining)+' / '+n+' taksit = ₺'+fmt(perTaksit)+'/ay</span></div>';
+  h+='<div style="max-height:180px;overflow-y:auto"><table class="tb" style="font-size:10.5px"><thead><tr><th>No</th><th>Vade tarihi</th><th>Tutar</th></tr></thead><tbody>';
+  var d=new Date(startDate);
+  for(var i=0;i<n;i++){
+    h+='<tr><td style="font-weight:600">'+(i+1)+'/'+n+'</td><td>'+d.toLocaleDateString('tr-TR')+'</td><td style="font-weight:600">₺'+fmt(perTaksit)+'</td></tr>';
+    d.setMonth(d.getMonth()+period);
+  }
+  h+='</tbody></table></div></div>';
+  prev.innerHTML=h;
+  updateToplamOzet(tot,paid,araTotal,perTaksit,n);
+}
+
+function updateToplamOzet(tot,kapora,araTotal,perTaksit,n) {
+  var ozetEl=document.getElementById('ms-toplam-ozet');
+  if(!ozetEl) return;
+  var taksitTotal=perTaksit*n;
+  var sum=kapora+araTotal+taksitTotal;
+  var ok=Math.abs(sum-tot)<2;
+  ozetEl.innerHTML=
+    '<div style="background:'+(ok?'var(--gnl)':'var(--aml)')+';border:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';border-radius:8px;padding:12px;margin-top:8px">'+
+    '<div style="font-size:12px;font-weight:700;color:'+(ok?'var(--gn)':'var(--amd)')+';margin-bottom:6px">Ödeme planı özeti</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'+
+    '<div>Toplam satış:</div><div style="font-weight:700;text-align:right">₺'+fmt(tot)+'</div>'+
+    '<div>Kapora / peşinat:</div><div style="font-weight:700;text-align:right;color:var(--gn)">₺'+fmt(kapora)+'</div>'+
+    (araTotal>0?'<div>Ara ödemeler ('+document.querySelectorAll('[data-ara-amount]').length+' adet):</div><div style="font-weight:700;text-align:right;color:var(--tl)">₺'+fmt(araTotal)+'</div>':'')+
+    '<div>Taksitler ('+n+' x ₺'+fmt(perTaksit)+'):</div><div style="font-weight:700;text-align:right;color:var(--bl)">₺'+fmt(taksitTotal)+'</div>'+
+    '<div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700">Toplam ödeme:</div><div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700;text-align:right;color:'+(ok?'var(--gn)':'var(--rd)')+'">₺'+fmt(sum)+'</div>'+
+    '</div>'+
+    (ok?'<div style="color:var(--gn);font-weight:600;font-size:11px;margin-top:6px">Kapora + ara ödeme + taksitler = toplam satış tutarı ✓</div>':
+    '<div style="color:var(--rd);font-weight:600;font-size:11px;margin-top:6px">Fark: ₺'+fmt(Math.abs(sum-tot))+' — kontrol edin</div>')+
+    '</div>';
+}
+
+function saveCustomer() {
+  var editId=document.getElementById('ms-edit-id').value;
+  var name=document.getElementById('ms-name').value.trim();
+  if(!name){alert('Müşteri adı giriniz');return}
+
+  if(editId) {
+    // UPDATE existing customer
+    var c=DB.customers.find(function(x){return x.id===parseInt(editId)});
+    if(c) {
+      c.name=name;
+      c.email=document.getElementById('ms-email').value;
+      c.phone=document.getElementById('ms-phone').value;
+      c.phone2=document.getElementById('ms-phone2').value;
+      c.project=document.getElementById('ms-proj').value;
+      c.unit=document.getElementById('ms-unit').value;
+      c.payType=document.getElementById('ms-pay').value;
+    }
+    save(); closeM('m-ms'); render(); toast(name+' güncellendi');
+    return;
+  }
+
+  // NEW customer
+  var tot=parseFloat(document.getElementById('ms-tot').value)||0;
+  var res=parseFloat(document.getElementById('ms-res').value)||0;
+  var paid=parseFloat(document.getElementById('ms-paid').value)||0;
+  var rate=parseFloat(document.getElementById('ms-kdv').value)||0;
+  var kdv=rate>0?Math.round(res-(res/(1+rate/100))):0;
+  var payType=document.getElementById('ms-pay').value;
+
+  var taksitler=[];
+  var araOdemeler=[];
+  if(payType==='Taksitli') {
+    // Collect ara ödemeler
+    document.querySelectorAll('[data-ara-amount]').forEach(function(el){
+      var idx=el.dataset.araAmount;
+      var amount=parseFloat(el.value)||0;
+      var dateEl=document.querySelector('[data-ara-date="'+idx+'"]');
+      var noteEl=document.querySelector('[data-ara-note="'+idx+'"]');
+      if(amount>0) {
+        araOdemeler.push({amount:amount, date:dateEl?dateEl.value:today(), note:noteEl?noteEl.value:'Ara ödeme', resmi:0, paid:false});
+      }
+    });
+    var araTotal=araOdemeler.reduce(function(s,a){return s+a.amount},0);
+
+    var n=parseInt(document.getElementById('ms-taksit-n').value)||1;
+    var startDate=document.getElementById('ms-taksit-date').value;
+    var period=parseInt(document.getElementById('ms-taksit-period').value)||1;
+    var remaining=tot-paid-araTotal;
+    var perTaksit=Math.round(remaining/n);
+    var d=new Date(startDate);
+    for(var i=0;i<n;i++){
+      taksitler.push({no:(i+1),total:n,date:d.toISOString().split('T')[0],amount:perTaksit,paid:false});
+      d.setMonth(d.getMonth()+period);
+    }
+  }
+
+  DB.customers.push({
+    id:nid(), name:name,
+    email:document.getElementById('ms-email').value,
+    phone:document.getElementById('ms-phone').value,
+    phone2:document.getElementById('ms-phone2').value,
+    project:document.getElementById('ms-proj').value, unit:document.getElementById('ms-unit').value,
+    payType:payType,
+    total:tot, resmi:res, kdv:kdv, remaining:tot-paid,
+    kapora:paid, taksitler:taksitler, araOdemeler:araOdemeler
+  });
+  DB.transactions.push({
+    id:nid(), type:'gelir', desc:'Satış — '+name+' ('+document.getElementById('ms-unit').value+')',
+    project:document.getElementById('ms-proj').value, category:'Daire satışı',
+    date:today(), total:tot, resmi:res, kdvOran:rate, kdvTutar:kdv
+  });
+  save(); closeM('m-ms'); render(); toast(name+' kaydedildi');
+}
+
+function openSellModal(pi,bi,ui) {
+  var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
+  document.getElementById('m-sell-body').innerHTML=
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+' — '+b.name+' — '+u.no+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">'+b.unitType+'</div></div>'+
+    '<div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="sl-name"></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Telefon</label><input class="fi" id="sl-phone"></div><div class="fg"><label class="fl">İşlem türü</label><select class="fi" id="sl-pay" onchange="slPayChange()"><option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option><option>Barter olarak ver</option><option>Arsa sahibi olarak işaretle</option></select></div></div>'+
+    '<div class="fr fr3" id="sl-price-row"><div class="fg"><label class="fl">Toplam (₺)</label><input class="fi" id="sl-tot" type="number" oninput="slCalcTaksit()"></div><div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="sl-res" type="number"></div><div class="fg"><label class="fl">KDV %</label><select class="fi" id="sl-kdv"><option value="1">%1</option><option value="20">%20</option><option value="0">Hariç</option></select></div></div>'+
+    '<div class="fg" id="sl-kapora-row"><label class="fl">Kapora / peşinat (₺)</label><input class="fi" id="sl-paid" type="number" value="0" oninput="slCalcTaksit()"></div>'+
+    '<div id="sl-taksit-area"></div>';
+  document.getElementById('m-sell-body').dataset.pi=pi;
+  document.getElementById('m-sell-body').dataset.bi=bi;
+  document.getElementById('m-sell-body').dataset.ui=ui;
+  openM('m-sell');
+}
+
+function slPayChange() {
+  var pay=document.getElementById('sl-pay').value;
+  var area=document.getElementById('sl-taksit-area');
+  // Hide price fields for barter/owner
+  var priceRow=document.getElementById('sl-price-row');
+  var kaporaRow=document.getElementById('sl-kapora-row');
+  if(priceRow) priceRow.style.display=(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle')?'none':'grid';
+  if(kaporaRow) kaporaRow.style.display=(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle')?'none':'block';
+  if(pay==='Arsa sahibi olarak işaretle') {
+    area.innerHTML='<div style="background:#ECEFF1;border-radius:8px;padding:12px;margin-top:8px;font-size:12px;color:#546E7A;font-weight:600">Bu daire arsa sahibine ait olarak işaretlenecek ve satışa kapatılacaktır.</div>';
+    return;
+  }
+  if(pay==='Barter olarak ver') {
+    area.innerHTML='<div style="background:var(--prl);border-radius:8px;padding:12px;margin-top:8px;font-size:12px;color:var(--pr);font-weight:600">Bu daire barter olarak verilecek şekilde işaretlenecektir. Müşteri alanına taşeron/kişi adını yazabilirsiniz.</div>';
+    return;
+  }
+  if(pay==='Taksitli') {
+    area.innerHTML=
+      '<hr class="sep"><div class="sec-t">Taksit planı</div>'+
+      '<div class="fr fr3">'+
+      '<div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="sl-taksit-n" type="number" value="12" min="1" max="120" oninput="slCalcTaksit()"></div>'+
+      '<div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="sl-taksit-date" type="date" value="'+nextMonth()+'"></div>'+
+      '<div class="fg"><label class="fl">Taksit aralığı</label><select class="fi" id="sl-taksit-period"><option value="1">Aylık</option><option value="2">2 ayda bir</option><option value="3">3 ayda bir</option></select></div>'+
+      '</div>'+
+      '<div id="sl-taksit-preview"></div>';
+    slCalcTaksit();
+  } else area.innerHTML='';
+}
+
+function slCalcTaksit() {
+  var prev=document.getElementById('sl-taksit-preview');
+  if(!prev) return;
+  var tot=parseFloat(document.getElementById('sl-tot').value)||0;
+  var paid=parseFloat(document.getElementById('sl-paid').value)||0;
+  var n=parseInt(document.getElementById('sl-taksit-n').value)||1;
+  var remaining=tot-paid;
+  if(remaining<=0||n<=0){prev.innerHTML='';return}
+  var perTaksit=Math.round(remaining/n);
+  var h='<div style="background:var(--bg);border-radius:8px;padding:10px 12px;border:.5px solid var(--bd);margin-top:6px">';
+  h+='<div style="font-size:11px;font-weight:700;margin-bottom:4px">Kapora: ₺'+fmt(paid)+' + '+n+' taksit x ₺'+fmt(perTaksit)+' = ₺'+fmt(paid+perTaksit*n)+'</div>';
+  h+='</div>';
+  prev.innerHTML=h;
+}
+
+function confirmSell() {
+  var body=document.getElementById('m-sell-body');
+  var pi=parseInt(body.dataset.pi),bi=parseInt(body.dataset.bi),ui=parseInt(body.dataset.ui);
+  var payType=document.getElementById('sl-pay').value;
+
+  // Handle barter and owner without requiring customer name
+  if(payType==='Arsa sahibi olarak işaretle') {
+    DB.projects[pi].blocks[bi].units[ui].status='owner';
+    DB.projects[pi].blocks[bi].units[ui].customer='Arsa sahibi';
+    save(); closeM('m-sell'); render(); toast(DB.projects[pi].blocks[bi].units[ui].no+' arsa sahibi olarak işaretlendi');
+    return;
+  }
+  if(payType==='Barter olarak ver') {
+    var name=document.getElementById('sl-name').value.trim()||'Barter';
+    DB.projects[pi].blocks[bi].units[ui].status='barter';
+    DB.projects[pi].blocks[bi].units[ui].customer=name;
+    save(); closeM('m-sell'); render(); toast(DB.projects[pi].blocks[bi].units[ui].no+' barter olarak işaretlendi');
+    return;
+  }
+
+  var name=document.getElementById('sl-name').value.trim();
+  if(!name){alert('Müşteri adı giriniz');return}
+  var tot=parseFloat(document.getElementById('sl-tot').value)||0;
+  var res=parseFloat(document.getElementById('sl-res').value)||0;
+  var rate=parseFloat(document.getElementById('sl-kdv').value)||0;
+  var kdv=rate>0?Math.round(res-(res/(1+rate/100))):0;
+  var paid=parseFloat(document.getElementById('sl-paid').value)||0;
+
+  DB.projects[pi].blocks[bi].units[ui].status='sold';
+  DB.projects[pi].blocks[bi].units[ui].customer=name;
+
+  var taksitler=[];
+  if(payType==='Taksitli') {
+    var n=parseInt(document.getElementById('sl-taksit-n').value)||1;
+    var startDate=document.getElementById('sl-taksit-date').value;
+    var period=parseInt(document.getElementById('sl-taksit-period').value)||1;
+    var remaining=tot-paid;
+    var perTaksit=Math.round(remaining/n);
+    var d=new Date(startDate);
+    for(var i=0;i<n;i++){
+      taksitler.push({no:(i+1),total:n,date:d.toISOString().split('T')[0],amount:perTaksit,paid:false});
+      d.setMonth(d.getMonth()+period);
+    }
+  }
+
+  DB.customers.push({id:nid(),name:name,phone:document.getElementById('sl-phone').value,project:DB.projects[pi].name,unit:DB.projects[pi].blocks[bi].units[ui].no,payType:payType,total:tot,resmi:res,kdv:kdv,remaining:payType==='Peşin'?0:tot-paid,kapora:paid,taksitler:taksitler});
+  DB.transactions.push({id:nid(),type:'gelir',desc:'Satış — '+name,project:DB.projects[pi].name,category:'Daire satışı',date:today(),total:tot,resmi:res,kdvOran:rate,kdvTutar:kdv});
+  save(); closeM('m-sell'); render(); toast('Satış kaydedildi');
+}
+
+function clickUnit(pi,bi,ui) {
+  var u=DB.projects[pi].blocks[bi].units[ui];
+  editUnit(pi,bi,ui);
+}
+
+function editUnit(pi,bi,ui) {
+  var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
+  var statusOpts='<option value="free">Boş</option><option value="sold"'+(u.status==='sold'?' selected':'')+'>Satıldı</option><option value="reserved"'+(u.status==='reserved'?' selected':'')+'>Opsiyonlu</option><option value="barter"'+(u.status==='barter'?' selected':'')+'>Barter</option><option value="owner"'+(u.status==='owner'?' selected':'')+'>Arsa sahibi</option>';
+
+  document.getElementById('m-sell-body').innerHTML=
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+' — '+b.name+' — '+u.no+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">'+b.unitType+(u.daireType?' — '+u.daireType:'')+'</div></div>'+
+    '<input type="hidden" id="eu-pi" value="'+pi+'"><input type="hidden" id="eu-bi" value="'+bi+'"><input type="hidden" id="eu-ui" value="'+ui+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Durum</label><select class="fi" id="eu-status" onchange="euStatusChange()">'+statusOpts+'</select></div><div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="eu-customer" value="'+(u.customer||'')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Daire tipi</label><input class="fi" id="eu-type" value="'+(u.daireType||'')+'" placeholder="ör: 2+1 açık mutfak"></div><div class="fg"><label class="fl">Brüt m²</label><input class="fi" id="eu-brut" type="number" value="'+(u.brutM2||'')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Net m²</label><input class="fi" id="eu-net" type="number" value="'+(u.netM2||'')+'"></div><div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" id="eu-target" type="number" value="'+(u.targetPrice||'')+'"'+(u.status==='owner'?' disabled placeholder="Arsa sahibi — gelir yok"':' placeholder="ör: 5.000.000"')+'></div></div>';
+
+  document.querySelector('#m-sell .mdt').textContent='Bağımsız bölüm düzenle';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveUnitEdit()">Güncelle</button>';
+  openM('m-sell');
+}
+
+function euStatusChange() {
+  var st=document.getElementById('eu-status').value;
+  var custEl=document.getElementById('eu-customer');
+  var targetEl=document.getElementById('eu-target');
+  if(st==='owner') { custEl.value='Arsa sahibi'; if(targetEl){targetEl.value='';targetEl.disabled=true;targetEl.placeholder='Arsa sahibi — gelir yok';} }
+  else if(st==='free') { custEl.value=''; if(targetEl){targetEl.disabled=false;targetEl.placeholder='ör: 5.000.000';} }
+  else { if(targetEl){targetEl.disabled=false;targetEl.placeholder='ör: 5.000.000';} }
+}
+
+function saveUnitEdit() {
+  var pi=parseInt(document.getElementById('eu-pi').value);
+  var bi=parseInt(document.getElementById('eu-bi').value);
+  var ui=parseInt(document.getElementById('eu-ui').value);
+  var u=DB.projects[pi].blocks[bi].units[ui];
+  u.status=document.getElementById('eu-status').value;
+  u.customer=document.getElementById('eu-customer').value||null;
+  u.daireType=document.getElementById('eu-type').value;
+  u.brutM2=parseFloat(document.getElementById('eu-brut').value)||0;
+  u.netM2=parseFloat(document.getElementById('eu-net').value)||0;
+  u.targetPrice=u.status==='owner'?0:parseFloat(document.getElementById('eu-target').value)||0;
+  if(u.status==='owner') u.customer='Arsa sahibi';
+  if(u.status==='free') u.customer=null;
+  // Restore modal for normal sell use
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+  save(); closeM('m-sell'); render(); toast(u.no+' güncellendi');
+}
+
+function cancelSale(pi,bi,ui) {
+  var u=DB.projects[pi].blocks[bi].units[ui];
+  if(!confirm(u.no+' satışını iptal edip daireyi tekrar boşa almak istediğinize emin misiniz?\n\nMüşteri: '+(u.customer||'—')+'\nDurum: '+u.status)) return;
+  u.status='free';
+  u.customer=null;
+  // targetPrice korunur (satış iptal olsa da hedef fiyat kalır)
+  save(); render(); toast(u.no+' satışı iptal edildi — daire tekrar boş');
+}
+
+// ===== DELETE & EDIT =====
+function delTx(id) { if(!confirm('Bu kaydı silmek istediğinize emin misiniz?'))return; DB.transactions=DB.transactions.filter(function(t){return t.id!==id}); save(); render(); toast('Kayıt silindi'); }
+function delTs(id) {
+  if(!confirm('Taşeronu silmek istediğinize emin misiniz?'))return;
+  // Eğer barter BB varsa geri boşa al
+  var t=DB.taserons.find(function(x){return x.id===id});
+  if(t && t.barterBBProj && t.barterBBUnit) {
+    var parts=t.barterBBUnit.split('|');
+    var p=DB.projects.find(function(x){return x.name===t.barterBBProj});
+    if(p) {
+      var b=p.blocks.find(function(x){return x.name===parts[0]});
+      if(b && b.units[parseInt(parts[1])]) {
+        b.units[parseInt(parts[1])].status='free';
+        b.units[parseInt(parts[1])].customer=null;
+      }
+    }
+  }
+  DB.taserons=DB.taserons.filter(function(x){return x.id!==id}); save(); render(); toast('Silindi');
+}
+function delCust(id) { if(!confirm('Müşteriyi silmek istediğinize emin misiniz?'))return; DB.customers=DB.customers.filter(function(c){return c.id!==id}); save(); render(); toast('Silindi'); }
+function delProject(id) { if(!confirm('Bu projeyi ve tüm bağımsız bölümlerini silmek istediğinize emin misiniz?'))return; DB.projects=DB.projects.filter(function(p){return p.id!==id}); save(); render(); toast('Proje silindi'); }
+
+function editTs(id) {
+  var t=DB.taserons.find(function(x){return x.id===id});
+  if(!t) return;
+  var prjOpts=''; DB.projects.forEach(function(p){prjOpts+='<option'+(p.name===t.project?' selected':'')+'>'+p.name+'</option>'});
+  document.querySelector('#m-ts .mdt').textContent='Taşeron düzenle';
+  document.getElementById('m-ts-body').innerHTML=
+    '<input type="hidden" id="ts-edit-id" value="'+id+'">'+
+    '<div class="fr"><div class="fg"><label class="fl">Taşeron adı</label><input class="fi" id="ts-name" value="'+t.name+'"></div><div class="fg"><label class="fl">Şantiye</label><select class="fi" id="ts-proj">'+prjOpts+'</select></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">İş kalemi</label><input class="fi" id="ts-job-edit" value="'+t.job+'"></div><div class="fg"><label class="fl">Ödeme şekli</label><input class="fi" value="'+t.payType+'" readonly style="background:var(--bg)"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Tutarlar</div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Toplam (₺)</label><input class="fi" id="ts-tot" type="number" value="'+t.total+'"></div><div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="ts-res" type="number" value="'+t.resmi+'"></div><div class="fg"><label class="fl">Ödenen (₺)</label><input class="fi" id="ts-paid-edit" type="number" value="'+(t.paid||0)+'"></div></div>'+
+    (t.barterDesc?'<div class="fg"><label class="fl">Barter açıklama</label><input class="fi" id="ts-barter-desc-edit" value="'+(t.barterDesc||'')+'"></div>':'')+ 
+    (t.barterVal?'<div class="fr"><div class="fg"><label class="fl">Barter değeri (₺)</label><input class="fi" id="ts-barter-val-edit" type="number" value="'+(t.barterVal||'')+'"></div><div class="fg"><label class="fl">Barter detay</label><input class="fi" id="ts-barter-detail-edit" value="'+(t.barterDetail||'')+'"></div></div>':'')+
+    '<div class="fg"><label class="fl">Not</label><textarea class="fi" id="ts-note" placeholder="Ek bilgi...">'+(t.note||'')+'</textarea></div>';
+
+  // Override save button for edit
+  document.querySelector('#m-ts .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-ts\')">İptal</button><button class="btn bp" onclick="saveTaskeronEdit()">Güncelle</button>';
+  openM('m-ts');
+}
+
+function saveTaskeronEdit() {
+  var id=parseInt(document.getElementById('ts-edit-id').value);
+  var t=DB.taserons.find(function(x){return x.id===id});
+  if(!t) return;
+  t.name=document.getElementById('ts-name').value.trim();
+  t.project=document.getElementById('ts-proj').value;
+  t.job=document.getElementById('ts-job-edit').value;
+  t.total=parseFloat(document.getElementById('ts-tot').value)||0;
+  t.resmi=parseFloat(document.getElementById('ts-res').value)||0;
+  t.paid=parseFloat(document.getElementById('ts-paid-edit').value)||0;
+  var bd=document.getElementById('ts-barter-desc-edit');
+  if(bd) t.barterDesc=bd.value;
+  var bv=document.getElementById('ts-barter-val-edit');
+  if(bv) t.barterVal=parseFloat(bv.value)||0;
+  var bde=document.getElementById('ts-barter-detail-edit');
+  if(bde) t.barterDetail=bde.value;
+  t.note=document.getElementById('ts-note').value;
+  // Restore save button for new entries
+  document.querySelector('#m-ts .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-ts\')">İptal</button><button class="btn bp" onclick="saveTaskeron()">Kaydet</button>';
+  save(); closeM('m-ts'); render(); toast(t.name+' güncellendi');
+}
+
+// ===== HELPERS =====
+function selPrj(i) { curPrj=i; render(); }
+function selPrjS(i) { curPrj=i; render(); }
+function sRgo(el) { el.parentElement.querySelectorAll('.rgo').forEach(function(e){e.classList.remove('on')}); el.classList.add('on'); }
+
+// ===== BACKUP =====
+function exportData() {
+  var blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='propakt_yedek_'+today()+'.json';
+  a.click();
+  toast('Yedek dosyası indirildi');
+}
+
+function importData(e) {
+  var file=e.target.files[0];
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(ev) {
+    try {
+      var data=JSON.parse(ev.target.result);
+      if(data.projects||data.transactions) {
+        if(confirm('Mevcut veriler yeni verilerle DEĞİŞTİRİLECEK. Emin misiniz?')) {
+          DB=data;
+          save(); render(); toast('Veriler geri yüklendi');
+        }
+      } else alert('Geçersiz dosya formatı');
+    } catch(err) { alert('Dosya okunamadı: '+err.message); }
+  };
+  reader.readAsText(file);
+}
+
+// ===== INIT =====
+load();
+render();
+
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(function(reg) {
+    console.log('SW registered:', reg.scope);
+  }).catch(function(err) {
+    console.log('SW registration failed:', err);
+  });
+}
+
+// ===== PWA INSTALL PROMPT =====
+var deferredPrompt;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredPrompt = e;
+  var installBar = document.getElementById('pwa-install');
+  if (installBar) installBar.style.display = 'flex';
+});
+
+function pwaInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(function(choice) {
+    if (choice.outcome === 'accepted') {
+      toast('Uygulama kuruldu!');
+    }
+    deferredPrompt = null;
+    var installBar = document.getElementById('pwa-install');
+    if (installBar) installBar.style.display = 'none';
+  });
+}
+
+function pwaInstallDismiss() {
+  var installBar = document.getElementById('pwa-install');
+  if (installBar) installBar.style.display = 'none';
+}
+</script>
+</body>
+</html>
