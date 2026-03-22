@@ -3388,8 +3388,8 @@ function loadUsersList() {
         h+='<tr><td style="font-weight:600">'+u.email+'</td>';
         h+='<td>'+(u.displayName||'—')+'</td>';
         h+='<td style="color:var(--t2)">'+dateStr+'</td>';
-        h+='<td><button class="btn bp bsm" onclick="approveUser(''+u.uid+'',''+u.email+'')" style="margin-right:4px">Onayla</button>';
-        h+='<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(''+u.uid+'',''+u.email+'')">Reddet</button></td></tr>';
+        h+='<td><button class="btn bp bsm" onclick="approveUser(\x27'+u.uid+'\x27,\x27'+u.email+'\x27)" style="margin-right:4px">Onayla</button>';
+        h+='<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(\x27'+u.uid+'\x27,\x27'+u.email+'\x27)">Reddet</button></td></tr>';
       });
       h+='</tbody></table></div>';
     }
@@ -3405,7 +3405,7 @@ function loadUsersList() {
         h+='<td>'+(u.displayName||'—')+'</td>';
         h+='<td><span class="bg bgg">'+(u.role||'user')+'</span></td>';
         h+='<td style="color:var(--t2)">'+dateStr+'</td>';
-        h+='<td>'+(isMe?'—':'<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(''+u.uid+'',''+u.email+'')">Kaldır</button>')+'</td></tr>';
+        h+='<td>'+(isMe?'—':'<button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="rejectUser(\x27'+u.uid+'\x27,\x27'+u.email+'\x27)">Kaldır</button>')+'</td></tr>';
       });
       h+='</tbody></table></div>';
     }
@@ -3417,7 +3417,7 @@ function loadUsersList() {
       rejected.forEach(function(u){
         h+='<tr><td style="font-weight:600">'+u.email+'</td>';
         h+='<td>'+(u.displayName||'—')+'</td>';
-        h+='<td><button class="btn bp bsm" onclick="approveUser(''+u.uid+'',''+u.email+'')">Tekrar onayla</button></td></tr>';
+        h+='<td><button class="btn bp bsm" onclick="approveUser(\x27'+u.uid+'\x27,\x27'+u.email+'\x27)">Tekrar onayla</button></td></tr>';
       });
       h+='</tbody></table></div>';
     }
