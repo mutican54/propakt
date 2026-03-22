@@ -10,8 +10,11 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>Propakt Group — İnşaat Yönetim Sistemi v16</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v17</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--nv:#0F1B2D;--nvl:#1A2942;--nvm:#243656;--am:#E8850C;--aml:#FFF3E0;--amd:#C66F00;--gn:#0D9461;--gnl:#E8F8F0;--rd:#C42B2B;--rdl:#FDF0F0;--bl:#1565C0;--bll:#E8F1FC;--pr:#7B1FA2;--prl:#F3E5F5;--tl:#00838F;--tll:#E0F7FA;--bg:#F4F3F0;--card:#FFF;--t1:#0F1B2D;--t2:#5C6A7E;--t3:#9CA5B4;--bd:#E4E7EC;--bl2:#F0F1F3}
@@ -118,6 +121,24 @@ textarea.fi{resize:vertical;min-height:50px}
 .prj-btn{padding:6px 16px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:.5px solid var(--bd);background:#fff;color:var(--t2);transition:.12s}
 .prj-btn.on{background:var(--nv);color:#fff;border-color:var(--nv)}
 .prj-btn:hover:not(.on){border-color:var(--am)}
+.login-screen{position:fixed;inset:0;background:var(--nv);z-index:5000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.login-box{background:#fff;border-radius:16px;padding:40px 36px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.login-box h2{font-size:22px;font-weight:700;color:var(--nv);margin-bottom:4px}
+.login-box p{font-size:12px;color:var(--t2);margin-bottom:20px}
+.login-box .fg{margin-bottom:12px}
+.login-box .fi{width:100%;padding:10px 12px;font-size:13px}
+.login-btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px;transition:.15s}
+.login-btn-primary{background:var(--am);color:#fff}.login-btn-primary:hover{background:var(--amd)}
+.login-btn-secondary{background:var(--bg);color:var(--t1);border:1px solid var(--bd);margin-top:8px}.login-btn-secondary:hover{background:var(--bd)}
+.login-err{background:var(--rdl);color:var(--rd);padding:8px 12px;border-radius:7px;font-size:11px;margin-bottom:10px;display:none}
+.login-tabs{display:flex;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid var(--bd)}
+.login-tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--t2);transition:.15s}
+.login-tab.on{background:var(--nv);color:#fff}
+.sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:600}
+.sync-on{background:#E8F8F0;color:#0D9461}
+.sync-off{background:#FDF0F0;color:#C42B2B}
+.user-bar{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t3);padding:6px 14px;border-top:1px solid rgba(255,255,255,.07)}
+.user-bar span{opacity:.7}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--nv);color:#fff;padding:12px 20px;border-radius:9px;font-size:12px;font-weight:600;z-index:2000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.2);animation:slideUp .3s ease}
 @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
@@ -160,7 +181,25 @@ textarea.fi{resize:vertical;min-height:50px}
   .prj-btn{padding:5px 10px;font-size:10px}
   .leg{gap:8px;padding:6px 0;flex-wrap:wrap}
   .leg span{font-size:9px}
-  .toast{bottom:10px;right:10px;left:10px;text-align:center;font-size:11px}
+  .login-screen{position:fixed;inset:0;background:var(--nv);z-index:5000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.login-box{background:#fff;border-radius:16px;padding:40px 36px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.login-box h2{font-size:22px;font-weight:700;color:var(--nv);margin-bottom:4px}
+.login-box p{font-size:12px;color:var(--t2);margin-bottom:20px}
+.login-box .fg{margin-bottom:12px}
+.login-box .fi{width:100%;padding:10px 12px;font-size:13px}
+.login-btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px;transition:.15s}
+.login-btn-primary{background:var(--am);color:#fff}.login-btn-primary:hover{background:var(--amd)}
+.login-btn-secondary{background:var(--bg);color:var(--t1);border:1px solid var(--bd);margin-top:8px}.login-btn-secondary:hover{background:var(--bd)}
+.login-err{background:var(--rdl);color:var(--rd);padding:8px 12px;border-radius:7px;font-size:11px;margin-bottom:10px;display:none}
+.login-tabs{display:flex;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid var(--bd)}
+.login-tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--t2);transition:.15s}
+.login-tab.on{background:var(--nv);color:#fff}
+.sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:600}
+.sync-on{background:#E8F8F0;color:#0D9461}
+.sync-off{background:#FDF0F0;color:#C42B2B}
+.user-bar{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t3);padding:6px 14px;border-top:1px solid rgba(255,255,255,.07)}
+.user-bar span{opacity:.7}
+.toast{bottom:10px;right:10px;left:10px;text-align:center;font-size:11px}
   .warn{font-size:10px;padding:8px 10px}
 }
 @media(max-width:480px){
@@ -173,6 +212,24 @@ textarea.fi{resize:vertical;min-height:50px}
 </style>
 </head>
 <body>
+<div class="login-screen" id="login-screen">
+<div style="text-align:center;margin-bottom:24px"><div style="width:56px;height:56px;background:var(--am);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:18px;letter-spacing:-1px">PG</div><div style="color:#fff;font-size:18px;font-weight:700;margin-top:10px">Propakt Group</div><div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:2px">İnşaat Yönetim Sistemi</div></div>
+<div class="login-box">
+<div class="login-tabs"><div class="login-tab on" onclick="switchLoginTab('login')">Giriş yap</div><div class="login-tab" onclick="switchLoginTab('register')">Kayıt ol</div></div>
+<div id="login-err" class="login-err"></div>
+<div id="login-form">
+<div class="fg"><label class="fl">E-posta</label><input class="fi" id="auth-email" type="email" placeholder="ornek@email.com"></div>
+<div class="fg"><label class="fl">Şifre</label><input class="fi" id="auth-pass" type="password" placeholder="En az 6 karakter" onkeydown="if(event.key==='Enter')authAction()"></div>
+<div id="register-fields" style="display:none">
+<div class="fg"><label class="fl">Şifre tekrar</label><input class="fi" id="auth-pass2" type="password" placeholder="Şifreyi tekrar girin"></div>
+<div class="fg"><label class="fl">Ad soyad</label><input class="fi" id="auth-name" placeholder="ör: Ahmet Yılmaz"></div>
+</div>
+<button class="login-btn login-btn-primary" id="auth-btn" onclick="authAction()">Giriş yap</button>
+<button class="login-btn login-btn-secondary" onclick="authOffline()">İnternet olmadan devam et</button>
+<div style="text-align:center;margin-top:12px;font-size:10px;color:var(--t3)">Offline modda veriler sadece bu cihazda saklanır</div>
+</div>
+</div>
+</div>
 <div id="pwa-install" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--nv);color:#fff;padding:12px 16px;z-index:3000;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.3)">
 <div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" style="width:36px;height:36px;border-radius:8px"><div><div style="font-weight:700;font-size:13px">Propakt Group'u yükle</div><div style="font-size:10px;opacity:.7">Ana ekrana ekle — uygulama gibi çalışsın</div></div></div>
 <div style="display:flex;gap:6px"><button onclick="pwaInstall()" style="background:var(--am);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Yükle</button><button onclick="pwaInstallDismiss()" style="background:transparent;color:rgba(255,255,255,.6);border:none;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
@@ -204,6 +261,12 @@ textarea.fi{resize:vertical;min-height:50px}
 <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)">
 <div class="si" data-pg="backup" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Yedekle / geri yükle</div>
 </div>
+<div class="user-bar" id="user-bar" style="display:none">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0114 0v2"/></svg>
+<span id="user-email-display">—</span>
+<span id="sync-status" class="sync-badge sync-off">offline</span>
+<span style="margin-left:auto;cursor:pointer;color:var(--am);font-weight:600" onclick="authLogout()">Çıkış</span>
+</div>
 </div>
 
 <div class="mn">
@@ -233,6 +296,227 @@ textarea.fi{resize:vertical;min-height:50px}
 <div class="toast" id="toast"></div>
 
 <script>
+
+// ===== FIREBASE INIT =====
+var firebaseConfig = {
+  apiKey: "AIzaSyCX9valV1U-bM28YdUAeTRvnGH0sdEm8TQ",
+  authDomain: "propakt-group.firebaseapp.com",
+  projectId: "propakt-group",
+  storageBucket: "propakt-group.firebasestorage.app",
+  messagingSenderId: "839030789310",
+  appId: "1:839030789310:web:04f43f1168cacec144baef"
+};
+firebase.initializeApp(firebaseConfig);
+var auth = firebase.auth();
+var db_fire = firebase.firestore();
+var currentUser = null;
+var isOnlineMode = false;
+var firestoreUnsubscribe = null;
+
+// ===== AUTH FUNCTIONS =====
+var authMode = 'login';
+function switchLoginTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.login-tab').forEach(function(t){t.classList.remove('on')});
+  if(mode==='login') {
+    document.querySelectorAll('.login-tab')[0].classList.add('on');
+    document.getElementById('register-fields').style.display='none';
+    document.getElementById('auth-btn').textContent='Giriş yap';
+  } else {
+    document.querySelectorAll('.login-tab')[1].classList.add('on');
+    document.getElementById('register-fields').style.display='block';
+    document.getElementById('auth-btn').textContent='Kayıt ol';
+  }
+  document.getElementById('login-err').style.display='none';
+}
+
+function showLoginErr(msg) {
+  var el=document.getElementById('login-err');
+  el.textContent=msg; el.style.display='block';
+}
+
+function authAction() {
+  var email=document.getElementById('auth-email').value.trim();
+  var pass=document.getElementById('auth-pass').value;
+  if(!email||!pass){showLoginErr('E-posta ve şifre giriniz');return}
+  document.getElementById('auth-btn').disabled=true;
+  document.getElementById('auth-btn').textContent='Bekleyin...';
+
+  if(authMode==='register') {
+    var pass2=document.getElementById('auth-pass2').value;
+    if(pass!==pass2){showLoginErr('Şifreler eşleşmiyor');document.getElementById('auth-btn').disabled=false;document.getElementById('auth-btn').textContent='Kayıt ol';return}
+    if(pass.length<6){showLoginErr('Şifre en az 6 karakter olmalı');document.getElementById('auth-btn').disabled=false;document.getElementById('auth-btn').textContent='Kayıt ol';return}
+    auth.createUserWithEmailAndPassword(email, pass).then(function(cred) {
+      var displayName=(document.getElementById('auth-name').value||'').trim();
+      if(displayName) return cred.user.updateProfile({displayName:displayName}).then(function(){return cred});
+      return cred;
+    }).then(function(cred) {
+      onAuthSuccess(cred.user);
+    }).catch(function(err) {
+      var msg='Kayıt başarısız';
+      if(err.code==='auth/email-already-in-use') msg='Bu e-posta zaten kayıtlı';
+      else if(err.code==='auth/weak-password') msg='Şifre çok zayıf (en az 6 karakter)';
+      else if(err.code==='auth/invalid-email') msg='Geçersiz e-posta adresi';
+      showLoginErr(msg);
+      document.getElementById('auth-btn').disabled=false;
+      document.getElementById('auth-btn').textContent='Kayıt ol';
+    });
+  } else {
+    auth.signInWithEmailAndPassword(email, pass).then(function(cred) {
+      onAuthSuccess(cred.user);
+    }).catch(function(err) {
+      var msg='Giriş başarısız';
+      if(err.code==='auth/user-not-found'||err.code==='auth/wrong-password'||err.code==='auth/invalid-credential') msg='E-posta veya şifre hatalı';
+      else if(err.code==='auth/too-many-requests') msg='Çok fazla deneme — biraz bekleyin';
+      else if(err.code==='auth/invalid-email') msg='Geçersiz e-posta adresi';
+      showLoginErr(msg);
+      document.getElementById('auth-btn').disabled=false;
+      document.getElementById('auth-btn').textContent='Giriş yap';
+    });
+  }
+}
+
+function onAuthSuccess(user) {
+  currentUser = user;
+  isOnlineMode = true;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('user-bar').style.display='flex';
+  document.getElementById('user-email-display').textContent=user.email;
+  updateSyncStatus(true);
+  // Firestore'dan veriyi yükle
+  loadFromFirestore();
+}
+
+function authOffline() {
+  isOnlineMode = false;
+  currentUser = null;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('user-bar').style.display='flex';
+  document.getElementById('user-email-display').textContent='Offline mod';
+  updateSyncStatus(false);
+  load();
+  render();
+}
+
+function authLogout() {
+  if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
+  if(firestoreUnsubscribe) { firestoreUnsubscribe(); firestoreUnsubscribe=null; }
+  auth.signOut().then(function(){
+    currentUser=null; isOnlineMode=false;
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('user-bar').style.display='none';
+    document.getElementById('auth-btn').disabled=false;
+    document.getElementById('auth-btn').textContent='Giriş yap';
+    document.getElementById('auth-email').value='';
+    document.getElementById('auth-pass').value='';
+    document.getElementById('login-err').style.display='none';
+  });
+}
+
+function updateSyncStatus(online) {
+  var el=document.getElementById('sync-status');
+  if(!el) return;
+  if(online) { el.className='sync-badge sync-on'; el.textContent='bulut'; }
+  else { el.className='sync-badge sync-off'; el.textContent='offline'; }
+}
+
+// ===== FIRESTORE SYNC =====
+function getFirestorePath() {
+  if(!currentUser) return null;
+  return 'users/' + currentUser.uid;
+}
+
+function saveToFirestore() {
+  if(!isOnlineMode || !currentUser) return;
+  var path = getFirestorePath();
+  if(!path) return;
+  var data = JSON.parse(JSON.stringify(DB));
+  db_fire.doc(path).set({
+    data: JSON.stringify(data),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    email: currentUser.email
+  }).then(function(){
+    console.log('Firestore save OK');
+  }).catch(function(err){
+    console.error('Firestore save error:', err);
+    toast('Bulut kayıt hatası — veriler yerel olarak saklandı');
+  });
+}
+
+function loadFromFirestore() {
+  if(!isOnlineMode || !currentUser) return;
+  var path = getFirestorePath();
+  if(!path) return;
+  db_fire.doc(path).get().then(function(doc) {
+    if(doc.exists && doc.data().data) {
+      try {
+        var cloudData = JSON.parse(doc.data().data);
+        DB = cloudData;
+        if(!DB.projects) DB.projects=[];
+        if(!DB.transactions) DB.transactions=[];
+        if(!DB.taserons) DB.taserons=[];
+        if(!DB.customers) DB.customers=[];
+        if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
+        if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
+        if(!DB.settings) DB.settings={nextId:1};
+        // Yerel yedek de tut
+        try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
+        render();
+        toast('Bulut verileri yüklendi');
+      } catch(e) {
+        console.error('Firestore parse error:', e);
+        load(); render();
+      }
+    } else {
+      // Bulutta veri yok — yerel veriyi yükle ve buluta kaydet
+      load();
+      render();
+      if(DB.projects.length>0 || DB.transactions.length>0) {
+        saveToFirestore();
+        toast('Yerel veriler buluta aktarıldı');
+      }
+    }
+    // Gerçek zamanlı dinlemeyi başlat
+    startRealtimeSync();
+  }).catch(function(err) {
+    console.error('Firestore load error:', err);
+    toast('Bulut bağlantı hatası — yerel veriler kullanılıyor');
+    load(); render();
+  });
+}
+
+function startRealtimeSync() {
+  if(!isOnlineMode || !currentUser) return;
+  var path = getFirestorePath();
+  if(!path) return;
+  if(firestoreUnsubscribe) firestoreUnsubscribe();
+  firestoreUnsubscribe = db_fire.doc(path).onSnapshot(function(doc) {
+    if(doc.exists && doc.data().data && doc.metadata.hasPendingWrites===false) {
+      try {
+        var cloudData = JSON.parse(doc.data().data);
+        var cloudTime = cloudData.lastSaveTime || '';
+        var localTime = DB.lastSaveTime || '';
+        // Sadece bulut daha yeniyse güncelle
+        if(cloudTime > localTime) {
+          DB = cloudData;
+          if(!DB.projects) DB.projects=[];
+          if(!DB.transactions) DB.transactions=[];
+          if(!DB.taserons) DB.taserons=[];
+          if(!DB.customers) DB.customers=[];
+          if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
+          if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
+          if(!DB.settings) DB.settings={nextId:1};
+          try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
+          render();
+        }
+      } catch(e) { console.error('Realtime sync parse error:', e); }
+    }
+  }, function(err) {
+    console.error('Realtime sync error:', err);
+    updateSyncStatus(false);
+  });
+}
+
 // ===== DATA STORE =====
 var DB = {
   projects: [],
@@ -257,7 +541,14 @@ function load() {
 }
 
 function save() {
-  try { DB.lastSaveTime=new Date().toISOString(); localStorage.setItem('propakt_db', JSON.stringify(DB)); var el=document.getElementById('last-save-info'); if(el) el.textContent=formatTimeSince(DB.lastSaveTime); } catch(e) { console.error('Save error', e); }
+  try {
+    DB.lastSaveTime=new Date().toISOString();
+    localStorage.setItem('propakt_db', JSON.stringify(DB));
+    var el=document.getElementById('last-save-info');
+    if(el) el.textContent=formatTimeSince(DB.lastSaveTime);
+    // Firebase'e kaydet
+    saveToFirestore();
+  } catch(e) { console.error('Save error', e); }
 }
 
 function nid() { return DB.settings.nextId++; }
@@ -2986,10 +3277,17 @@ function healthCheck() {
 }
 
 // ===== INIT =====
-load();
-render();
-// v16: son kayıt bilgisini göster
-if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}
+// v17: Auth state değişikliğini dinle
+auth.onAuthStateChanged(function(user) {
+  if(user) {
+    // Kullanıcı zaten giriş yapmış (oturum devam ediyor)
+    onAuthSuccess(user);
+  } else {
+    // Giriş yapılmamış — login ekranını göster
+    document.getElementById('login-screen').style.display='flex';
+  }
+});
+
 // v16: her dakika son kayıt bilgisini güncelle
 setInterval(function(){if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}},60000);
 
