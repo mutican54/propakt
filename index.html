@@ -400,12 +400,24 @@ function authAction() {
 
 
 function checkUserApproval(user) {
-  // Admin her zaman geçer
-  if(user.email === ADMIN_EMAIL) { onAuthSuccess(user); return; }
-  // Firestore'dan kullanıcı durumunu kontrol et
+  // Admin her zaman geçer (büyük/küçük harf duyarsız)
+  if(user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    // Admin kaydını Firestore'a yaz/güncelle (hata olursa bile giriş yap)
+    try {
+      db_fire.collection('app_users').doc(user.uid).set({
+        email: user.email,
+        displayName: user.displayName || 'Admin',
+        status: 'approved',
+        role: 'admin',
+        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge: true}).catch(function(e){console.log('Admin write info:', e)});
+    } catch(e) {console.log('Admin write catch:', e)}
+    onAuthSuccess(user);
+    return;
+  }
+  // Normal kullanıcı — Firestore'dan onay kontrolü
   db_fire.collection('app_users').doc(user.uid).get().then(function(doc) {
     if(!doc.exists) {
-      // Firestore kaydı yoksa oluştur (eski kullanıcılar için)
       db_fire.collection('app_users').doc(user.uid).set({
         email: user.email,
         displayName: user.displayName || '',
@@ -415,6 +427,12 @@ function checkUserApproval(user) {
       }).then(function(){
         auth.signOut();
         showLoginErr('Hesabınız onay bekliyor. Yönetici onayından sonra giriş yapabileceksiniz.');
+        document.getElementById('auth-btn').disabled=false;
+        document.getElementById('auth-btn').textContent='Giriş yap';
+      }).catch(function(e){
+        console.error('User create error:', e);
+        auth.signOut();
+        showLoginErr('Bağlantı hatası. Tekrar deneyin.');
         document.getElementById('auth-btn').disabled=false;
         document.getElementById('auth-btn').textContent='Giriş yap';
       });
@@ -429,7 +447,6 @@ function checkUserApproval(user) {
       document.getElementById('auth-btn').disabled=false;
       document.getElementById('auth-btn').textContent='Giriş yap';
     } else {
-      // pending
       auth.signOut();
       showLoginErr('Hesabınız henüz onaylanmadı. Yönetici onayını bekleyin.');
       document.getElementById('auth-btn').disabled=false;
@@ -437,7 +454,6 @@ function checkUserApproval(user) {
     }
   }).catch(function(err) {
     console.error('Approval check error:', err);
-    // Hata durumunda yine de giriş yaptır (ağ sorunu olabilir)
     onAuthSuccess(user);
   });
 }
@@ -455,7 +471,7 @@ function showLoginSuccess(msg) {
 function onAuthSuccess(user) {
   currentUser = user;
   isOnlineMode = true;
-  isAdmin = (user.email === ADMIN_EMAIL);
+  isAdmin = (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
   document.getElementById('login-screen').style.display='none';
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('user-email-display').textContent=user.email;
@@ -470,10 +486,16 @@ function onAuthSuccess(user) {
 function authOffline() {
   isOnlineMode = false;
   currentUser = null;
+  isAdmin = true; // Offline modda tüm erişim açık
+  // Mevcut oturumu kapat (varsa)
+  try { auth.signOut().catch(function(){}); } catch(e) {}
   document.getElementById('login-screen').style.display='none';
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('user-email-display').textContent='Offline mod';
   updateSyncStatus(false);
+  // Admin menüyü göster (offline'da da yönetebilsin)
+  var adminMenu = document.getElementById('admin-menu');
+  if(adminMenu) adminMenu.style.display = 'block';
   load();
   render();
 }
@@ -3474,6 +3496,16 @@ function rejectUser(uid, email) {
 auth.onAuthStateChanged(function(user) {
   if(user) {
     // Kullanıcı zaten giriş yapmış — onay kontrolü yap
+    // 8 saniye içinde giriş olmazsa offline moda geç (Firestore hatası koruması)
+    var authTimeout = setTimeout(function(){
+      console.log('Auth timeout — falling back to offline with auth');
+      onAuthSuccess(user);
+    }, 8000);
+    var origOnAuth = onAuthSuccess;
+    var wrapped = false;
+    onAuthSuccess = function(u) {
+      if(!wrapped) { wrapped=true; clearTimeout(authTimeout); onAuthSuccess=origOnAuth; origOnAuth(u); }
+    };
     checkUserApproval(user);
   } else {
     // Giriş yapılmamış — login ekranını göster
