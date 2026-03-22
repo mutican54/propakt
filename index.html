@@ -202,6 +202,7 @@ textarea.fi{resize:vertical;min-height:50px}
 <div id="login-form">
 <div class="fg"><label class="fl">E-posta</label><input class="fi" id="auth-email" type="email" placeholder="ornek@email.com"></div>
 <div class="fg"><label class="fl">Şifre</label><input class="fi" id="auth-pass" type="password" placeholder="En az 6 karakter" onkeydown="if(event.key==='Enter')authAction()"></div>
+<div id="forgot-link" style="text-align:right;margin:-6px 0 8px"><span style="font-size:10.5px;color:var(--am);cursor:pointer;font-weight:600" onclick="forgotPassword()">Şifremi unuttum</span></div>
 <div id="register-fields" style="display:none">
 <div class="fg"><label class="fl">Şifre tekrar</label><input class="fi" id="auth-pass2" type="password" placeholder="Şifreyi tekrar girin"></div>
 <div class="fg"><label class="fl">Ad soyad</label><input class="fi" id="auth-name" placeholder="ör: Ahmet Yılmaz"></div>
@@ -307,10 +308,12 @@ function switchLoginTab(mode) {
   if(mode==='login') {
     document.querySelectorAll('.login-tab')[0].classList.add('on');
     document.getElementById('register-fields').style.display='none';
+    document.getElementById('forgot-link').style.display='block';
     document.getElementById('auth-btn').textContent='Giriş yap';
   } else {
     document.querySelectorAll('.login-tab')[1].classList.add('on');
     document.getElementById('register-fields').style.display='block';
+    document.getElementById('forgot-link').style.display='none';
     document.getElementById('auth-btn').textContent='Kayıt ol';
   }
   document.getElementById('login-err').style.display='none';
@@ -479,6 +482,24 @@ function authLogout() {
     document.getElementById('auth-email').value='';
     document.getElementById('auth-pass').value='';
     document.getElementById('login-err').style.display='none';
+  });
+}
+
+// ===== v18: ŞİFREMİ UNUTTUM =====
+function forgotPassword() {
+  var email = document.getElementById('auth-email').value.trim();
+  if(!email) {
+    showLoginErr('Önce e-posta adresinizi girin, sonra "Şifremi unuttum" a tıklayın.');
+    return;
+  }
+  auth.sendPasswordResetEmail(email).then(function() {
+    showLoginSuccess(email + ' adresine şifre sıfırlama bağlantısı gönderildi. Lütfen e-postanızı kontrol edin (spam klasörüne de bakın).');
+  }).catch(function(err) {
+    var msg = 'Şifre sıfırlama başarısız';
+    if(err.code === 'auth/user-not-found') msg = 'Bu e-posta ile kayıtlı hesap bulunamadı';
+    else if(err.code === 'auth/invalid-email') msg = 'Geçersiz e-posta adresi';
+    else if(err.code === 'auth/too-many-requests') msg = 'Çok fazla deneme — biraz bekleyin';
+    showLoginErr(msg);
   });
 }
 
