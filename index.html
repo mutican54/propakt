@@ -315,6 +315,7 @@ var isOnlineMode = false;
 var firestoreUnsubscribe = null;
 var ADMIN_EMAIL = 'mpalankalilar@hotmail.com';
 var isAdmin = false;
+var authHandledManually = false; // true olunca onAuthStateChanged müdahale etmez
 
 // ===== AUTH FUNCTIONS =====
 var authMode = 'login';
@@ -336,6 +337,22 @@ function switchLoginTab(mode) {
 function showLoginErr(msg) {
   var el=document.getElementById('login-err');
   el.textContent=msg; el.style.display='block';
+  el.style.background=''; el.style.color='';
+}
+
+function showLoginSuccess(msg) {
+  var el=document.getElementById('login-err');
+  el.textContent=msg; el.style.display='block';
+  el.style.background='#E8F8F0'; el.style.color='#0D9461';
+}
+
+function resetAuthBtn(label) {
+  var btn=document.getElementById('auth-btn');
+  if(btn){btn.disabled=false; btn.textContent=label||'Giriş yap';}
+}
+
+function isAdminEmail(email) {
+  return email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 }
 
 function authAction() {
@@ -347,153 +364,121 @@ function authAction() {
 
   if(authMode==='register') {
     var pass2=document.getElementById('auth-pass2').value;
-    if(pass!==pass2){showLoginErr('Şifreler eşleşmiyor');document.getElementById('auth-btn').disabled=false;document.getElementById('auth-btn').textContent='Kayıt ol';return}
-    if(pass.length<6){showLoginErr('Şifre en az 6 karakter olmalı');document.getElementById('auth-btn').disabled=false;document.getElementById('auth-btn').textContent='Kayıt ol';return}
+    if(pass!==pass2){showLoginErr('Şifreler eşleşmiyor');resetAuthBtn('Kayıt ol');return}
+    if(pass.length<6){showLoginErr('Şifre en az 6 karakter olmalı');resetAuthBtn('Kayıt ol');return}
+    // Kayıt sırasında onAuthStateChanged müdahale etmesin
+    authHandledManually = true;
     auth.createUserWithEmailAndPassword(email, pass).then(function(cred) {
       var displayName=(document.getElementById('auth-name').value||'').trim();
       var updatePromise = displayName ? cred.user.updateProfile({displayName:displayName}) : Promise.resolve();
       return updatePromise.then(function(){
-        // Firestore'da kullanıcı kaydı oluştur (pending)
         return db_fire.collection('app_users').doc(cred.user.uid).set({
           email: email,
           displayName: displayName || '',
-          status: email===ADMIN_EMAIL ? 'approved' : 'pending',
-          role: email===ADMIN_EMAIL ? 'admin' : 'user',
+          status: isAdminEmail(email) ? 'approved' : 'pending',
+          role: isAdminEmail(email) ? 'admin' : 'user',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       }).then(function(){
-        if(email===ADMIN_EMAIL) {
-          // Admin ise direkt giriş
-          onAuthSuccess(cred.user);
+        if(isAdminEmail(email)) {
+          enterApp(cred.user);
         } else {
-          // Normal kullanıcı — çıkış yaptır, onay bekle
-          auth.signOut();
-          showLoginSuccess('Hesabınız oluşturuldu! Yönetici onayından sonra giriş yapabileceksiniz.');
-          document.getElementById('auth-btn').disabled=false;
-          document.getElementById('auth-btn').textContent='Kayıt ol';
+          return auth.signOut().then(function(){
+            authHandledManually = false;
+            showLoginSuccess('Hesabınız oluşturuldu! Yönetici onayından sonra giriş yapabileceksiniz.');
+            resetAuthBtn('Kayıt ol');
+          });
         }
       });
     }).catch(function(err) {
+      authHandledManually = false;
       var msg='Kayıt başarısız';
       if(err.code==='auth/email-already-in-use') msg='Bu e-posta zaten kayıtlı';
       else if(err.code==='auth/weak-password') msg='Şifre çok zayıf (en az 6 karakter)';
       else if(err.code==='auth/invalid-email') msg='Geçersiz e-posta adresi';
       showLoginErr(msg);
-      document.getElementById('auth-btn').disabled=false;
-      document.getElementById('auth-btn').textContent='Kayıt ol';
+      resetAuthBtn('Kayıt ol');
     });
   } else {
+    // Giriş — onAuthStateChanged müdahale etmesin
+    authHandledManually = true;
     auth.signInWithEmailAndPassword(email, pass).then(function(cred) {
-      // Onay kontrolü
-      return checkUserApproval(cred.user);
+      // Admin ise direkt gir
+      if(isAdminEmail(cred.user.email)) {
+        // Admin kaydını güncelle (hata olursa bile gir)
+        db_fire.collection('app_users').doc(cred.user.uid).set({
+          email: cred.user.email, displayName: cred.user.displayName||'Admin',
+          status:'approved', role:'admin',
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        },{merge:true}).catch(function(){});
+        enterApp(cred.user);
+        return;
+      }
+      // Normal kullanıcı — onay kontrolü
+      return db_fire.collection('app_users').doc(cred.user.uid).get().then(function(doc) {
+        if(!doc.exists) {
+          // Kayıt yok — pending oluştur ve çıkış yap
+          return db_fire.collection('app_users').doc(cred.user.uid).set({
+            email:cred.user.email, displayName:cred.user.displayName||'',
+            status:'pending', role:'user',
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          }).then(function(){
+            return auth.signOut();
+          }).then(function(){
+            authHandledManually = false;
+            showLoginErr('Hesabınız onay bekliyor. Yönetici onayından sonra giriş yapabileceksiniz.');
+            resetAuthBtn('Giriş yap');
+          });
+        }
+        var status = doc.data().status;
+        if(status==='approved') {
+          enterApp(cred.user);
+        } else {
+          return auth.signOut().then(function(){
+            authHandledManually = false;
+            if(status==='rejected') showLoginErr('Hesabınız reddedilmiş. Yönetici ile iletişime geçin.');
+            else showLoginErr('Hesabınız henüz onaylanmadı. Yönetici onayını bekleyin.');
+            resetAuthBtn('Giriş yap');
+          });
+        }
+      });
     }).catch(function(err) {
+      authHandledManually = false;
       var msg='Giriş başarısız';
       if(err.code==='auth/user-not-found'||err.code==='auth/wrong-password'||err.code==='auth/invalid-credential') msg='E-posta veya şifre hatalı';
       else if(err.code==='auth/too-many-requests') msg='Çok fazla deneme — biraz bekleyin';
       else if(err.code==='auth/invalid-email') msg='Geçersiz e-posta adresi';
       showLoginErr(msg);
-      document.getElementById('auth-btn').disabled=false;
-      document.getElementById('auth-btn').textContent='Giriş yap';
+      resetAuthBtn('Giriş yap');
     });
   }
 }
 
-
-function checkUserApproval(user) {
-  // Admin her zaman geçer (büyük/küçük harf duyarsız)
-  if(user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-    // Admin kaydını Firestore'a yaz/güncelle (hata olursa bile giriş yap)
-    try {
-      db_fire.collection('app_users').doc(user.uid).set({
-        email: user.email,
-        displayName: user.displayName || 'Admin',
-        status: 'approved',
-        role: 'admin',
-        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-      }, {merge: true}).catch(function(e){console.log('Admin write info:', e)});
-    } catch(e) {console.log('Admin write catch:', e)}
-    onAuthSuccess(user);
-    return;
-  }
-  // Normal kullanıcı — Firestore'dan onay kontrolü
-  db_fire.collection('app_users').doc(user.uid).get().then(function(doc) {
-    if(!doc.exists) {
-      db_fire.collection('app_users').doc(user.uid).set({
-        email: user.email,
-        displayName: user.displayName || '',
-        status: 'pending',
-        role: 'user',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(function(){
-        auth.signOut();
-        showLoginErr('Hesabınız onay bekliyor. Yönetici onayından sonra giriş yapabileceksiniz.');
-        document.getElementById('auth-btn').disabled=false;
-        document.getElementById('auth-btn').textContent='Giriş yap';
-      }).catch(function(e){
-        console.error('User create error:', e);
-        auth.signOut();
-        showLoginErr('Bağlantı hatası. Tekrar deneyin.');
-        document.getElementById('auth-btn').disabled=false;
-        document.getElementById('auth-btn').textContent='Giriş yap';
-      });
-      return;
-    }
-    var status = doc.data().status;
-    if(status === 'approved') {
-      onAuthSuccess(user);
-    } else if(status === 'rejected') {
-      auth.signOut();
-      showLoginErr('Hesabınız reddedilmiş. Yönetici ile iletişime geçin.');
-      document.getElementById('auth-btn').disabled=false;
-      document.getElementById('auth-btn').textContent='Giriş yap';
-    } else {
-      auth.signOut();
-      showLoginErr('Hesabınız henüz onaylanmadı. Yönetici onayını bekleyin.');
-      document.getElementById('auth-btn').disabled=false;
-      document.getElementById('auth-btn').textContent='Giriş yap';
-    }
-  }).catch(function(err) {
-    console.error('Approval check error:', err);
-    onAuthSuccess(user);
-  });
-}
-
-function showLoginSuccess(msg) {
-  var el=document.getElementById('login-err');
-  el.textContent=msg;
-  el.style.display='block';
-  el.style.background='#E8F8F0';
-  el.style.color='#0D9461';
-  // 5 saniye sonra normal renge dönsün
-  setTimeout(function(){ el.style.background=''; el.style.color=''; }, 5000);
-}
-
-function onAuthSuccess(user) {
+function enterApp(user) {
+  authHandledManually = true;
   currentUser = user;
   isOnlineMode = true;
-  isAdmin = (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  isAdmin = isAdminEmail(user.email);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('user-email-display').textContent=user.email;
   updateSyncStatus(true);
-  // Admin menü öğesini göster/gizle
   var adminMenu = document.getElementById('admin-menu');
   if(adminMenu) adminMenu.style.display = isAdmin ? 'block' : 'none';
-  // Firestore'dan veriyi yükle
   loadFromFirestore();
 }
 
 function authOffline() {
+  authHandledManually = true;
   isOnlineMode = false;
   currentUser = null;
-  isAdmin = true; // Offline modda tüm erişim açık
-  // Mevcut oturumu kapat (varsa)
-  try { auth.signOut().catch(function(){}); } catch(e) {}
+  isAdmin = true;
+  // Mevcut oturumu kapat
+  auth.signOut().catch(function(){});
   document.getElementById('login-screen').style.display='none';
   document.getElementById('user-bar').style.display='flex';
   document.getElementById('user-email-display').textContent='Offline mod';
   updateSyncStatus(false);
-  // Admin menüyü göster (offline'da da yönetebilsin)
   var adminMenu = document.getElementById('admin-menu');
   if(adminMenu) adminMenu.style.display = 'block';
   load();
@@ -502,13 +487,13 @@ function authOffline() {
 
 function authLogout() {
   if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
+  authHandledManually = false;
   if(firestoreUnsubscribe) { firestoreUnsubscribe(); firestoreUnsubscribe=null; }
+  currentUser=null; isOnlineMode=false; isAdmin=false;
   auth.signOut().then(function(){
-    currentUser=null; isOnlineMode=false;
     document.getElementById('login-screen').style.display='flex';
     document.getElementById('user-bar').style.display='none';
-    document.getElementById('auth-btn').disabled=false;
-    document.getElementById('auth-btn').textContent='Giriş yap';
+    resetAuthBtn('Giriş yap');
     document.getElementById('auth-email').value='';
     document.getElementById('auth-pass').value='';
     document.getElementById('login-err').style.display='none';
@@ -3492,23 +3477,36 @@ function rejectUser(uid, email) {
 }
 
 // ===== INIT =====
-// v17: Auth state değişikliğini dinle
+// v18: Auth state değişikliğini dinle
 auth.onAuthStateChanged(function(user) {
+  // Eğer authAction veya authOffline zaten işlemi yönetiyorsa, müdahale etme
+  if(authHandledManually) return;
   if(user) {
-    // Kullanıcı zaten giriş yapmış — onay kontrolü yap
-    // 8 saniye içinde giriş olmazsa offline moda geç (Firestore hatası koruması)
-    var authTimeout = setTimeout(function(){
-      console.log('Auth timeout — falling back to offline with auth');
-      onAuthSuccess(user);
-    }, 8000);
-    var origOnAuth = onAuthSuccess;
-    var wrapped = false;
-    onAuthSuccess = function(u) {
-      if(!wrapped) { wrapped=true; clearTimeout(authTimeout); onAuthSuccess=origOnAuth; origOnAuth(u); }
-    };
-    checkUserApproval(user);
+    // Sayfa yenilendi, oturum devam ediyor
+    // Admin ise direkt gir
+    if(isAdminEmail(user.email)) {
+      db_fire.collection('app_users').doc(user.uid).set({
+        email:user.email, displayName:user.displayName||'Admin',
+        status:'approved', role:'admin',
+        lastLogin:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true}).catch(function(){});
+      enterApp(user);
+      return;
+    }
+    // Normal kullanıcı — onay kontrolü
+    db_fire.collection('app_users').doc(user.uid).get().then(function(doc) {
+      if(doc.exists && doc.data().status==='approved') {
+        enterApp(user);
+      } else {
+        auth.signOut();
+        document.getElementById('login-screen').style.display='flex';
+        if(doc.exists) showLoginErr('Hesabınız henüz onaylanmadı.');
+      }
+    }).catch(function() {
+      // Firestore hatası — yine de giriş yaptır (offline olabilir)
+      enterApp(user);
+    });
   } else {
-    // Giriş yapılmamış — login ekranını göster
     document.getElementById('login-screen').style.display='flex';
   }
 });
