@@ -460,6 +460,8 @@ function enterApp(user) {
   var adminTestMenu = document.getElementById('admin-test-menu');
   if(adminTestMenu) adminTestMenu.style.display = isAdmin ? 'block' : 'none';
   loadFromFirestore();
+  // Giriş sonrası otomatik yedekleme kontrolü
+  setTimeout(function(){ checkAutoBackupOnLogin(); }, 5000);
 }
 
 function authOffline() {
@@ -685,6 +687,8 @@ function save() {
     if(el) el.textContent=formatTimeSince(DB.lastSaveTime);
     // Firebase'e kaydet
     saveToFirestore();
+    // Otomatik yedekleme kontrolü
+    checkAutoBackupOnSave();
   } catch(e) { console.error('Save error', e); }
 }
 
@@ -2312,18 +2316,110 @@ function rBackup() {
   h+='<div class="st xb"><div class="stl">İşlem sayısı</div><div class="stv" style="color:var(--bl)">'+DB.transactions.length+'</div></div>';
   h+='<div class="st xa"><div class="stl">Müşteri sayısı</div><div class="stv" style="color:var(--am)">'+DB.customers.length+'</div></div>';
   h+='</div>';
-  h+='<div class="cd"><div class="chd"><span class="cht">Veri yedekleme</span></div><div style="padding:16px">';
-  h+='<p style="margin-bottom:12px;color:var(--t2);font-size:12px">Tüm verilerinizi bir JSON dosyası olarak bilgisayarınıza kaydedin. Bu dosyayı başka bir bilgisayarda da geri yükleyebilirsiniz.</p>';
-  h+='<button class="btn bp" onclick="exportData()" style="margin-right:8px">↓ Verileri dışa aktar (JSON)</button>';
+
+  // Otomatik yedekleme durumu
+  var autoBackupEnabled = localStorage.getItem('propakt_auto_backup')==='true';
+  var lastAutoBackup = localStorage.getItem('propakt_last_auto_backup')||'';
+  var backupHistory = JSON.parse(localStorage.getItem('propakt_backup_history')||'[]');
+
+  h+='<div class="cd" style="border-color:var(--gn)"><div class="chd"><span class="cht" style="color:var(--gn)">Otomatik yedekleme</span>';
+  h+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;color:'+(autoBackupEnabled?'var(--gn)':'var(--t2)')+'">';
+  h+='<input type="checkbox" id="auto-backup-toggle" '+(autoBackupEnabled?'checked':'')+' onchange="toggleAutoBackup(this.checked)" style="accent-color:var(--gn)">';
+  h+=(autoBackupEnabled?'Aktif':'Kapalı')+'</label></div>';
+  h+='<div style="padding:16px">';
+  h+='<p style="margin-bottom:10px;color:var(--t2);font-size:12px;line-height:1.6">Otomatik yedekleme açıkken, her gün sisteme ilk girişinizde verileriniz otomatik olarak bilgisayarınıza indirilir. Ayrıca her 50 kayıt değişikliğinde de yedek alınır.</p>';
+  if(lastAutoBackup) {
+    h+='<div style="background:var(--gnl);border:.5px solid #A5D6A7;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:10px">';
+    h+='<span style="color:var(--gn);font-weight:600">Son otomatik yedek: </span><span style="color:var(--t1)">'+new Date(lastAutoBackup).toLocaleString('tr-TR')+'</span></div>';
+  }
+  // Yedekleme geçmişi
+  if(backupHistory.length>0) {
+    h+='<div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--t2)">Son 10 yedek</div>';
+    h+='<div style="max-height:150px;overflow-y:auto;border:.5px solid var(--bd);border-radius:6px">';
+    backupHistory.slice(-10).reverse().forEach(function(b){
+      h+='<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:.5px solid var(--bl2);font-size:11px">';
+      h+='<span>'+new Date(b.date).toLocaleString('tr-TR')+'</span>';
+      h+='<span style="color:var(--t2)">'+b.type+' — '+(b.size||'?')+' KB</span></div>';
+    });
+    h+='</div>';
+  }
   h+='</div></div>';
+
+  // Manuel yedekleme
+  h+='<div class="cd"><div class="chd"><span class="cht">Manuel yedekleme</span></div><div style="padding:16px">';
+  h+='<p style="margin-bottom:12px;color:var(--t2);font-size:12px">Tüm verilerinizi bir JSON dosyası olarak bilgisayarınıza kaydedin.</p>';
+  h+='<button class="btn bp" onclick="manualBackup()" style="margin-right:8px">↓ Verileri dışa aktar (JSON)</button>';
+  h+='</div></div>';
+
+  // Geri yükleme
   h+='<div class="cd"><div class="chd"><span class="cht">Veri geri yükleme</span></div><div style="padding:16px">';
   h+='<p style="margin-bottom:12px;color:var(--t2);font-size:12px">Daha önce yedeklediğiniz JSON dosyasını seçerek verilerinizi geri yükleyin.</p>';
   h+='<input type="file" accept=".json" onchange="importData(event)" style="font-family:inherit;font-size:12px">';
   h+='</div></div>';
+
+  // Tehlikeli alan
   h+='<div class="cd" style="border-color:var(--rd)"><div class="chd"><span class="cht" style="color:var(--rd)">Tehlikeli alan</span></div><div style="padding:16px">';
   h+='<button class="btn" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd)" onclick="if(confirm(\'TÜM VERİLER SİLİNECEK. Emin misiniz?\')){localStorage.removeItem(\'propakt_db\');location.reload()}">Tüm verileri sil</button>';
   h+='</div></div>';
   return h;
+}
+
+// ===== OTOMATİK YEDEKLEME SİSTEMİ =====
+var backupSaveCounter = 0;
+var BACKUP_INTERVAL = 50; // her 50 kayıt sonrası otomatik yedek
+
+function toggleAutoBackup(enabled) {
+  localStorage.setItem('propakt_auto_backup', enabled?'true':'false');
+  toast(enabled ? 'Otomatik yedekleme açıldı' : 'Otomatik yedekleme kapatıldı');
+  render();
+}
+
+function manualBackup() {
+  doBackup('Manuel');
+}
+
+function doBackup(type) {
+  var dataStr = JSON.stringify(DB, null, 2);
+  var blob = new Blob([dataStr], {type: 'application/json'});
+  var sizeKB = Math.round(blob.size / 1024);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'propakt_yedek_' + today() + '_' + new Date().toTimeString().slice(0,5).replace(':','') + '.json';
+  a.click();
+
+  // Geçmişe kaydet
+  var history = JSON.parse(localStorage.getItem('propakt_backup_history') || '[]');
+  history.push({date: new Date().toISOString(), type: type, size: sizeKB});
+  if(history.length > 30) history = history.slice(-30);
+  localStorage.setItem('propakt_backup_history', JSON.stringify(history));
+  localStorage.setItem('propakt_last_auto_backup', new Date().toISOString());
+
+  toast('Yedek alındı (' + type + ') — ' + sizeKB + ' KB');
+}
+
+function checkAutoBackupOnLogin() {
+  if(localStorage.getItem('propakt_auto_backup') !== 'true') return;
+  var lastBackup = localStorage.getItem('propakt_last_auto_backup');
+  if(!lastBackup) {
+    // İlk kez — hemen yedek al
+    setTimeout(function(){ doBackup('Otomatik (ilk)'); }, 3000);
+    return;
+  }
+  // Son yedekten bu yana 24 saat geçmiş mi?
+  var diff = Date.now() - new Date(lastBackup).getTime();
+  var hours = diff / (1000 * 60 * 60);
+  if(hours >= 24) {
+    setTimeout(function(){ doBackup('Otomatik (günlük)'); }, 3000);
+  }
+}
+
+function checkAutoBackupOnSave() {
+  if(localStorage.getItem('propakt_auto_backup') !== 'true') return;
+  backupSaveCounter++;
+  if(backupSaveCounter >= BACKUP_INTERVAL) {
+    backupSaveCounter = 0;
+    doBackup('Otomatik (' + BACKUP_INTERVAL + ' kayıt)');
+  }
 }
 
 // ===== MODALS =====
@@ -3714,12 +3810,7 @@ function sRgo(el) { el.parentElement.querySelectorAll('.rgo').forEach(function(e
 
 // ===== BACKUP =====
 function exportData() {
-  var blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='propakt_yedek_'+today()+'.json';
-  a.click();
-  toast('Yedek dosyası indirildi');
+  manualBackup();
 }
 
 // ===== v19: PDF & EXCEL EXPORT SİSTEMİ =====
