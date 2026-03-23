@@ -300,11 +300,14 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-// ===== APP CHECK (reCAPTCHA v3) =====
+// ===== APP CHECK (reCAPTCHA Enterprise) =====
 try {
   var appCheck = firebase.appCheck();
-  appCheck.activate('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-', true);
-  console.log('App Check activated');
+  appCheck.activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-'),
+    true
+  );
+  console.log('App Check activated (reCAPTCHA Enterprise)');
 } catch(e) { console.warn('App Check init error:', e); }
 
 var auth = firebase.auth();
