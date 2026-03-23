@@ -20,6 +20,7 @@ if(location.protocol==='https:'){
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -298,6 +299,14 @@ var firebaseConfig = {
   appId: "1:839030789310:web:04f43f1168cacec144baef"
 };
 firebase.initializeApp(firebaseConfig);
+
+// ===== APP CHECK (reCAPTCHA v3) =====
+try {
+  var appCheck = firebase.appCheck();
+  appCheck.activate('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-', true);
+  console.log('App Check activated');
+} catch(e) { console.warn('App Check init error:', e); }
+
 var auth = firebase.auth();
 var db_fire = firebase.firestore();
 var currentUser = null;
