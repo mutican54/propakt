@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v19</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v20</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1033,7 +1033,7 @@ function rTS() {
   h+='<div class="cd"><div class="chd"><span class="cht">Taşeron anlaşmaları</span><span class="cha" onclick="openTaseronModal()">+ Yeni anlaşma</span></div>';
   if(DB.taserons.length===0) h+='<div class="empty">Henüz taşeron kaydı yok.</div>';
   else {
-    h+='<table class="tb"><thead><tr><th>Taşeron</th><th>İş kalemi</th><th>Şantiye</th><th>Toplam</th><th>Ödeme şekli</th><th>Ödenen</th><th>Barter</th><th>Kalan borç</th><th>Barter detay</th><th>İşlem</th></tr></thead><tbody>';
+    h+='<table class="tb"><thead><tr><th>Taşeron</th><th>İş kalemi</th><th>Şantiye</th><th>Toplam</th><th>Ödeme şekli</th><th>Ödenen</th><th>Barter</th><th>Kalan borç</th><th>Sözleşme</th><th>İşlem</th></tr></thead><tbody>';
     DB.taserons.forEach(function(t){
       var cashDisplay = '', barterDisplay = '', barterDetailDisplay = '';
       if(t.payType==='Karma') {
@@ -1052,13 +1052,20 @@ function rTS() {
         barterDisplay = '—';
       }
       var kalanBorc = Math.max(0, t.total - (t.paid||0) - (t.barterVal||0));
+      // Sözleşme PDF
+      var sozlesme='';
+      if(t.contractPDF) {
+        sozlesme='<button class="btn bsm" style="background:var(--gnl);color:var(--gn);border:.5px solid var(--gn)" onclick="viewTaseronPDF('+t.id+')">Görüntüle</button>';
+      } else {
+        sozlesme='<label class="btn bo bsm" style="cursor:pointer"><input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadTaseronPDF(this,'+t.id+')">Yükle</label>';
+      }
       h+='<tr><td style="font-weight:600">'+t.name+'</td><td>'+t.job+'</td><td style="color:var(--t2)">'+t.project+'</td>';
       h+='<td style="font-weight:700">₺'+fmt(t.total)+'</td>';
       h+='<td><span class="bg '+(t.payType==='Barter'?'bgp':t.payType==='Karma'?'bgp':'bga')+'">'+t.payType+'</span></td>';
       h+='<td style="color:var(--gn)">₺'+fmt(t.paid||0)+'</td>';
       h+='<td style="color:var(--pr);font-weight:600">'+(t.barterVal?'₺'+fmt(t.barterVal):'—')+'</td>';
       h+='<td style="color:'+(kalanBorc>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(kalanBorc)+'</td>';
-      h+='<td style="font-size:10px;color:var(--t2);max-width:140px">'+(barterDetailDisplay||'—')+'</td>';
+      h+='<td>'+sozlesme+'</td>';
       h+='<td><button class="btn bp bsm" onclick="taseronOdeme('+t.id+')" style="margin-right:3px">Ödeme</button><button class="btn bo bsm" onclick="editTs('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTs('+t.id+')">✕</span></td></tr>';
     });
     h+='</tbody></table>';
@@ -1067,21 +1074,29 @@ function rTS() {
   return h;
 }
 
+var tkFilter={project:'all'};
 function rTK() {
-  var h='<div class="tbs"><div class="tab on" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Tüm taksitler</div><div class="tab" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Vadesi gelen</div><div class="tab" onclick="this.parentElement.querySelectorAll(\'.tab\').forEach(function(t){t.classList.remove(\'on\')});this.classList.add(\'on\')">Ara ödemeler</div></div>';
+  // Şantiye filtresi
+  var h='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">';
+  h+='<span style="font-size:11px;font-weight:600;color:var(--t2);margin-right:4px">Şantiye:</span>';
+  h+='<div class="prj-btn'+(tkFilter.project==='all'?' on':'')+'" onclick="tkFilter.project=\'all\';render()">Tümü</div>';
+  DB.projects.forEach(function(p){ h+='<div class="prj-btn'+(tkFilter.project===p.name?' on':'')+'" onclick="tkFilter.project=\''+p.name.replace(/'/g,"\\'")+'\';render()">'+p.name+'</div>'; });
+  h+='</div>';
 
-  // Collect all taksitler from all customers
+  // Collect all taksitler from all customers (filtered)
   var allTaksit=[];
-  DB.customers.forEach(function(c,ci){
+  var filteredCustomers=DB.customers.filter(function(c){return tkFilter.project==='all'||c.project===tkFilter.project});
+  filteredCustomers.forEach(function(c,ci){
+    var realIdx=DB.customers.indexOf(c);
     if(c.taksitler && c.taksitler.length>0) {
       c.taksitler.forEach(function(t,ti){
-        allTaksit.push({custId:c.id, custIdx:ci, taksitIdx:ti, custName:c.name, project:c.project, unit:c.unit, no:t.no, total:t.total, date:t.date, amount:t.amount, paid:t.paid});
+        allTaksit.push({custId:c.id, custIdx:realIdx, taksitIdx:ti, custName:c.name, project:c.project, unit:c.unit, no:t.no, total:t.total, date:t.date, amount:t.amount, paid:t.paid});
       });
     }
   });
 
   // Stats
-  var totalRemaining=DB.customers.reduce(function(s,c){return s+(c.remaining||0)},0);
+  var totalRemaining=filteredCustomers.reduce(function(s,c){return s+(c.remaining||0)},0);
   var paidCount=allTaksit.filter(function(t){return t.paid}).length;
   var unpaidCount=allTaksit.filter(function(t){return !t.paid}).length;
   var todayStr=today();
@@ -1089,7 +1104,7 @@ function rTK() {
   var thisMonth=todayStr.substring(0,7);
   var thisMonthCount=allTaksit.filter(function(t){return !t.paid && t.date.substring(0,7)===thisMonth}).length;
   var thisMonthAmount=allTaksit.filter(function(t){return !t.paid && t.date.substring(0,7)===thisMonth}).reduce(function(s,t){return s+t.amount},0);
-  var totalAraOdeme=DB.customers.reduce(function(s,c){return s+((c.araOdemeler||[]).reduce(function(s2,a){return s2+a.amount},0))},0);
+  var totalAraOdeme=filteredCustomers.reduce(function(s,c){return s+((c.araOdemeler||[]).reduce(function(s2,a){return s2+a.amount},0))},0);
 
   h+='<div class="sts s5">';
   h+='<div class="st xa"><div class="stl">Toplam taksit alacağı</div><div class="stv" style="color:var(--am)">₺'+fmtK(totalRemaining)+'</div></div>';
@@ -1100,7 +1115,7 @@ function rTK() {
   h+='</div>';
 
   // Müşteri bazlı kalan borç + ara ödeme butonu
-  var taksitliMusteri=DB.customers.filter(function(c){return(c.remaining||0)>0 && c.payType==='Taksitli'});
+  var taksitliMusteri=filteredCustomers.filter(function(c){return(c.remaining||0)>0 && c.payType==='Taksitli'});
   if(taksitliMusteri.length>0) {
     h+='<div class="cd"><div class="chd"><span class="cht">Müşteri bazlı borç durumu ve ara ödeme</span></div>';
     h+='<table class="tb"><thead><tr><th>Müşteri</th><th>Proje / daire</th><th>Toplam satış</th><th>Kapora</th><th>Taksit ödenen</th><th>Ara ödeme</th><th>Kalan borç</th><th>İşlem</th></tr></thead><tbody>';
@@ -1145,7 +1160,7 @@ function rTK() {
 
   // Ara ödemeler geçmişi
   var allAra=[];
-  DB.customers.forEach(function(c,ci){
+  filteredCustomers.forEach(function(c,ci){
     (c.araOdemeler||[]).forEach(function(a){
       allAra.push({custName:c.name, project:c.project, unit:c.unit, amount:a.amount, resmi:a.resmi||0, date:a.date, note:a.note||''});
     });
@@ -1303,6 +1318,12 @@ function rSN() {
       h+='<div style="font-size:10px;color:var(--t2)">'+(isTaahhut?'Anlaşma bedeli':'%'+pp+' satıldı')+'</div></div>';
       h+='<span class="bg '+(p.status==='Devam ediyor'?'bgg':p.status==='Teslime yakın'?'bga':'bgb')+'" style="margin-left:8px">'+p.status+'</span>';
       h+='<button class="btn bo bsm" onclick="openSiteModal('+p.id+')" style="margin-left:6px">Düzenle</button>';
+      // Kat planı PDF
+      if(p.sitePlanPDF) {
+        h+='<button class="btn bsm" style="background:var(--gnl);color:var(--gn);border:.5px solid var(--gn);margin-left:4px" onclick="viewSitePlanPDF('+p.id+')">Kat planı</button>';
+      } else {
+        h+='<label class="btn bo bsm" style="cursor:pointer;margin-left:4px"><input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadSitePlanPDF(this,'+p.id+')">Kat planı yükle</label>';
+      }
       h+='<span style="color:var(--rd);cursor:pointer;font-weight:700;margin-left:6px" onclick="delProject('+p.id+')">✕</span>';
       h+='</div>';
     });
@@ -1349,12 +1370,13 @@ function rBB() {
   });
   // Detail table
   h+='<div class="cd"><div class="chd"><span class="cht">'+p.name+' — tüm bağımsız bölüm detayı</span></div>';
-  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Daire tipi</th><th>Brüt m²</th><th>Net m²</th><th>Hedef fiyat</th><th>Sahip</th><th>Durum</th><th>Müşteri</th></tr></thead><tbody>';
+  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Kat</th><th>Daire tipi</th><th>Brüt m²</th><th>Net m²</th><th>Hedef fiyat</th><th>Sahip</th><th>Durum</th><th>Müşteri</th></tr></thead><tbody>';
   p.blocks.forEach(function(b){b.units.forEach(function(u){
     var sc=u.status==='sold'?'bgr':u.status==='reserved'?'bga':u.status==='barter'?'bgp':u.status==='owner'?'':'bgg';
     var ownerBg=u.status==='owner'?'background:#ECEFF1;color:#546E7A':'';
     var sl=u.status==='sold'?'Satıldı':u.status==='reserved'?'Opsiyonlu':u.status==='barter'?'Barter':u.status==='owner'?'Arsa sahibi':'Boş';
-    h+='<tr><td style="font-weight:600">'+u.no+'</td><td style="color:var(--t2)">'+b.name+'</td>';
+    h+='<tr><td style="font-weight:600">'+(u.daireNo||u.no)+'</td><td style="color:var(--t2)">'+b.name+'</td>';
+    h+='<td style="color:var(--t2)">'+(u.katNo||'—')+'</td>';
     h+='<td style="font-weight:500">'+(u.daireType||b.unitType)+'</td>';
     h+='<td>'+(u.brutM2||'—')+'</td><td>'+(u.netM2||'—')+'</td>';
     h+='<td style="font-weight:600;color:var(--am)">'+(u.status==='owner'?'—':(u.targetPrice?'₺'+fmt(u.targetPrice):'—'))+'</td>';
@@ -1960,7 +1982,7 @@ function rST() {
   h+='<div class="st xa"><div class="stl">Satış oranı</div><div class="stv" style="color:var(--am)">%'+(pt>0?Math.round(ps/pt*100):0)+'</div></div>';
   h+='</div>';
   h+='<div class="cd"><div class="chd"><span class="cht">Satış durumu — '+p.name+'</span></div>';
-  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Tip</th><th>Daire tipi</th><th>m²</th><th>Hedef fiyat</th><th>Durum</th><th>Müşteri</th><th>İşlem</th></tr></thead><tbody>';
+  h+='<table class="tb"><thead><tr><th>No</th><th>Blok</th><th>Tip</th><th>Daire tipi</th><th>m²</th><th>Hedef fiyat</th><th>Durum</th><th>Müşteri</th><th>Sözleşme</th><th>İşlem</th></tr></thead><tbody>';
   p.blocks.forEach(function(b,bi){b.units.forEach(function(u,ui){
     var sc=u.status==='sold'?'bgr':u.status==='reserved'?'bga':u.status==='barter'?'bgp':u.status==='owner'?'':'bgg';
     var owStyle=u.status==='owner'?'background:#ECEFF1;color:#546E7A':'';
@@ -1974,12 +1996,21 @@ function rST() {
     } else if(u.status==='owner') {
       acts='<button class="btn bo bsm" onclick="editUnit('+curPrj+','+bi+','+ui+')">Düzenle</button>';
     }
+    // Sözleşme PDF
+    var sozlesme='';
+    if(u.status==='sold'||u.status==='reserved') {
+      if(u.contractPDF) {
+        sozlesme='<button class="btn bsm" style="background:var(--gnl);color:var(--gn);border:.5px solid var(--gn)" onclick="viewContractPDF('+curPrj+','+bi+','+ui+')">Görüntüle</button>';
+      } else {
+        sozlesme='<label class="btn bo bsm" style="cursor:pointer"><input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadContractPDF(this,'+curPrj+','+bi+','+ui+')">Yükle</label>';
+      }
+    }
     h+='<tr><td style="font-weight:600">'+u.no+'</td><td style="color:var(--t2)">'+b.name+'</td><td>'+b.unitType+'</td>';
     h+='<td style="font-size:10.5px">'+(u.daireType||'—')+'</td>';
     h+='<td style="font-size:10.5px;color:var(--t2)">'+(u.brutM2?u.brutM2+'b/':'')+(u.netM2?u.netM2+'n':'—')+'</td>';
     h+='<td style="font-weight:600;color:var(--am);font-size:11px">'+(u.status==='owner'?'—':(u.targetPrice?'₺'+fmt(u.targetPrice):'—'))+'</td>';
     h+='<td><span class="bg '+sc+'"'+(u.status==='owner'?' style="'+owStyle+'"':'')+'>'+sl+'</span></td>';
-    h+='<td>'+(u.customer||'—')+'</td><td>'+acts+'</td></tr>';
+    h+='<td>'+(u.customer||'—')+'</td><td>'+sozlesme+'</td><td>'+acts+'</td></tr>';
   })});
   h+='</tbody></table></div>';
   return h;
@@ -2411,19 +2442,30 @@ function openSiteModal(editId) {
       el=document.getElementById('sn-contract-desc'); if(el) el.value=p.contractDesc||'';
     },50);
   } else if(isEdit) {
-    // Show edit info for normal projects (no block re-creation, just basic info edit)
+    // Show edit info for normal projects with block management
     var area=document.getElementById('sn-type-detail');
-    area.innerHTML=
-      '<hr class="sep"><div style="background:var(--bll);border:.5px solid #90CAF9;border-radius:8px;padding:12px;margin-bottom:10px">'+
-      '<div style="font-size:11px;color:var(--bl);font-weight:600">Mevcut bloklar ve bağımsız bölümler korunacaktır.</div>'+
-      '<div style="font-size:10px;color:var(--t2);margin-top:4px">Blok yapısını değiştirmek için: mevcut projeyi silin ve yeniden oluşturun. Veya "Bağımsız bölümler" sayfasından tek tek düzenleme yapın.</div>'+
-      '</div>'+
-      '<div class="sec-t">Mevcut blok özeti</div>';
-    p.blocks.forEach(function(b){
+    var editHtml=
+      '<hr class="sep"><div class="sec-t">Mevcut bloklar</div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-bottom:8px">Blok bilgilerini düzenleyebilir, yeni daire ekleyebilir veya yeni blok ekleyebilirsiniz.</div>';
+    p.blocks.forEach(function(b,bi){
       var sold=b.units.filter(function(u){return u.status==='sold'||u.status==='barter'}).length;
       var owner=b.units.filter(function(u){return u.status==='owner'}).length;
-      area.innerHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);border-radius:6px;margin-bottom:4px;font-size:11px"><span style="font-weight:600">'+b.name+' ('+b.units.length+' '+b.unitType+')</span><span style="color:var(--t2)">Satılan: '+sold+' | Arsa sahibi: '+owner+' | Boş: '+(b.units.length-sold-owner)+'</span></div>';
+      editHtml+='<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:.5px solid var(--bd)">';
+      editHtml+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+      editHtml+='<span style="font-weight:700;font-size:12px">'+b.name+' ('+b.units.length+' '+b.unitType+')</span>';
+      editHtml+='<span style="font-size:10px;color:var(--t2)">Satılan: '+sold+' | Arsa sahibi: '+owner+' | Boş: '+(b.units.length-sold-owner)+'</span>';
+      editHtml+='</div>';
+      editHtml+='<div class="fr fr3">';
+      editHtml+='<div class="fg"><label class="fl">Blok adı</label><input class="fi" data-edit-blk-name="'+bi+'" value="'+b.name+'"></div>';
+      editHtml+='<div class="fg"><label class="fl">Birim tipi</label><select class="fi" data-edit-blk-type="'+bi+'"><option'+(b.unitType==='Daire'?' selected':'')+'>Daire</option><option'+(b.unitType==='Dükkan'?' selected':'')+'>Dükkan</option><option'+(b.unitType==='Ofis'?' selected':'')+'>Ofis</option><option'+(b.unitType==='Villa'?' selected':'')+'>Villa</option></select></div>';
+      editHtml+='<div class="fg"><label class="fl">Eklenecek yeni daire sayısı</label><input class="fi" type="number" data-edit-blk-add="'+bi+'" placeholder="0" min="0"></div>';
+      editHtml+='</div>';
+      editHtml+='</div>';
     });
+    editHtml+='<hr class="sep"><div class="sec-t">Yeni blok ekle (opsiyonel)</div>';
+    editHtml+='<div id="sn-new-blocks"></div>';
+    editHtml+='<button class="btn bo bsm" onclick="addNewBlockToEdit()">+ Yeni blok ekle</button>';
+    area.innerHTML=editHtml;
   } else {
     snTypeChange();
   }
@@ -2457,6 +2499,24 @@ function snTypeChange() {
 }
 
 var blkIdx=0;
+var newBlkIdx=0;
+function addNewBlockToEdit() {
+  newBlkIdx++;
+  var d=document.createElement('div');
+  d.style.marginBottom='12px';
+  d.id='new-blk-row-'+newBlkIdx;
+  d.innerHTML=
+    '<div style="background:var(--gnl);border-radius:8px;padding:10px 12px;border:.5px solid #A5D6A7">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--gn)">Yeni blok #'+newBlkIdx+'</span><button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd);padding:3px 8px" onclick="document.getElementById(\'new-blk-row-'+newBlkIdx+'\').remove()">✕</button></div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Blok adı</label><input class="fi" data-new-bn="'+newBlkIdx+'" placeholder="ör: C Blok"></div><div class="fg"><label class="fl">Birim sayısı</label><input class="fi" type="number" data-new-bc="'+newBlkIdx+'" placeholder="12"></div><div class="fg"><label class="fl">Birim tipi</label><select class="fi" data-new-bt="'+newBlkIdx+'"><option>Daire</option><option>Dükkan</option><option>Ofis</option><option>Villa</option></select></div></div>'+
+    '<div class="fg"><label class="fl">Daire tipleri (virgülle)</label><input class="fi" data-new-bdt="'+newBlkIdx+'" placeholder="ör: 2+1, 3+1"></div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Brüt m²</label><input class="fi" type="number" data-new-bbm="'+newBlkIdx+'"></div><div class="fg"><label class="fl">Net m²</label><input class="fi" type="number" data-new-bnm="'+newBlkIdx+'"></div><div class="fg"><label class="fl">Hedef fiyat (₺)</label><input class="fi" type="number" data-new-btp="'+newBlkIdx+'"></div></div>'+
+    '<div class="fg"><label class="fl">Arsa sahibi daireler (numara, virgülle)</label><input class="fi" data-new-bow="'+newBlkIdx+'" placeholder="boş bırakırsanız hepsi size ait"></div>'+
+    '</div>';
+  var container=document.getElementById('sn-new-blocks');
+  if(container) container.appendChild(d);
+}
+
 function addBlockRow() {
   blkIdx++;
   var d=document.createElement('div');
@@ -2511,6 +2571,54 @@ function saveSite() {
         if(cd) p.contractDesc=cd.value;
       } else {
         p.isTaahhut=false;
+        // Mevcut blokları güncelle (ad ve tip)
+        p.blocks.forEach(function(b,bi){
+          var nameEl=document.querySelector('[data-edit-blk-name="'+bi+'"]');
+          var typeEl=document.querySelector('[data-edit-blk-type="'+bi+'"]');
+          var addEl=document.querySelector('[data-edit-blk-add="'+bi+'"]');
+          if(nameEl) b.name=nameEl.value.trim()||b.name;
+          if(typeEl) b.unitType=typeEl.value;
+          // Yeni daire ekleme
+          if(addEl){
+            var addCount=parseInt(addEl.value)||0;
+            if(addCount>0){
+              var pfx=b.name.charAt(0).toUpperCase();
+              var startNo=b.units.length+1;
+              for(var j=0;j<addCount;j++){
+                b.units.push({
+                  no:pfx+'-'+(startNo+j),
+                  status:'free', customer:null,
+                  daireType:'', brutM2:0, netM2:0, targetPrice:0
+                });
+              }
+            }
+          }
+        });
+        // Yeni blok ekleme
+        for(var nb=1;nb<=newBlkIdx;nb++){
+          var nbn=document.querySelector('[data-new-bn="'+nb+'"]');
+          var nbc=document.querySelector('[data-new-bc="'+nb+'"]');
+          var nbt=document.querySelector('[data-new-bt="'+nb+'"]');
+          var nbdt=document.querySelector('[data-new-bdt="'+nb+'"]');
+          var nbbm=document.querySelector('[data-new-bbm="'+nb+'"]');
+          var nbnm=document.querySelector('[data-new-bnm="'+nb+'"]');
+          var nbtp=document.querySelector('[data-new-btp="'+nb+'"]');
+          var nbow=document.querySelector('[data-new-bow="'+nb+'"]');
+          if(nbn&&nbc&&nbn.value.trim()&&parseInt(nbc.value)>0){
+            var cnt2=parseInt(nbc.value),pfx2=nbn.value.trim().charAt(0).toUpperCase(),units2=[];
+            var dt2=(nbdt&&nbdt.value)?nbdt.value.split(',').map(function(s){return s.trim();}):[];
+            var bm2=parseFloat((nbbm&&nbbm.value)||0);
+            var nm2=parseFloat((nbnm&&nbnm.value)||0);
+            var tp2=parseFloat((nbtp&&nbtp.value)||0);
+            var ow2=(nbow&&nbow.value)?nbow.value.split(',').map(function(s){return parseInt(s.trim());}):[];
+            for(var k=1;k<=cnt2;k++){
+              var isOw=ow2.indexOf(k)>-1;
+              units2.push({no:pfx2+'-'+k,status:isOw?'owner':'free',customer:isOw?'Arsa sahibi':null,daireType:dt2.length>0?dt2[(k-1)%dt2.length]:'',brutM2:bm2,netM2:nm2,targetPrice:isOw?0:tp2});
+            }
+            p.blocks.push({name:nbn.value.trim(),unitType:nbt.value,units:units2});
+          }
+        }
+        newBlkIdx=0;
       }
 
       // Update project name in transactions, customers, taserons
@@ -2645,11 +2753,72 @@ function tsPayChange() {
     setTimeout(function(){ tsBarterTypeChange(); }, 50);
   } else if (pay === 'Taksitli') {
     d.innerHTML =
-      '<hr class="sep"><div class="sec-t">Taksit bilgileri</div>'+
-      '<div class="fr fr3"><div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="ts-taksit-n" type="number" value="4" min="1"></div><div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="ts-taksit-date" type="date" value="'+today()+'"></div><div class="fg"><label class="fl">Aralık</label><select class="fi" id="ts-taksit-period"><option>Aylık</option><option>2 ayda bir</option><option>Haftalık</option></select></div></div>';
+      '<hr class="sep"><div class="sec-t">① Peşinat</div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Peşinat tutarı (₺)</label><input class="fi" id="ts-pesin" type="number" value="0" oninput="tsCalcNakitOzet()"></div><div class="fg"><label class="fl">Peşinat tarihi</label><input class="fi" id="ts-pesin-date" type="date" value="'+today()+'"></div></div>'+
+      '<hr class="sep"><div class="sec-t">② Ara ödemeler (opsiyonel)</div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-bottom:8px">Taksit planı dışında yapılacak büyük ödemeleri ekleyin.</div>'+
+      '<div id="ts-ara-list"></div>'+
+      '<button class="btn bo bsm" onclick="tsAddAra()" style="margin-bottom:10px">+ Ara ödeme ekle</button>'+
+      '<hr class="sep"><div class="sec-t">③ Taksit planı</div>'+
+      '<div class="fr fr3"><div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="ts-taksit-n" type="number" value="4" min="1" oninput="tsCalcNakitOzet()"></div><div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="ts-taksit-date" type="date" value="'+today()+'"></div><div class="fg"><label class="fl">Aralık</label><select class="fi" id="ts-taksit-period"><option value="1">Aylık</option><option value="2">2 ayda bir</option><option value="3">3 ayda bir</option></select></div></div>'+
+      '<div id="ts-nakit-ozet"></div>';
+    tsCalcNakitOzet();
+  } else if (pay === 'Nakit') {
+    d.innerHTML =
+      '<hr class="sep"><div class="sec-t">Nakit ödeme planı (opsiyonel)</div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-bottom:8px">Tek seferde ödeme yapılacaksa boş bırakabilirsiniz. Birden fazla ödeme varsa peşinat ve ara ödeme ekleyebilirsiniz.</div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Peşinat tutarı (₺)</label><input class="fi" id="ts-pesin" type="number" value="0" oninput="tsCalcNakitOzet()"></div><div class="fg"><label class="fl">Peşinat tarihi</label><input class="fi" id="ts-pesin-date" type="date" value="'+today()+'"></div></div>'+
+      '<div id="ts-ara-list"></div>'+
+      '<button class="btn bo bsm" onclick="tsAddAra()" style="margin:6px 0 10px">+ Ara ödeme ekle</button>'+
+      '<div id="ts-nakit-ozet"></div>';
   } else {
     d.innerHTML = '';
   }
+}
+
+var tsAraIdx=0;
+function tsAddAra() {
+  tsAraIdx++;
+  var d=document.createElement('div');
+  d.className='fr fr3';
+  d.style.marginBottom='6px';
+  d.id='ts-ara-row-'+tsAraIdx;
+  d.innerHTML=
+    '<div class="fg"><label class="fl">Ara ödeme tutarı (₺)</label><input class="fi" type="number" data-ts-ara-amount="'+tsAraIdx+'" placeholder="ör: 500.000" oninput="tsCalcNakitOzet()"></div>'+
+    '<div class="fg"><label class="fl">Tarih</label><input class="fi" type="date" data-ts-ara-date="'+tsAraIdx+'" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><div style="display:flex;gap:4px"><input class="fi" data-ts-ara-note="'+tsAraIdx+'" placeholder="ör: 2. ara ödeme" style="flex:1"><button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd);padding:4px 8px" onclick="document.getElementById(\'ts-ara-row-'+tsAraIdx+'\').remove();tsCalcNakitOzet()">✕</button></div></div>';
+  var container=document.getElementById('ts-ara-list');
+  if(container) container.appendChild(d);
+  tsCalcNakitOzet();
+}
+
+function tsCalcNakitOzet() {
+  var ozetEl=document.getElementById('ts-nakit-ozet');
+  if(!ozetEl) return;
+  var tot=parseFloat((document.getElementById('ts-tot')||{}).value)||0;
+  var pesin=parseFloat((document.getElementById('ts-pesin')||{}).value)||0;
+  var araTotal=0;
+  document.querySelectorAll('[data-ts-ara-amount]').forEach(function(el){araTotal+=parseFloat(el.value)||0});
+  var taksitN=parseInt((document.getElementById('ts-taksit-n')||{}).value)||0;
+  var remaining=Math.max(0,tot-pesin-araTotal);
+  var perTaksit=taksitN>0?Math.round(remaining/taksitN):0;
+  var taksitTotal=perTaksit*taksitN;
+  var sum=pesin+araTotal+taksitTotal;
+  if(tot<=0){ozetEl.innerHTML='';return;}
+  var ok=Math.abs(sum-tot)<2||(taksitN===0&&Math.abs(pesin+araTotal-tot)<2);
+  ozetEl.innerHTML=
+    '<div style="background:'+(ok?'var(--gnl)':'var(--aml)')+';border:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';border-radius:8px;padding:12px;margin-top:8px">'+
+    '<div style="font-size:12px;font-weight:700;color:'+(ok?'var(--gn)':'var(--amd)')+';margin-bottom:6px">Taşeron ödeme planı özeti</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'+
+    '<div>Toplam anlaşma:</div><div style="font-weight:700;text-align:right">₺'+fmt(tot)+'</div>'+
+    '<div>① Peşinat:</div><div style="font-weight:700;text-align:right;color:var(--gn)">₺'+fmt(pesin)+'</div>'+
+    (araTotal>0?'<div>② Ara ödemeler:</div><div style="font-weight:700;text-align:right;color:var(--tl)">₺'+fmt(araTotal)+'</div>':'')+
+    (taksitN>0?'<div>③ Taksitler ('+taksitN+' x ₺'+fmt(perTaksit)+'):</div><div style="font-weight:700;text-align:right;color:var(--bl)">₺'+fmt(taksitTotal)+'</div>':'')+
+    '<div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700">Toplam:</div><div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700;text-align:right;color:'+(ok?'var(--gn)':'var(--rd)')+'">₺'+fmt(sum)+'</div>'+
+    '</div>'+
+    (ok?'<div style="color:var(--gn);font-weight:600;font-size:11px;margin-top:6px">Ödeme planı tutarlı ✓</div>':
+    '<div style="color:var(--rd);font-weight:600;font-size:11px;margin-top:6px">Fark: ₺'+fmt(Math.abs(sum-tot))+'</div>')+
+    '</div>';
 }
 
 function tsCalcTotals() {
@@ -2783,6 +2952,35 @@ function saveTaskeron() {
   var payType=document.getElementById('ts-pay').value;
 
   var barterVal=0, barterDesc='', barterDetail='', barterType='', cashVal=0, cashType='';
+  var tsPesin=0, tsPesinDate='', tsAraOdemeler=[], tsTaksitler=[];
+
+  // Peşinat ve ara ödeme bilgilerini topla (Nakit ve Taksitli modlar)
+  if(payType==='Nakit'||payType==='Taksitli') {
+    tsPesin=parseFloat((document.getElementById('ts-pesin')||{}).value)||0;
+    tsPesinDate=(document.getElementById('ts-pesin-date')||{}).value||today();
+    // Ara ödemeler
+    document.querySelectorAll('[data-ts-ara-amount]').forEach(function(el){
+      var idx=el.dataset.tsAraAmount;
+      var amount=parseFloat(el.value)||0;
+      var dateEl=document.querySelector('[data-ts-ara-date="'+idx+'"]');
+      var noteEl=document.querySelector('[data-ts-ara-note="'+idx+'"]');
+      if(amount>0) tsAraOdemeler.push({amount:amount, date:dateEl?dateEl.value:today(), note:noteEl?noteEl.value:'Ara ödeme', paid:false});
+    });
+    // Taksitler
+    if(payType==='Taksitli') {
+      var tsN=parseInt((document.getElementById('ts-taksit-n')||{}).value)||0;
+      var tsStart=(document.getElementById('ts-taksit-date')||{}).value||today();
+      var tsPeriod=parseInt((document.getElementById('ts-taksit-period')||{}).value)||1;
+      var araTotal=tsAraOdemeler.reduce(function(s,a){return s+a.amount},0);
+      var remaining=Math.max(0,tot-tsPesin-araTotal);
+      var perTaksit=tsN>0?Math.round(remaining/tsN):0;
+      var d=new Date(tsStart);
+      for(var i=0;i<tsN;i++){
+        tsTaksitler.push({no:(i+1),total:tsN,date:d.toISOString().split('T')[0],amount:perTaksit,paid:false});
+        d.setMonth(d.getMonth()+tsPeriod);
+      }
+    }
+  }
 
   if(payType==='Barter') {
     barterVal=parseFloat(document.getElementById('ts-barter-val').value)||0;
@@ -2804,7 +3002,9 @@ function saveTaskeron() {
   DB.taserons.push({
     id:nid(), name:name, project:document.getElementById('ts-proj').value,
     job:document.getElementById('ts-job').value, payType:payType,
-    total:tot, resmi:res, kdv:kdv, paid:0,
+    total:tot, resmi:res, kdv:kdv, paid:tsPesin,
+    pesinat:tsPesin, pesinatDate:tsPesinDate,
+    araOdemeler:tsAraOdemeler, taksitler:tsTaksitler,
     cashVal:cashVal, cashType:cashType,
     barterVal:barterVal, barterDesc:barterDesc, barterDetail:barterDetail, barterType:barterType,
     barterBBProj:(document.getElementById('ts-bb-proj')||{}).value||'',
@@ -2942,7 +3142,7 @@ function saveCustomer() {
       var oldUnit=c.unit;
       var newProject=document.getElementById('ms-proj').value;
       var newUnit=document.getElementById('ms-unit').value;
-      // Proje veya birim değiştiyse BB'leri güncelle
+      // Proje veya birim değiştiyse — sadece eski BB'yi boşa al, yeni BB atama yapma (kullanıcı bağımsız bölümler sayfasından manuel ayarlasın)
       if(oldProject!==newProject || oldUnit!==newUnit) {
         // Eski BB'yi boşa al
         DB.projects.forEach(function(p){
@@ -2954,16 +3154,20 @@ function saveCustomer() {
             });
           }
         });
-        // Yeni BB'yi satılmış yap
+        // Yeni proje/birimdeki BB'yi satılmış olarak işaretle (sadece birebir eşleşme varsa)
+        var matched=false;
         DB.projects.forEach(function(p){
-          if(p.name===newProject) {
+          if(p.name===newProject && !matched) {
             p.blocks.forEach(function(b){
               b.units.forEach(function(u){
-                if(u.no===newUnit && u.status==='free') { u.status='sold'; u.customer=name; }
+                if(u.no===newUnit && u.status==='free' && !matched) { u.status='sold'; u.customer=name; matched=true; }
               });
             });
           }
         });
+        if(!matched) {
+          toast('Uyarı: "'+newUnit+'" bağımsız bölümü bulunamadı veya dolu. BB atamasını "Bağımsız bölümler" sayfasından yapabilirsiniz.');
+        }
       } else if(c.name!==name) {
         // Sadece isim değiştiyse BB'deki müşteri adını güncelle
         DB.projects.forEach(function(p){
@@ -3044,26 +3248,78 @@ function saveCustomer() {
 function openSellModal(pi,bi,ui) {
   var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
   document.getElementById('m-sell-body').innerHTML=
-    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+' — '+b.name+' — '+u.no+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">'+b.unitType+'</div></div>'+
+    '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+' — '+b.name+' — '+u.no+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">'+b.unitType+(u.daireType?' — '+u.daireType:'')+(u.brutM2?' | '+u.brutM2+'m²':'')+'</div></div>'+
     '<div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="sl-name"></div>'+
-    '<div class="fr"><div class="fg"><label class="fl">Telefon</label><input class="fi" id="sl-phone"></div><div class="fg"><label class="fl">İşlem türü</label><select class="fi" id="sl-pay" onchange="slPayChange()"><option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option><option>Barter olarak ver</option><option>Arsa sahibi olarak işaretle</option></select></div></div>'+
-    '<div class="fr fr3" id="sl-price-row"><div class="fg"><label class="fl">Toplam (₺)</label><input class="fi" id="sl-tot" type="number" oninput="slCalcTaksit()"></div><div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="sl-res" type="number"></div><div class="fg"><label class="fl">KDV %</label><select class="fi" id="sl-kdv"><option value="1">%1</option><option value="20">%20</option><option value="0">Hariç</option></select></div></div>'+
-    '<div class="fg" id="sl-kapora-row"><label class="fl">Kapora / peşinat (₺)</label><input class="fi" id="sl-paid" type="number" value="0" oninput="slCalcTaksit()"></div>'+
-    '<div id="sl-taksit-area"></div>';
+    '<div class="fr"><div class="fg"><label class="fl">Telefon</label><input class="fi" id="sl-phone"></div><div class="fg"><label class="fl">E-posta</label><input class="fi" id="sl-email" type="email" placeholder="opsiyonel"></div></div>'+
+    '<div class="fg"><label class="fl">İşlem türü</label><select class="fi" id="sl-pay" onchange="slPayChange()"><option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option><option>Barter olarak ver</option><option>Arsa sahibi olarak işaretle</option></select></div>'+
+    '<div id="sl-price-section">'+
+    '<hr class="sep"><div class="sec-t">Bedel bilgileri</div>'+
+    '<div class="fr fr3"><div class="fg"><label class="fl">Toplam daire bedeli (₺)</label><input class="fi" id="sl-tot" type="number" oninput="slRecalc()" placeholder="Toplam satış fiyatı"></div><div class="fg"><label class="fl">Resmi bedel (₺)</label><input class="fi" id="sl-res" type="number" oninput="slRecalc()" placeholder="Fatura/tapu bedeli"></div><div class="fg"><label class="fl">KDV %</label><select class="fi" id="sl-kdv"><option value="1">%1</option><option value="20">%20</option><option value="0">Hariç</option></select></div></div>'+
+    '<div style="background:var(--aml);border:.5px solid #FFE082;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:11px" id="sl-gayri-info"></div>'+
+    '</div>'+
+    '<div id="sl-odeme-plani"></div>'+
+    '<div id="sl-taksit-area"></div>'+
+    '<div id="sl-toplam-ozet"></div>';
   document.getElementById('m-sell-body').dataset.pi=pi;
   document.getElementById('m-sell-body').dataset.bi=bi;
   document.getElementById('m-sell-body').dataset.ui=ui;
+  slRecalc();
   openM('m-sell');
+}
+
+var slAraIdx=0;
+function slRecalc() {
+  var tot=parseFloat((document.getElementById('sl-tot')||{}).value)||0;
+  var res=parseFloat((document.getElementById('sl-res')||{}).value)||0;
+  var gayri=Math.max(0,tot-res);
+  var info=document.getElementById('sl-gayri-info');
+  if(info) info.innerHTML='<span style="font-weight:600;color:var(--amd)">Gayri resmi bedel: ₺'+fmt(gayri)+'</span>';
+  slCalcOzet();
+}
+
+function slCalcOzet() {
+  var ozetEl=document.getElementById('sl-toplam-ozet');
+  if(!ozetEl) return;
+  var pay=(document.getElementById('sl-pay')||{}).value||'Peşin';
+  if(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle'){ozetEl.innerHTML='';return;}
+  var tot=parseFloat((document.getElementById('sl-tot')||{}).value)||0;
+  var kapora=parseFloat((document.getElementById('sl-kapora')||{}).value)||0;
+  // Ara ödemeler toplamı
+  var araTotal=0;
+  document.querySelectorAll('[data-sl-ara-amount]').forEach(function(el){araTotal+=parseFloat(el.value)||0});
+  // Taksit toplamı
+  var taksitN=parseInt((document.getElementById('sl-taksit-n')||{}).value)||0;
+  var taksitRemaining=Math.max(0,tot-kapora-araTotal);
+  var perTaksit=taksitN>0?Math.round(taksitRemaining/taksitN):0;
+  var taksitTotal=perTaksit*taksitN;
+  var sum=kapora+araTotal+taksitTotal;
+  if(pay==='Peşin'||pay==='Banka kredisi') sum=tot;
+  if(tot<=0){ozetEl.innerHTML='';return;}
+  var ok=Math.abs(sum-tot)<2;
+  ozetEl.innerHTML=
+    '<div style="background:'+(ok?'var(--gnl)':'var(--aml)')+';border:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';border-radius:8px;padding:12px;margin-top:10px">'+
+    '<div style="font-size:12px;font-weight:700;color:'+(ok?'var(--gn)':'var(--amd)')+';margin-bottom:6px">Ödeme planı özeti</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'+
+    '<div>Toplam daire bedeli:</div><div style="font-weight:700;text-align:right">₺'+fmt(tot)+'</div>'+
+    (pay==='Taksitli'?
+    '<div>① Peşinat:</div><div style="font-weight:700;text-align:right;color:var(--gn)">₺'+fmt(kapora)+'</div>'+
+    (araTotal>0?'<div>② Ara ödemeler:</div><div style="font-weight:700;text-align:right;color:var(--tl)">₺'+fmt(araTotal)+'</div>':'')+
+    '<div>③ Taksitler ('+taksitN+' x ₺'+fmt(perTaksit)+'):</div><div style="font-weight:700;text-align:right;color:var(--bl)">₺'+fmt(taksitTotal)+'</div>'+
+    '<div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700">Toplam ödeme:</div><div style="border-top:.5px solid '+(ok?'#A5D6A7':'#FFE082')+';padding-top:4px;font-weight:700;text-align:right;color:'+(ok?'var(--gn)':'var(--rd)')+'">₺'+fmt(sum)+'</div>'
+    :'')+
+    '</div>'+
+    (pay==='Taksitli'&&!ok&&taksitN>0?'<div style="color:var(--rd);font-weight:600;font-size:11px;margin-top:6px">Fark: ₺'+fmt(Math.abs(sum-tot))+'</div>':'')+
+    (pay==='Taksitli'&&ok&&taksitN>0?'<div style="color:var(--gn);font-weight:600;font-size:11px;margin-top:6px">Peşinat + ara ödeme + taksitler = toplam bedel ✓</div>':'')+
+    '</div>';
 }
 
 function slPayChange() {
   var pay=document.getElementById('sl-pay').value;
+  var priceSection=document.getElementById('sl-price-section');
   var area=document.getElementById('sl-taksit-area');
-  // Hide price fields for barter/owner
-  var priceRow=document.getElementById('sl-price-row');
-  var kaporaRow=document.getElementById('sl-kapora-row');
-  if(priceRow) priceRow.style.display=(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle')?'none':'grid';
-  if(kaporaRow) kaporaRow.style.display=(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle')?'none':'block';
+  var ozet=document.getElementById('sl-toplam-ozet');
+  if(priceSection) priceSection.style.display=(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle')?'none':'block';
+  if(ozet) ozet.innerHTML='';
   if(pay==='Arsa sahibi olarak işaretle') {
     area.innerHTML='<div style="background:#ECEFF1;border-radius:8px;padding:12px;margin-top:8px;font-size:12px;color:#546E7A;font-weight:600">Bu daire arsa sahibine ait olarak işaretlenecek ve satışa kapatılacaktır.</div>';
     return;
@@ -3073,30 +3329,68 @@ function slPayChange() {
     return;
   }
   if(pay==='Taksitli') {
+    slAraIdx=0;
     area.innerHTML=
-      '<hr class="sep"><div class="sec-t">Taksit planı</div>'+
+      '<hr class="sep"><div class="sec-t">① Peşinat</div>'+
+      '<div class="fr"><div class="fg"><label class="fl">Peşinat tutarı (₺)</label><input class="fi" id="sl-kapora" type="number" value="0" oninput="slCalcOzet();slPreviewTaksit()" placeholder="Peşinat/kapora miktarı"></div><div class="fg"><label class="fl">Peşinat tarihi</label><input class="fi" id="sl-kapora-date" type="date" value="'+today()+'"></div></div>'+
+      '<hr class="sep"><div class="sec-t">② Ara ödemeler (opsiyonel)</div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-bottom:8px">Taksit planı dışında yapılacak büyük ödemeleri ekleyin. Her birinin tarihini ayrı belirleyebilirsiniz.</div>'+
+      '<div id="sl-ara-list"></div>'+
+      '<button class="btn bo bsm" onclick="slAddAra()" style="margin-bottom:10px">+ Ara ödeme ekle</button>'+
+      '<hr class="sep"><div class="sec-t">③ Taksit planı</div>'+
       '<div class="fr fr3">'+
-      '<div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="sl-taksit-n" type="number" value="12" min="1" max="120" oninput="slCalcTaksit()"></div>'+
-      '<div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="sl-taksit-date" type="date" value="'+nextMonth()+'"></div>'+
-      '<div class="fg"><label class="fl">Taksit aralığı</label><select class="fi" id="sl-taksit-period"><option value="1">Aylık</option><option value="2">2 ayda bir</option><option value="3">3 ayda bir</option></select></div>'+
+      '<div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="sl-taksit-n" type="number" value="12" min="1" oninput="slCalcOzet();slPreviewTaksit()"></div>'+
+      '<div class="fg"><label class="fl">İlk taksit tarihi</label><input class="fi" id="sl-taksit-date" type="date" value="'+nextMonth()+'" onchange="slPreviewTaksit()"></div>'+
+      '<div class="fg"><label class="fl">Taksit aralığı</label><select class="fi" id="sl-taksit-period" onchange="slPreviewTaksit()"><option value="1">Aylık</option><option value="2">2 ayda bir</option><option value="3">3 ayda bir</option></select></div>'+
       '</div>'+
       '<div id="sl-taksit-preview"></div>';
-    slCalcTaksit();
-  } else area.innerHTML='';
+    slCalcOzet();
+    slPreviewTaksit();
+  } else {
+    area.innerHTML='';
+    slCalcOzet();
+  }
 }
 
-function slCalcTaksit() {
+function slAddAra() {
+  slAraIdx++;
+  var d=document.createElement('div');
+  d.className='fr fr3';
+  d.style.marginBottom='6px';
+  d.id='sl-ara-row-'+slAraIdx;
+  d.innerHTML=
+    '<div class="fg"><label class="fl">Ara ödeme tutarı (₺)</label><input class="fi" type="number" data-sl-ara-amount="'+slAraIdx+'" placeholder="ör: 500.000" oninput="slCalcOzet();slPreviewTaksit()"></div>'+
+    '<div class="fg"><label class="fl">Tarih</label><input class="fi" type="date" data-sl-ara-date="'+slAraIdx+'" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><div style="display:flex;gap:4px"><input class="fi" data-sl-ara-note="'+slAraIdx+'" placeholder="ör: 2. ara ödeme" style="flex:1"><button class="btn bsm" style="background:var(--rdl);color:var(--rd);border:.5px solid var(--rd);padding:4px 8px" onclick="document.getElementById(\'sl-ara-row-'+slAraIdx+'\').remove();slCalcOzet();slPreviewTaksit()">✕</button></div></div>';
+  document.getElementById('sl-ara-list').appendChild(d);
+  slCalcOzet();
+}
+
+function slPreviewTaksit() {
   var prev=document.getElementById('sl-taksit-preview');
   if(!prev) return;
-  var tot=parseFloat(document.getElementById('sl-tot').value)||0;
-  var paid=parseFloat(document.getElementById('sl-paid').value)||0;
-  var n=parseInt(document.getElementById('sl-taksit-n').value)||1;
-  var remaining=tot-paid;
-  if(remaining<=0||n<=0){prev.innerHTML='';return}
+  var tot=parseFloat((document.getElementById('sl-tot')||{}).value)||0;
+  var kapora=parseFloat((document.getElementById('sl-kapora')||{}).value)||0;
+  var n=parseInt((document.getElementById('sl-taksit-n')||{}).value)||0;
+  var araTotal=0;
+  document.querySelectorAll('[data-sl-ara-amount]').forEach(function(el){araTotal+=parseFloat(el.value)||0});
+  var remaining=tot-kapora-araTotal;
+  if(remaining<=0||n<=0){
+    prev.innerHTML=remaining<0?'<div style="color:var(--rd);font-size:11px;font-weight:600;padding:8px">Peşinat + ara ödemeler toplamı daire bedelini aşıyor!</div>':'';
+    return;
+  }
   var perTaksit=Math.round(remaining/n);
-  var h='<div style="background:var(--bg);border-radius:8px;padding:10px 12px;border:.5px solid var(--bd);margin-top:6px">';
-  h+='<div style="font-size:11px;font-weight:700;margin-bottom:4px">Kapora: ₺'+fmt(paid)+' + '+n+' taksit x ₺'+fmt(perTaksit)+' = ₺'+fmt(paid+perTaksit*n)+'</div>';
-  h+='</div>';
+  var startDate=(document.getElementById('sl-taksit-date')||{}).value||nextMonth();
+  var period=parseInt((document.getElementById('sl-taksit-period')||{}).value)||1;
+  var h='<div style="background:var(--bg);border-radius:8px;padding:12px;border:.5px solid var(--bd);margin-top:6px">';
+  h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;font-weight:700">Taksit önizleme</span><span style="font-size:11px;color:var(--t2)">Kalan: ₺'+fmt(remaining)+' / '+n+' taksit = ₺'+fmt(perTaksit)+'/ay</span></div>';
+  h+='<div style="max-height:200px;overflow-y:auto"><table class="tb" style="font-size:10.5px"><thead><tr><th>No</th><th>Vade tarihi</th><th>Tutar</th></tr></thead><tbody>';
+  var d=new Date(startDate);
+  for(var i=0;i<n;i++){
+    h+='<tr><td style="font-weight:600">'+(i+1)+'/'+n+'</td><td>'+d.toLocaleDateString('tr-TR')+'</td><td style="font-weight:600">₺'+fmt(perTaksit)+'</td></tr>';
+    d.setMonth(d.getMonth()+period);
+  }
+  h+='</tbody></table></div></div>';
   prev.innerHTML=h;
 }
 
@@ -3126,18 +3420,31 @@ function confirmSell() {
   var res=parseFloat(document.getElementById('sl-res').value)||0;
   var rate=parseFloat(document.getElementById('sl-kdv').value)||0;
   var kdv=rate>0?Math.round(res-(res/(1+rate/100))):0;
-  var paid=parseFloat(document.getElementById('sl-paid').value)||0;
+  var paid=parseFloat((document.getElementById('sl-kapora')||{}).value)||0;
 
   DB.projects[pi].blocks[bi].units[ui].status='sold';
   DB.projects[pi].blocks[bi].units[ui].customer=name;
 
   var taksitler=[];
+  var araOdemeler=[];
   if(payType==='Taksitli') {
+    // Collect ara ödemeler
+    document.querySelectorAll('[data-sl-ara-amount]').forEach(function(el){
+      var idx=el.dataset.slAraAmount;
+      var amount=parseFloat(el.value)||0;
+      var dateEl=document.querySelector('[data-sl-ara-date="'+idx+'"]');
+      var noteEl=document.querySelector('[data-sl-ara-note="'+idx+'"]');
+      if(amount>0) {
+        araOdemeler.push({amount:amount, date:dateEl?dateEl.value:today(), note:noteEl?noteEl.value:'Ara ödeme', resmi:0, paid:false});
+      }
+    });
+    var araTotal=araOdemeler.reduce(function(s,a){return s+a.amount},0);
+
     var n=parseInt(document.getElementById('sl-taksit-n').value)||1;
     var startDate=document.getElementById('sl-taksit-date').value;
     var period=parseInt(document.getElementById('sl-taksit-period').value)||1;
-    var remaining=tot-paid;
-    var perTaksit=Math.round(remaining/n);
+    var remaining=tot-paid-araTotal;
+    var perTaksit=remaining>0?Math.round(remaining/n):0;
     var d=new Date(startDate);
     for(var i=0;i<n;i++){
       taksitler.push({no:(i+1),total:n,date:d.toISOString().split('T')[0],amount:perTaksit,paid:false});
@@ -3145,8 +3452,9 @@ function confirmSell() {
     }
   }
 
-  DB.customers.push({id:nid(),name:name,phone:document.getElementById('sl-phone').value,project:DB.projects[pi].name,unit:DB.projects[pi].blocks[bi].units[ui].no,payType:payType,total:tot,resmi:res,kdv:kdv,remaining:payType==='Peşin'?0:tot-paid,kapora:paid,taksitler:taksitler});
-  DB.transactions.push({id:nid(),type:'gelir',desc:'Satış — '+name,project:DB.projects[pi].name,category:'Daire satışı',date:today(),total:tot,resmi:res,kdvOran:rate,kdvTutar:kdv});
+  var totalRemaining=payType==='Peşin'||payType==='Banka kredisi'?0:tot-paid;
+  DB.customers.push({id:nid(),name:name,phone:document.getElementById('sl-phone').value,email:(document.getElementById('sl-email')||{}).value||'',project:DB.projects[pi].name,unit:DB.projects[pi].blocks[bi].units[ui].no,payType:payType,total:tot,resmi:res,kdv:kdv,remaining:totalRemaining,kapora:paid,kaporaDate:(document.getElementById('sl-kapora-date')||{}).value||today(),taksitler:taksitler,araOdemeler:araOdemeler});
+  DB.transactions.push({id:nid(),type:'gelir',desc:'Satış — '+name+' ('+DB.projects[pi].blocks[bi].units[ui].no+')',project:DB.projects[pi].name,category:'Daire satışı',date:today(),total:tot,resmi:res,kdvOran:rate,kdvTutar:kdv});
   save(); closeM('m-sell'); render(); toast('Satış kaydedildi');
 }
 
@@ -3163,8 +3471,8 @@ function editUnit(pi,bi,ui) {
     '<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">'+p.name+' — '+b.name+' — '+u.no+'</div><div style="font-size:11px;color:var(--t2);margin-top:2px">'+b.unitType+(u.daireType?' — '+u.daireType:'')+'</div></div>'+
     '<input type="hidden" id="eu-pi" value="'+pi+'"><input type="hidden" id="eu-bi" value="'+bi+'"><input type="hidden" id="eu-ui" value="'+ui+'">'+
     '<div class="fr"><div class="fg"><label class="fl">Durum</label><select class="fi" id="eu-status" onchange="euStatusChange()">'+statusOpts+'</select></div><div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="eu-customer" value="'+(u.customer||'')+'"></div></div>'+
-    '<div class="fr"><div class="fg"><label class="fl">Daire tipi</label><input class="fi" id="eu-type" value="'+(u.daireType||'')+'" placeholder="ör: 2+1 açık mutfak"></div><div class="fg"><label class="fl">Brüt m²</label><input class="fi" id="eu-brut" type="number" value="'+(u.brutM2||'')+'"></div></div>'+
-    '<div class="fr"><div class="fg"><label class="fl">Net m²</label><input class="fi" id="eu-net" type="number" value="'+(u.netM2||'')+'"></div><div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" id="eu-target" type="number" value="'+(u.targetPrice||'')+'"'+(u.status==='owner'?' disabled placeholder="Arsa sahibi — gelir yok"':' placeholder="ör: 5.000.000"')+'></div></div>';
+    '<div class="fr fr3"><div class="fg"><label class="fl">Daire tipi</label><input class="fi" id="eu-type" value="'+(u.daireType||'')+'" placeholder="ör: 2+1 açık mutfak"></div><div class="fg"><label class="fl">Daire No</label><input class="fi" id="eu-daireno" value="'+(u.daireNo||u.no||'')+'" placeholder="ör: A-5"></div><div class="fg"><label class="fl">Kat No</label><input class="fi" id="eu-katno" value="'+(u.katNo||'')+'" placeholder="ör: 3"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Brüt m²</label><input class="fi" id="eu-brut" type="number" value="'+(u.brutM2||'')+'"></div><div class="fg"><label class="fl">Net m²</label><input class="fi" id="eu-net" type="number" value="'+(u.netM2||'')+'"></div><div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" id="eu-target" type="number" value="'+(u.targetPrice||'')+'"'+(u.status==='owner'?' disabled placeholder="Arsa sahibi — gelir yok"':' placeholder="ör: 5.000.000"')+'></div></div>';
 
   document.querySelector('#m-sell .mdt').textContent='Bağımsız bölüm düzenle';
   document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveUnitEdit()">Güncelle</button>';
@@ -3188,6 +3496,8 @@ function saveUnitEdit() {
   u.status=document.getElementById('eu-status').value;
   u.customer=document.getElementById('eu-customer').value||null;
   u.daireType=document.getElementById('eu-type').value;
+  u.daireNo=(document.getElementById('eu-daireno')||{}).value||u.no;
+  u.katNo=(document.getElementById('eu-katno')||{}).value||'';
   u.brutM2=parseFloat(document.getElementById('eu-brut').value)||0;
   u.netM2=parseFloat(document.getElementById('eu-net').value)||0;
   u.targetPrice=u.status==='owner'?0:parseFloat(document.getElementById('eu-target').value)||0;
@@ -3197,6 +3507,86 @@ function saveUnitEdit() {
   document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
   document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
   save(); closeM('m-sell'); render(); toast(u.no+' güncellendi');
+}
+
+function uploadTaseronPDF(input,tsId) {
+  var file=input.files[0];
+  if(!file) return;
+  if(file.size>750*1024){alert('PDF dosya boyutu 750KB\'ı aşamaz (Firestore sınırı).\n\nDosya boyutu: '+(file.size/1024).toFixed(0)+'KB\n\nİpucu: PDF\'i sıkıştırarak küçültebilirsiniz.');return;}
+  var t=DB.taserons.find(function(x){return x.id===tsId});
+  if(!t) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    t.contractPDF=e.target.result;
+    t.contractPDFName=file.name;
+    save(); render(); toast('Taşeron sözleşmesi yüklendi — '+file.name);
+  };
+  reader.readAsDataURL(file);
+}
+
+function viewTaseronPDF(tsId) {
+  var t=DB.taserons.find(function(x){return x.id===tsId});
+  if(!t||!t.contractPDF) return;
+  var w=window.open();
+  var isPDF=t.contractPDF.indexOf('data:application/pdf')===0;
+  if(isPDF) {
+    w.document.write('<html><head><title>Sözleşme — '+t.name+'</title></head><body style="margin:0"><iframe src="'+t.contractPDF+'" style="width:100%;height:100vh;border:none"></iframe></body></html>');
+  } else {
+    w.document.write('<html><head><title>Sözleşme — '+t.name+'</title></head><body style="margin:0;background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+t.contractPDF+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>');
+  }
+}
+
+// ===== PDF UPLOAD: Sözleşme ve Kat Planı =====
+function uploadContractPDF(input,pi,bi,ui) {
+  var file=input.files[0];
+  if(!file) return;
+  if(file.size>750*1024){alert('PDF dosya boyutu 750KB\'ı aşamaz (Firestore sınırı).\n\nDosya boyutu: '+(file.size/1024).toFixed(0)+'KB\n\nİpucu: PDF\'i sıkıştırarak küçültebilirsiniz.');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    DB.projects[pi].blocks[bi].units[ui].contractPDF=e.target.result;
+    DB.projects[pi].blocks[bi].units[ui].contractPDFName=file.name;
+    save(); render(); toast('Sözleşme PDF yüklendi — '+file.name);
+  };
+  reader.readAsDataURL(file);
+}
+
+function viewContractPDF(pi,bi,ui) {
+  var u=DB.projects[pi].blocks[bi].units[ui];
+  if(!u.contractPDF) return;
+  var w=window.open();
+  var isPDF=u.contractPDF.indexOf('data:application/pdf')===0;
+  if(isPDF) {
+    w.document.write('<html><head><title>Sözleşme — '+u.no+'</title></head><body style="margin:0"><iframe src="'+u.contractPDF+'" style="width:100%;height:100vh;border:none"></iframe></body></html>');
+  } else {
+    w.document.write('<html><head><title>Sözleşme — '+u.no+'</title></head><body style="margin:0;background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+u.contractPDF+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>');
+  }
+}
+
+function uploadSitePlanPDF(input,projId) {
+  var file=input.files[0];
+  if(!file) return;
+  if(file.size>750*1024){alert('PDF dosya boyutu 750KB\'ı aşamaz (Firestore sınırı).\n\nDosya boyutu: '+(file.size/1024).toFixed(0)+'KB\n\nİpucu: PDF\'i sıkıştırarak küçültebilirsiniz.');return;}
+  var p=DB.projects.find(function(x){return x.id===projId});
+  if(!p) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    p.sitePlanPDF=e.target.result;
+    p.sitePlanPDFName=file.name;
+    save(); render(); toast('Kat planı yüklendi — '+file.name);
+  };
+  reader.readAsDataURL(file);
+}
+
+function viewSitePlanPDF(projId) {
+  var p=DB.projects.find(function(x){return x.id===projId});
+  if(!p||!p.sitePlanPDF) return;
+  var w=window.open();
+  var isPDF=p.sitePlanPDF.indexOf('data:application/pdf')===0;
+  if(isPDF) {
+    w.document.write('<html><head><title>Kat planı — '+p.name+'</title></head><body style="margin:0"><iframe src="'+p.sitePlanPDF+'" style="width:100%;height:100vh;border:none"></iframe></body></html>');
+  } else {
+    w.document.write('<html><head><title>Kat planı — '+p.name+'</title></head><body style="margin:0;background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+p.sitePlanPDF+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>');
+  }
 }
 
 function cancelSale(pi,bi,ui) {
