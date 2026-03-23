@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Propakt">
 <script>
-// v19: PWA manifest ve ikonları sadece https ortamında yükle (file:// hata vermez)
+// v20: PWA manifest ve ikonları sadece https ortamında yükle (file:// hata vermez)
 if(location.protocol==='https:'){
   var ml=document.createElement('link');ml.rel='manifest';ml.href='manifest.json';document.head.appendChild(ml);
   var ai=document.createElement('link');ai.rel='apple-touch-icon';ai.href='icon-192.png';document.head.appendChild(ai);
@@ -300,14 +300,11 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-// ===== APP CHECK (reCAPTCHA Enterprise) =====
+// ===== APP CHECK (reCAPTCHA v3) =====
 try {
   var appCheck = firebase.appCheck();
-  appCheck.activate(
-    new firebase.appCheck.ReCaptchaEnterpriseProvider('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-'),
-    true
-  );
-  console.log('App Check activated (reCAPTCHA Enterprise)');
+  appCheck.activate('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-', true);
+  console.log('App Check activated (reCAPTCHA v3)');
 } catch(e) { console.warn('App Check init error:', e); }
 
 var auth = firebase.auth();
@@ -534,7 +531,7 @@ function updateSyncStatus(online) {
 }
 
 // ===== FIRESTORE SYNC =====
-// v19: Ortak veri modeli — tüm onaylı kullanıcılar aynı dokümanı paylaşır
+// v19→v20: Ortak veri modeli — tüm onaylı kullanıcılar aynı dokümanı paylaşır
 var SHARED_DOC_PATH = 'shared_data/main';
 
 function getFirestorePath() {
@@ -594,7 +591,7 @@ function loadFromFirestore() {
   });
 }
 
-// v19: Eski users/{uid} verisini shared_data/main'e taşıma (tek seferlik)
+// v19→v20: Eski users/{uid} verisini shared_data/main'e taşıma (tek seferlik)
 function migrateFromOldPath() {
   var oldPath = 'users/' + currentUser.uid;
   db_fire.doc(oldPath).get().then(function(oldDoc) {
@@ -3825,7 +3822,7 @@ function exportData() {
   manualBackup();
 }
 
-// ===== v19: PDF & EXCEL EXPORT SİSTEMİ =====
+// ===== v19→v20: PDF & EXCEL EXPORT SİSTEMİ =====
 
 // --- Yardımcı: Türkçe karakter düzeltme (jsPDF helvetica desteği yok) ---
 function trfix(str) {
@@ -4289,7 +4286,7 @@ function healthCheck() {
 }
 
 
-// ===== v19: SİSTEM TEST PANELİ =====
+// ===== v19→v20: SİSTEM TEST PANELİ =====
 function rSysTest() {
   if(!isAdmin) return '<div class="empty">Bu sayfaya erişim yetkiniz yok.</div>';
   var h='<div class="warn" style="background:#E3F2FD;border-color:#90CAF9;color:#1565C0">Bu panel Firestore bağlantısını, güvenlik kurallarını ve ortak veri modelini test eder. Testleri başlatmak için aşağıdaki butona tıklayın.</div>';
@@ -4648,7 +4645,7 @@ auth.onAuthStateChanged(function(user) {
 setInterval(function(){if(DB.lastSaveTime){var el=document.getElementById('last-save-info');if(el)el.textContent=formatTimeSince(DB.lastSaveTime);}},60000);
 
 // ===== PWA SERVICE WORKER =====
-// v19: Sadece https ortamında çalıştır + güncelleme algılama
+// v20: Sadece https ortamında çalıştır + güncelleme algılama
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
     console.log('SW registered:', reg.scope);
@@ -4689,7 +4686,7 @@ function showUpdateBar() {
 
 // ===== PWA INSTALL PROMPT =====
 var deferredPrompt;
-// v19: PWA install bar'ı sadece https ortamında dinamik oluştur
+// v20: PWA install bar'ı sadece https ortamında dinamik oluştur
 if(location.protocol==='https:'){
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
