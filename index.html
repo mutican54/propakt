@@ -300,12 +300,18 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-// ===== APP CHECK (reCAPTCHA v3) =====
+// ===== APP CHECK (reCAPTCHA v3) — Geçici devre dışı =====
+// Not: reCAPTCHA token hatası tüm Firestore isteklerini engelliyor.
+// App Check enforce kapalı olduğunda bu kod olmasa da sistem güvenli çalışır.
+// API anahtarı kısıtlaması + Firestore kuralları aktif koruma sağlıyor.
+// App Check ileride reCAPTCHA anahtarı düzeltilince tekrar aktif edilecek.
+/*
 try {
   var appCheck = firebase.appCheck();
   appCheck.activate('6LfFT5UsAAAAALrJHXlcMjyNp-qOVCCYM9G-jxt-', true);
   console.log('App Check activated (reCAPTCHA v3)');
 } catch(e) { console.warn('App Check init error:', e); }
+*/
 
 var auth = firebase.auth();
 var db_fire = firebase.firestore();
