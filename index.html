@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v21</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v22</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1071,6 +1071,8 @@ function rTS() {
         barterDisplay = '—';
       }
       var kalanBorc = Math.max(0, t.total - (t.paid||0) - (t.barterVal||0));
+      // v22 #8: aşım hesabı (barter daire bedeli > anlaşma kalan borcu olabilir)
+      var asim = Math.max(0, ((t.paid||0)+(t.barterVal||0)) - t.total);
       // Sözleşme PDF
       var sozlesme='';
       if(t.contractPDF) {
@@ -1083,7 +1085,11 @@ function rTS() {
       h+='<td><span class="bg '+(t.payType==='Barter'?'bgp':t.payType==='Karma'?'bgp':'bga')+'">'+t.payType+'</span></td>';
       h+='<td style="color:var(--gn)">₺'+fmt(t.paid||0)+'</td>';
       h+='<td style="color:var(--pr);font-weight:600">'+(t.barterVal?'₺'+fmt(t.barterVal):'—')+'</td>';
-      h+='<td style="color:'+(kalanBorc>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(kalanBorc)+'</td>';
+      // Kalan borç + aşım uyarısı
+      var kalanCellHtml = '<td style="color:'+(kalanBorc>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(kalanBorc);
+      if(asim>0) kalanCellHtml += '<div style="font-size:9.5px;color:var(--am);font-weight:600;margin-top:2px;background:#FFF3E0;padding:1px 6px;border-radius:8px;display:inline-block;border:.5px solid #FFCC80">⚠ ₺'+fmtK(asim)+' aşım (fazla ödeme)</div>';
+      kalanCellHtml += '</td>';
+      h+=kalanCellHtml;
       h+='<td>'+sozlesme+'</td>';
       h+='<td><button class="btn bp bsm" onclick="taseronOdeme('+t.id+')" style="margin-right:3px">Ödeme</button><button class="btn bo bsm" onclick="editTs('+t.id+')" style="margin-right:3px">Düzenle</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delTs('+t.id+')">✕</span></td></tr>';
     });
@@ -1165,13 +1171,21 @@ function rTK() {
       var isThisWeek=!isOverdue && t.date<=addDays(todayStr,7);
       var statusCls=isOverdue?'bgr':isThisWeek?'bga':'bgb';
       var statusTxt=isOverdue?'Gecikmiş':isThisWeek?'Bu hafta':'Bekliyor';
+      // v22 #4 — paidPartial varsa kısmi ödeme durumunu göster
+      var taksitObj=DB.customers[t.custIdx].taksitler[t.taksitIdx];
+      var partial=(taksitObj&&taksitObj.paidPartial)||0;
+      var remaining=t.amount-partial;
       h+='<tr><td style="font-weight:600">'+t.custName+'</td>';
       h+='<td style="color:var(--t2)">'+t.project+' — '+t.unit+'</td>';
       h+='<td style="font-weight:600">'+t.no+'/'+t.total+'</td>';
       h+='<td style="'+(isOverdue?'color:var(--rd);font-weight:700':'')+'">'+t.date+'</td>';
-      h+='<td style="font-weight:700">₺'+fmt(t.amount)+'</td>';
-      h+='<td><span class="bg '+statusCls+'">'+statusTxt+'</span></td>';
-      h+='<td><button class="btn bp bsm" onclick="markTaksitPaid('+t.custIdx+','+t.taksitIdx+')">Ödendi</button></td></tr>';
+      if(partial>0) {
+        h+='<td><strong>₺'+fmt(remaining)+'</strong> kalan<div style="font-size:9.5px;color:var(--gn);font-weight:600">₺'+fmt(partial)+' ödendi / ₺'+fmt(t.amount)+'</div></td>';
+      } else {
+        h+='<td style="font-weight:700">₺'+fmt(t.amount)+'</td>';
+      }
+      h+='<td><span class="bg '+statusCls+'">'+statusTxt+'</span>'+(partial>0?' <span class="bg bgt" style="margin-left:3px">Kısmi</span>':'')+'</td>';
+      h+='<td><button class="btn bp bsm" onclick="markTaksitPaid('+t.custIdx+','+t.taksitIdx+')" style="margin-right:3px">Tamamı</button><button class="btn bo bsm" onclick="markTaksitPartial('+t.custIdx+','+t.taksitIdx+')">Kısmi</button></td></tr>';
     });
     h+='</tbody></table>';
   }
@@ -1219,16 +1233,98 @@ function addDays(dateStr,days) {
 function markTaksitPaid(custIdx,taksitIdx) {
   var c=DB.customers[custIdx];
   if(!c||!c.taksitler||!c.taksitler[taksitIdx]) return;
-  c.taksitler[taksitIdx].paid=true;
-  var paidAmount=c.taksitler[taksitIdx].amount;
-  c.remaining=Math.max(0,(c.remaining||0)-paidAmount);
-  // Record as income transaction
+  var t=c.taksitler[taksitIdx];
+  // v22 #4 — paidPartial varsa, sadece kalan kısım için tahsilat kaydet
+  var partial=t.paidPartial||0;
+  var paymentNow=Math.max(0, t.amount-partial);
+  t.paid=true;
+  t.paidPartial=t.amount;
+  c.remaining=Math.max(0,(c.remaining||0)-paymentNow);
+  if(paymentNow>0) {
+    DB.transactions.push({
+      id:nid(), type:'gelir',
+      desc:'Taksit tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(partial>0?' (kalan ödendi)':''),
+      project:c.project, category:'Taksit tahsilat',
+      date:today(), total:paymentNow,
+      resmi:c.total>0?Math.round(paymentNow*(c.resmi/c.total)):0,
+      kdvOran:0, kdvTutar:0
+    });
+  }
+  save(); render(); toast('Taksit ödendi — '+c.name+' (₺'+fmt(paymentNow)+')');
+}
+
+// v22 #4 — Kısmi taksit ödemesi
+function markTaksitPartial(custIdx,taksitIdx) {
+  var c=DB.customers[custIdx];
+  if(!c||!c.taksitler||!c.taksitler[taksitIdx]) return;
+  var t=c.taksitler[taksitIdx];
+  var partial=t.paidPartial||0;
+  var kalan=t.amount-partial;
+  if(kalan<=0){alert('Bu taksit zaten tamamen ödenmiş');return}
+
+  document.getElementById('m-sell-body').innerHTML=
+    '<input type="hidden" id="kp-cidx" value="'+custIdx+'">'+
+    '<input type="hidden" id="kp-tidx" value="'+taksitIdx+'">'+
+    '<div style="padding:10px;background:var(--bg);border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700">'+c.name+'</div>'+
+    '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+c.project+' — '+c.unit+'</div>'+
+    '<div style="margin-top:8px;font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:4px">'+
+    '<div>Taksit:</div><div style="text-align:right;font-weight:700">'+t.no+'/'+t.total+'</div>'+
+    '<div>Vade:</div><div style="text-align:right">'+t.date+'</div>'+
+    '<div>Taksit tutarı:</div><div style="text-align:right;font-weight:700">₺'+fmt(t.amount)+'</div>'+
+    (partial>0?'<div>Daha önce ödenen:</div><div style="text-align:right;color:var(--gn)">₺'+fmt(partial)+'</div>':'')+
+    '<div style="font-weight:700">Kalan:</div><div style="text-align:right;font-weight:700;color:var(--rd)">₺'+fmt(kalan)+'</div>'+
+    '</div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Bu seferki ödeme (₺)</label><input class="fi" id="kp-amount" type="number" placeholder="ör: '+Math.round(kalan/2)+'" oninput="kpPreview()"></div>'+
+    '<div class="fg"><label class="fl">Resmi kısmı (₺)</label><input class="fi" id="kp-resmi" type="number" placeholder="0"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Tarih</label><input class="fi" id="kp-date" type="date" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Not (opsiyonel)</label><input class="fi" id="kp-note" placeholder="ör: Kısmi tahsilat"></div></div>'+
+    '<div id="kp-preview" style="margin-top:8px"></div>';
+  document.querySelector('#m-sell .mdt').textContent='Kısmi taksit ödemesi';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveTaksitPartial()">Kaydet</button>';
+  openM('m-sell');
+}
+
+function kpPreview() {
+  var custIdx=parseInt(document.getElementById('kp-cidx').value);
+  var taksitIdx=parseInt(document.getElementById('kp-tidx').value);
+  var c=DB.customers[custIdx]; var t=c.taksitler[taksitIdx];
+  var amount=parseFloat(document.getElementById('kp-amount').value)||0;
+  var partial=t.paidPartial||0;
+  var prev=document.getElementById('kp-preview');
+  if(amount<=0){prev.innerHTML='';return}
+  var newPartial=partial+amount;
+  if(newPartial>=t.amount) {
+    var fazla=newPartial-t.amount;
+    prev.innerHTML='<div class="kdv-box" style="background:#E8F8F0;border-color:#A5D6A7"><div style="font-size:11.5px;color:#2E7D32"><strong>✓ Bu ödeme ile taksit tamamen kapanacak.</strong>'+(fazla>0?'<br>Fazla ₺'+fmt(fazla)+' kalan borçtan düşülecek.':'')+'</div></div>';
+  } else {
+    prev.innerHTML='<div class="kdv-box"><div style="font-size:11.5px">Bu ödeme sonrası taksit durumu: <strong>₺'+fmt(newPartial)+' / ₺'+fmt(t.amount)+'</strong> (kısmi devam ediyor, kalan ₺'+fmt(t.amount-newPartial)+')</div></div>';
+  }
+}
+
+function saveTaksitPartial() {
+  var custIdx=parseInt(document.getElementById('kp-cidx').value);
+  var taksitIdx=parseInt(document.getElementById('kp-tidx').value);
+  var c=DB.customers[custIdx]; var t=c.taksitler[taksitIdx];
+  var amount=parseFloat(document.getElementById('kp-amount').value)||0;
+  if(amount<=0){alert('Tutar giriniz');return}
+  var resmi=parseFloat(document.getElementById('kp-resmi').value)||0;
+  var date=document.getElementById('kp-date').value;
+  var note=document.getElementById('kp-note').value;
+  var partial=t.paidPartial||0;
+  t.paidPartial=Math.min(t.amount, partial+amount);
+  if(t.paidPartial>=t.amount) t.paid=true;
+  c.remaining=Math.max(0,(c.remaining||0)-amount);
   DB.transactions.push({
-    id:nid(), type:'gelir', desc:'Taksit tahsilat — '+c.name+' ('+c.taksitler[taksitIdx].no+'/'+c.taksitler[taksitIdx].total+')',
+    id:nid(), type:'gelir',
+    desc:'Taksit kısmi tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(note?' — '+note:''),
     project:c.project, category:'Taksit tahsilat',
-    date:today(), total:paidAmount, resmi:c.total>0?Math.round(paidAmount*(c.resmi/c.total)):0, kdvOran:0, kdvTutar:0
+    date:date, total:amount, resmi:resmi, kdvOran:0, kdvTutar:0
   });
-  save(); render(); toast('Taksit ödendi — '+c.name+' ('+paidAmount.toLocaleString('tr-TR')+' ₺)');
+  document.querySelector('#m-sell .mdt').textContent='Satış kaydı';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="confirmSell()">Satışı kaydet</button>';
+  save(); closeM('m-sell'); render();
+  toast(t.paid?'Taksit tamamlandı (kısmi ödemelerle)':'Kısmi ödeme alındı — ₺'+fmt(amount));
 }
 
 function openAraOdeme(custIdx) {
@@ -1390,7 +1486,7 @@ function rMS() {
         h+='<td><span class="bg '+(c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':c.payType==='Arsa sahibi'?'bgp':'bgr')+'">'+c.payType+'</span></td>';
         h+='<td style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
         h+='<td>'+sozlesme+'</td>';
-        h+='<td><button class="btn bo bsm" onclick="cancelSale('+idx+')" style="color:var(--rd);margin-right:3px">Satışı iptal et</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delCust('+idx+')">✕</span></td></tr>';
+        h+='<td>'+(c.payType==='Taksitli'?'<button class="btn bo bsm" onclick="openPaymentPlanEdit('+idx+')" style="margin-right:3px">Ödeme planı</button>':'')+'<button class="btn bo bsm" onclick="cancelSale('+idx+')" style="color:var(--rd);margin-right:3px">Satışı iptal et</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delCust('+idx+')">✕</span></td></tr>';
       });
       h+='</tbody></table>';
     }
@@ -1719,6 +1815,9 @@ function rST() {
     h+='</div>';
   }
 
+  // v22 #2 — Toplu satış butonu (sayfa başında)
+  if(DB.projects.length>0) h+='<div style="margin-bottom:10px;display:flex;gap:6px;align-items:center"><button class="btn bp bsm" onclick="openBulkSaleModal()">⊞ Toplu satış (3+ daire ortak ödeme)</button><span style="font-size:10.5px;color:var(--t2)">Aynı müşteriye birden fazla daireyi tek ödeme planıyla satış</span></div>';
+
   var customers=DB.customers.filter(function(c){return stFilter.project==='all'||c.project===stFilter.project});
 
   // Stats
@@ -1736,26 +1835,69 @@ function rST() {
   h+='<div class="st xa"><div class="stl">Müşteri sayısı</div><div class="stv" style="color:var(--am)">'+totalCustomers+'</div></div>';
   h+='</div>';
 
-  // Müşteri / satış listesi
-  h+='<div class="cd"><div class="chd"><span class="cht">Satış kayıtları</span><span class="cha" onclick="openCustomerModal()">+ Yeni satış</span></div>';
-  if(customers.length===0) h+='<div class="empty">Henüz satış kaydı yok.</div>';
-  else {
-    h+='<table class="tb"><thead><tr><th>Müşteri</th><th>Proje / daire</th><th>Tarih</th><th>Toplam</th><th>Resmi</th><th>Ödeme</th><th>Kalan</th><th>Durum</th></tr></thead><tbody>';
-    customers.forEach(function(c){
-      var statusBg=(c.remaining||0)===0?'bgg':'bgr';
-      var statusTxt=(c.remaining||0)===0?'Tamamlandı':'Aktif';
-      h+='<tr><td style="font-weight:600">'+c.name+'</td>';
-      h+='<td style="color:var(--t2)">'+c.project+' — '+c.unit+'</td>';
-      h+='<td>'+(c.saleDate||c.kaporaDate||'-')+'</td>';
-      h+='<td style="font-weight:700">₺'+fmt(c.total)+'</td>';
-      h+='<td style="color:var(--bl)">₺'+fmt(c.resmi)+'</td>';
-      h+='<td><span class="bg '+(c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':c.payType==='Arsa sahibi'?'bgp':'bgr')+'">'+c.payType+'</span></td>';
-      h+='<td style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
-      h+='<td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
-    });
-    h+='</tbody></table>';
+  // v22 #9 — Şantiye bazlı gruplama (Tümü modunda) ya da düz liste (tek proje modunda)
+  function stRowHTML(c){
+    var statusBg=(c.remaining||0)===0?'bgg':'bgr';
+    var statusTxt=(c.remaining||0)===0?'Tamamlandı':'Aktif';
+    var payBg=c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':c.payType==='Arsa sahibi'?'bgp':'bgr';
+    var rh='<tr><td style="font-weight:600">'+c.name+'</td>';
+    rh+='<td style="color:var(--t2)">'+c.unit+'</td>';
+    rh+='<td>'+(c.saleDate||c.kaporaDate||'-')+'</td>';
+    rh+='<td style="font-weight:700">₺'+fmt(c.total)+'</td>';
+    rh+='<td style="color:var(--bl)">₺'+fmt(c.resmi)+'</td>';
+    rh+='<td><span class="bg '+payBg+'">'+c.payType+'</span></td>';
+    rh+='<td style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
+    rh+='<td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
+    return rh;
   }
-  h+='</div>';
+  function stTableHead(){ return '<table class="tb"><thead><tr><th>Müşteri</th><th>Daire</th><th>Tarih</th><th>Toplam</th><th>Resmi</th><th>Ödeme</th><th>Kalan</th><th>Durum</th></tr></thead><tbody>'; }
+
+  if(customers.length===0) {
+    h+='<div class="cd"><div class="chd"><span class="cht">Satış kayıtları</span><span class="cha" onclick="openCustomerModal()">+ Yeni satış</span></div><div class="empty">Henüz satış kaydı yok.</div></div>';
+  } else if(stFilter.project==='all') {
+    // Tümü — şantiye şantiye gruplandır
+    var addBtnShown=false;
+    DB.projects.forEach(function(p){
+      var pcust=customers.filter(function(c){return c.project===p.name});
+      if(pcust.length===0) return;
+      var pSales=pcust.reduce(function(s,c){return s+c.total},0);
+      var pResmi=pcust.reduce(function(s,c){return s+c.resmi},0);
+      var pRemaining=pcust.reduce(function(s,c){return s+(c.remaining||0)},0);
+      h+='<div class="cd"><div class="chd">';
+      h+='<span class="cht">'+p.name+' <span style="font-size:10px;color:var(--t2);font-weight:600;margin-left:6px">'+pcust.length+' satış · ₺'+fmtK(pSales)+' toplam'+(pRemaining>0?' · ₺'+fmtK(pRemaining)+' kalan':'')+'</span></span>';
+      h+=(addBtnShown?'':'<span class="cha" onclick="openCustomerModal()">+ Yeni satış</span>');
+      addBtnShown=true;
+      h+='</div>';
+      h+=stTableHead();
+      pcust.forEach(function(c){h+=stRowHTML(c)});
+      h+='</tbody></table></div>';
+    });
+    // Proje bulunamayan kayıtlar (silinmiş proje vb)
+    var orphans=customers.filter(function(c){return !DB.projects.find(function(p){return p.name===c.project})});
+    if(orphans.length>0) {
+      h+='<div class="cd"><div class="chd"><span class="cht" style="color:var(--am)">Proje bulunamayan kayıtlar <span style="font-size:10px;color:var(--t2);font-weight:600;margin-left:6px">'+orphans.length+' kayıt</span></span></div>';
+      h+=stTableHead();
+      orphans.forEach(function(c){
+        var statusBg=(c.remaining||0)===0?'bgg':'bgr';
+        var statusTxt=(c.remaining||0)===0?'Tamamlandı':'Aktif';
+        var payBg=c.payType==='Peşin'?'bgg':'bgr';
+        h+='<tr><td style="font-weight:600">'+c.name+'</td>';
+        h+='<td style="color:var(--am)">'+(c.project||'(yok)')+' / '+c.unit+'</td>';
+        h+='<td>'+(c.saleDate||c.kaporaDate||'-')+'</td>';
+        h+='<td>₺'+fmt(c.total)+'</td><td>₺'+fmt(c.resmi)+'</td>';
+        h+='<td><span class="bg '+payBg+'">'+c.payType+'</span></td>';
+        h+='<td>₺'+fmt(c.remaining||0)+'</td>';
+        h+='<td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+  } else {
+    // Tek proje — düz liste
+    h+='<div class="cd"><div class="chd"><span class="cht">'+stFilter.project+' — satış kayıtları</span><span class="cha" onclick="openCustomerModal()">+ Yeni satış</span></div>';
+    h+=stTableHead();
+    customers.forEach(function(c){h+=stRowHTML(c)});
+    h+='</tbody></table></div>';
+  }
   return h;
 }
 
@@ -2921,6 +3063,447 @@ function cancelSale(idx) {
   delCust(idx);
 }
 
+// v22 #5 — Satış sonrası ödeme planı düzenleme
+function openPaymentPlanEdit(custIdx) {
+  var c=DB.customers[custIdx];
+  if(!c||c.payType!=='Taksitli'){alert('Sadece taksitli satışların ödeme planı düzenlenebilir.');return}
+
+  var taksitler=c.taksitler||[];
+  var paidTaksit=taksitler.filter(function(t){return t.paid});
+  var unpaidTaksit=taksitler.filter(function(t){return !t.paid});
+  var paidAmount=paidTaksit.reduce(function(s,t){return s+t.amount},0);
+  var araPaid=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+  var totalPaid=(c.kapora||0)+paidAmount+araPaid;
+  var kalan=Math.max(0,c.total-totalPaid);
+
+  var b='<input type="hidden" id="pp-cidx" value="'+custIdx+'">';
+  b+='<div style="padding:10px;background:var(--bg);border-radius:8px;margin-bottom:12px">';
+  b+='<div style="font-size:13px;font-weight:700">'+c.name+'</div>';
+  b+='<div style="font-size:11px;color:var(--t2);margin-top:2px">'+c.project+' — '+c.unit+'</div>';
+  b+='<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">';
+  b+='<div>Toplam:</div><div style="text-align:right;font-weight:700">₺'+fmt(c.total)+'</div>';
+  b+='<div>Peşinat:</div><div style="text-align:right">₺'+fmt(c.kapora||0)+'</div>';
+  b+='<div>Ödenen taksit:</div><div style="text-align:right;color:var(--gn)">₺'+fmt(paidAmount)+' ('+paidTaksit.length+' adet)</div>';
+  b+='<div>Ara ödeme tahsilat:</div><div style="text-align:right;color:var(--tl)">₺'+fmt(araPaid)+'</div>';
+  b+='<div>Toplam tahsilat:</div><div style="text-align:right;font-weight:700;color:var(--gn)">₺'+fmt(totalPaid)+'</div>';
+  b+='<div style="font-weight:700">Kalan borç:</div><div style="text-align:right;font-weight:700;color:var(--rd)">₺'+fmt(kalan)+'</div>';
+  b+='</div></div>';
+
+  if(paidTaksit.length>0) {
+    b+='<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:4px">Ödenmiş taksitler (korunur, dokunulamaz)</div>';
+    b+='<div style="max-height:120px;overflow-y:auto;border:.5px solid var(--bd);border-radius:6px;padding:6px;margin-bottom:10px;font-size:10.5px">';
+    paidTaksit.forEach(function(t){
+      b+='<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bl2)"><span>'+t.no+'/'+t.total+' — '+t.date+'</span><span style="color:var(--gn);font-weight:700">₺'+fmt(t.amount)+' ✓</span></div>';
+    });
+    b+='</div>';
+  }
+
+  if(kalan<=0) {
+    b+='<div class="warn" style="background:#E8F8F0;border-color:#A5D6A7;color:#2E7D32">Bu müşterinin borcu kapanmış — yeni plan oluşturulmasına gerek yok.</div>';
+    b+='<div style="font-size:11px;color:var(--t2);margin-top:8px">Bekleyen taksitleri silmek isterseniz "Bekleyenleri sıfırla" butonunu kullanabilirsiniz.</div>';
+    b+='<button class="btn bo bsm" style="margin-top:6px;color:var(--rd)" onclick="ppClearUnpaid('+custIdx+')">Bekleyen taksitleri sıfırla</button>';
+  } else {
+    b+='<hr class="sep"><div class="sec-t">Yeni ödeme planı</div>';
+    b+='<div style="font-size:10.5px;color:var(--am);margin-bottom:8px">Mevcut bekleyen taksitler ('+unpaidTaksit.length+' adet) ve planlı ara ödemeler değiştirilecek.</div>';
+    b+='<div class="fr3"><div class="fg"><label class="fl">Yeni taksit sayısı</label><input class="fi" id="pp-n" type="number" value="'+(unpaidTaksit.length||6)+'" min="0" max="120" oninput="ppPreview()"></div>';
+    b+='<div class="fg"><label class="fl">İlk vade</label><input class="fi" id="pp-first" type="date" value="'+(unpaidTaksit[0]?unpaidTaksit[0].date:today())+'" onchange="ppPreview()"></div>';
+    b+='<div class="fg"><label class="fl">Aralık (gün)</label><input class="fi" id="pp-int" type="number" value="30" min="1" oninput="ppPreview()"></div></div>';
+    b+='<hr class="sep"><div class="sec-t">Yeni ara ödemeler (opsiyonel)</div>';
+    b+='<div id="pp-ara-list"></div>';
+    b+='<button class="btn bo bsm" onclick="ppAddAra()" style="margin-top:4px">+ Ara ödeme ekle</button>';
+    b+='<div id="pp-preview" style="margin-top:10px"></div>';
+  }
+
+  document.getElementById('m-sell-body').innerHTML=b;
+  document.querySelector('#m-sell .mdt').textContent='Ödeme planı düzenle';
+  if(kalan>0) {
+    document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="savePaymentPlanEdit()">Yeni planı uygula</button>';
+    setTimeout(ppPreview,30);
+  } else {
+    document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">Kapat</button>';
+  }
+  openM('m-sell');
+}
+
+function ppAddAra() {
+  var list=document.getElementById('pp-ara-list');
+  var div=document.createElement('div');
+  div.className='blk-sec';
+  div.innerHTML='<div class="fr3"><div class="fg"><label class="fl">Tutar (₺)</label><input class="fi pp-ara-amt" type="number" oninput="ppPreview()"></div>'+
+    '<div class="fg"><label class="fl">Vade</label><input class="fi pp-ara-date" type="date" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><input class="fi pp-ara-desc" placeholder="ör: Yıl sonu"></div></div>'+
+    '<div style="text-align:right"><span style="color:var(--rd);cursor:pointer;font-size:11px;font-weight:600" onclick="this.closest(\'.blk-sec\').remove();ppPreview()">Kaldır</span></div>';
+  list.appendChild(div);
+}
+
+function ppPreview() {
+  var custIdx=parseInt(document.getElementById('pp-cidx').value);
+  var c=DB.customers[custIdx];
+  if(!c)return;
+  var taksitler=c.taksitler||[];
+  var paidAmount=taksitler.filter(function(t){return t.paid}).reduce(function(s,t){return s+t.amount},0);
+  var araPaid=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+  var totalPaid=(c.kapora||0)+paidAmount+araPaid;
+  var kalan=Math.max(0,c.total-totalPaid);
+
+  var n=parseInt(document.getElementById('pp-n').value)||0;
+  var araSum=0;
+  document.querySelectorAll('#pp-ara-list .pp-ara-amt').forEach(function(i){araSum+=parseFloat(i.value)||0});
+  var taksitToplam=kalan-araSum;
+  var amt=n>0?Math.round(taksitToplam/n):0;
+  var prev=document.getElementById('pp-preview');
+  if(!prev)return;
+  if(taksitToplam<0) {
+    prev.innerHTML='<div class="warn" style="background:var(--rdl);border-color:#EF9A9A;color:var(--rd)">Yeni ara ödemeler kalan borcu aşıyor (₺'+fmt(araSum)+' > ₺'+fmt(kalan)+'). Düzeltin.</div>';
+    return;
+  }
+  prev.innerHTML='<div class="kdv-box"><div class="sec-t">Yeni plan özeti</div>'+
+    '<div style="font-size:11.5px;display:grid;grid-template-columns:1fr 1fr;gap:4px">'+
+    '<div>Kalan borç:</div><div style="text-align:right;font-weight:700">₺'+fmt(kalan)+'</div>'+
+    '<div>Yeni ara ödemeler ('+document.querySelectorAll('#pp-ara-list .blk-sec').length+'):</div><div style="text-align:right;color:var(--tl)">₺'+fmt(araSum)+'</div>'+
+    '<div>Yeni taksitler ('+n+' adet):</div><div style="text-align:right;color:var(--am)">'+n+' x ₺'+fmt(amt)+' = ₺'+fmt(taksitToplam)+'</div>'+
+    '</div></div>';
+}
+
+function ppClearUnpaid(custIdx) {
+  var c=DB.customers[custIdx];
+  if(!c)return;
+  if(!confirm('Bekleyen tüm taksitler ve planlı ara ödemeler silinecek. Devam edilsin mi?'))return;
+  c.taksitler=(c.taksitler||[]).filter(function(t){return t.paid});
+  c.plannedAraOdemeler=[];
+  c.remaining=0;
+  save(); closeM('m-sell'); render(); toast('Bekleyen plan sıfırlandı');
+}
+
+function savePaymentPlanEdit() {
+  var custIdx=parseInt(document.getElementById('pp-cidx').value);
+  var c=DB.customers[custIdx];
+  if(!c)return;
+  var taksitler=c.taksitler||[];
+  var paidTaksitler=taksitler.filter(function(t){return t.paid});
+  var paidAmount=paidTaksitler.reduce(function(s,t){return s+t.amount},0);
+  var araPaid=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+  var totalPaid=(c.kapora||0)+paidAmount+araPaid;
+  var kalan=Math.max(0,c.total-totalPaid);
+
+  var n=parseInt(document.getElementById('pp-n').value)||0;
+  var first=document.getElementById('pp-first').value||today();
+  var int=parseInt(document.getElementById('pp-int').value)||30;
+  var newAra=[];
+  var araSum=0;
+  document.querySelectorAll('#pp-ara-list .blk-sec').forEach(function(s){
+    var amt=parseFloat(s.querySelector('.pp-ara-amt').value)||0;
+    if(amt>0) {
+      newAra.push({amount:amt,date:s.querySelector('.pp-ara-date').value,note:s.querySelector('.pp-ara-desc').value,planned:true});
+      araSum+=amt;
+    }
+  });
+  if(araSum>kalan){alert('Ara ödemeler kalan borçtan fazla. Düzeltin.');return}
+  var taksitToplam=kalan-araSum;
+  var newTaksitler=paidTaksitler.slice();
+  var startNo=newTaksitler.length;
+  if(n>0&&taksitToplam>0) {
+    var amt=Math.round(taksitToplam/n);
+    for(var i=0;i<n;i++) {
+      newTaksitler.push({no:startNo+i+1,total:startNo+n,amount:i===n-1?taksitToplam-amt*(n-1):amt,date:addDays(first,i*int),paid:false});
+    }
+    // Ödenmiş taksitlerin total alanını güncelle
+    paidTaksitler.forEach(function(t){t.total=startNo+n});
+  }
+  c.taksitler=newTaksitler;
+  c.plannedAraOdemeler=newAra;
+  c.remaining=Math.max(0, c.total-(c.kapora||0)-paidAmount-araPaid);
+  save(); closeM('m-sell'); render(); toast('Ödeme planı güncellendi');
+}
+
+// ==================================================
+// v22 #2 — TOPLU SATIŞ
+// ==================================================
+function openBulkSaleModal() {
+  if(DB.projects.length===0){alert('Önce şantiye/proje eklemelisiniz.');return}
+  var prjOpt='';
+  DB.projects.forEach(function(p,pi){prjOpt+='<option value="'+pi+'">'+p.name+'</option>'});
+
+  document.getElementById('m-sell-body').innerHTML=
+    '<div class="warn">Aynı müşteriye 2 veya daha fazla daireyi <strong>tek ödeme planıyla</strong> satar. Toplam tutar ve peşinat seçilen daire sayısına eşit bölünür.</div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="bs-name" placeholder="ör: Ahmet Yılmaz"></div><div class="fg"><label class="fl">Telefon</label><input class="fi" id="bs-phone"></div></div>'+
+    '<div class="fg"><label class="fl">Proje / Şantiye</label><select class="fi" id="bs-prj" onchange="bsLoadUnits()">'+prjOpt+'</select></div>'+
+    '<div class="fg"><label class="fl">Boş daireler — seçmek için tıklayın (en az 2)</label>'+
+    '<div id="bs-units-grid" style="border:.5px solid var(--bd);border-radius:7px;padding:8px;max-height:180px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:4px"></div>'+
+    '<div id="bs-units-count" style="font-size:10.5px;color:var(--t2);margin-top:4px">0 daire seçildi</div>'+
+    '</div>'+
+    '<hr class="sep"><div class="sec-t">Toplu bedel (tüm dairelerin toplamı)</div>'+
+    '<div class="fr3"><div class="fg"><label class="fl">Toplam tutar (₺)</label><input class="fi" id="bs-total" type="number" placeholder="0" oninput="bsRecalc()"></div>'+
+    '<div class="fg"><label class="fl">Resmi kısmı (₺)</label><input class="fi" id="bs-resmi" type="number" placeholder="0" oninput="bsRecalc()"></div>'+
+    '<div class="fg"><label class="fl">KDV oranı (%)</label><input class="fi" id="bs-kdv" type="number" min="0" max="100" step="0.5" value="1" oninput="bsRecalc()"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Toplu peşinat (₺)</label><input class="fi" id="bs-kapora" type="number" placeholder="0" oninput="bsRecalc()"></div><div class="fg"><label class="fl">Tarih</label><input class="fi" id="bs-date" type="date" value="'+today()+'"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Ödeme şekli</div>'+
+    '<div class="fg"><select class="fi" id="bs-pay" onchange="bsPayChange()"><option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option><option>Barter olarak ver (taşerona)</option></select></div>'+
+    '<div id="bs-pay-detail"></div>'+
+    '<hr class="sep"><div class="sec-t">Komisyon (opsiyonel — toplam)</div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Komisyon tutarı (₺)</label><input class="fi" id="bs-komisyon-tutar" type="number" placeholder="0" value="0"></div><div class="fg"><label class="fl">Komisyonu alan kişi/firma</label><input class="fi" id="bs-komisyon-alan" placeholder="ör: Emlak ofisi"></div></div>'+
+    '<div id="bs-preview" style="margin-top:10px"></div>';
+
+  document.querySelector('#m-sell .mdt').textContent='Toplu satış';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveBulkSale()">Toplu satışı kaydet</button>';
+  bsLoadUnits();
+  bsPayChange();
+  openM('m-sell');
+}
+
+function bsLoadUnits() {
+  var pi=parseInt(document.getElementById('bs-prj').value);
+  var p=DB.projects[pi];
+  var grid=document.getElementById('bs-units-grid');
+  if(!p){grid.innerHTML='<div style="color:var(--t2)">Proje seçilmedi.</div>';return}
+  var html='';
+  p.blocks.forEach(function(b,bi){
+    b.units.forEach(function(u,ui){
+      if(u.status==='free') {
+        var key=pi+'-'+bi+'-'+ui;
+        html+='<label style="display:flex;align-items:center;gap:4px;padding:6px;border:.5px solid var(--bd);border-radius:6px;cursor:pointer;font-size:11px;background:#fff" data-unit="'+key+'"><input type="checkbox" class="bs-unit-cb" value="'+key+'" data-pi="'+pi+'" data-bi="'+bi+'" data-ui="'+ui+'" onchange="bsRecalc()" style="cursor:pointer"><span><strong>'+b.name+' / '+u.no+'</strong>'+(u.alan?'<br><span style="font-size:9.5px;color:var(--t2)">'+u.alan+'m²</span>':'')+'</span></label>';
+      }
+    });
+  });
+  if(html==='') html='<div style="color:var(--t2);grid-column:1/-1;text-align:center;padding:14px">Bu projede boş daire yok.</div>';
+  grid.innerHTML=html;
+  bsRecalc();
+}
+
+function bsPayChange() {
+  var pay=document.getElementById('bs-pay').value;
+  var d=document.getElementById('bs-pay-detail');
+  var html='';
+  if(pay==='Taksitli') {
+    html='<div class="fr3"><div class="fg"><label class="fl">Taksit sayısı</label><input class="fi" id="bs-taksit-n" type="number" value="12" min="1" max="120" oninput="bsRecalc()"></div>'+
+      '<div class="fg"><label class="fl">İlk vade</label><input class="fi" id="bs-taksit-first" type="date" value="'+today()+'"></div>'+
+      '<div class="fg"><label class="fl">Aralık (gün)</label><input class="fi" id="bs-taksit-int" type="number" value="30" min="1"></div></div>'+
+      '<hr class="sep"><div class="sec-t">Ortak ara ödemeler (opsiyonel — toplam, daire sayısına bölünür)</div>'+
+      '<div id="bs-ara-list"></div>'+
+      '<button class="btn bo bsm" onclick="bsAddAra()" style="margin-top:4px">+ Ara ödeme ekle</button>';
+  } else if(pay==='Barter olarak ver (taşerona)') {
+    var taseronList=DB.taserons||[];
+    var taseronOpt=taseronList.length===0?'<option value="">— Hiç taşeron yok —</option>':'<option value="">— Taşeron seçin —</option>'+taseronList.map(function(t){var k=Math.max(0,t.total-(t.paid||0)-(t.barterVal||0));return '<option value="'+t.id+'">'+t.name+' — '+t.job+' (kalan ₺'+fmtK(k)+')</option>'}).join('');
+    html='<div class="fg"><label class="fl">Hangi taşeron anlaşması?</label><select class="fi" id="bs-barter-taseron" onchange="bsRecalc()">'+taseronOpt+'</select></div>'+
+      '<div class="fg" id="bs-barter-manual-row" style="display:'+(taseronList.length===0?'block':'none')+'"><label class="fl">Taşeron adı (manuel)</label><input class="fi" id="bs-barter-manual" placeholder="ör: Ali İnşaat"></div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-top:4px">Tüm seçilen daireler tek taşerona barter olarak verilecek. Toplam bedel taşeron paid\'ine eklenir, her daireye eşit pay düşer.</div>';
+  }
+  d.innerHTML=html;
+  bsRecalc();
+}
+
+function bsAddAra() {
+  var list=document.getElementById('bs-ara-list');
+  var div=document.createElement('div');
+  div.className='blk-sec';
+  div.innerHTML='<div class="fr3"><div class="fg"><label class="fl">Tutar — toplam (₺)</label><input class="fi bs-ara-amt" type="number" oninput="bsRecalc()"></div>'+
+    '<div class="fg"><label class="fl">Vade</label><input class="fi bs-ara-date" type="date" value="'+today()+'"></div>'+
+    '<div class="fg"><label class="fl">Açıklama</label><input class="fi bs-ara-desc" placeholder="ör: Yıl sonu"></div></div>'+
+    '<div style="text-align:right"><span style="color:var(--rd);cursor:pointer;font-size:11px;font-weight:600" onclick="this.closest(\'.blk-sec\').remove();bsRecalc()">Kaldır</span></div>';
+  list.appendChild(div);
+}
+
+function bsRecalc() {
+  var checked=document.querySelectorAll('.bs-unit-cb:checked');
+  var n=checked.length;
+  document.getElementById('bs-units-count').innerHTML=n+' daire seçildi'+(n<2?' <span style="color:var(--am)">(toplu satış için en az 2 daire)</span>':'');
+  var total=parseFloat((document.getElementById('bs-total')||{}).value)||0;
+  var resmi=parseFloat((document.getElementById('bs-resmi')||{}).value)||0;
+  var kdv=parseFloat((document.getElementById('bs-kdv')||{}).value)||0;
+  var kapora=parseFloat((document.getElementById('bs-kapora')||{}).value)||0;
+  var pay=(document.getElementById('bs-pay')||{}).value||'';
+  var preview=document.getElementById('bs-preview');
+  if(!preview)return;
+  if(n===0||total===0){preview.innerHTML='';return}
+
+  var perUnit=Math.round(total/n);
+  var perResmi=n>0?Math.round(resmi/n):0;
+  var perKdvTutar=Math.round(perResmi*kdv/(100+kdv));
+  var perKapora=n>0?Math.round(kapora/n):0;
+
+  var araSum=0;
+  document.querySelectorAll('#bs-ara-list .bs-ara-amt').forEach(function(i){araSum+=parseFloat(i.value)||0});
+  var perAra=n>0?Math.round(araSum/n):0;
+
+  var taksitN=parseInt((document.getElementById('bs-taksit-n')||{}).value)||0;
+  var taksitToplamPerUnit=perUnit-perKapora-perAra;
+  var taksitAmount=taksitN>0?Math.round(taksitToplamPerUnit/taksitN):0;
+
+  var html='<div class="kdv-box"><div class="sec-t">Özet — '+n+' daire için bölünmüş plan</div>';
+  html+='<div style="font-size:11.5px;display:grid;grid-template-columns:1fr 1fr;gap:4px">';
+  html+='<div>Toplam tutar:</div><div style="text-align:right;font-weight:700">₺'+fmt(total)+'</div>';
+  html+='<div>Daire başına:</div><div style="text-align:right;font-weight:700;color:var(--am)">₺'+fmt(perUnit)+'</div>';
+  html+='<div>Daire başına resmi:</div><div style="text-align:right;color:var(--bl)">₺'+fmt(perResmi)+' (KDV: ₺'+fmt(perKdvTutar)+')</div>';
+  html+='<div>Daire başına peşinat:</div><div style="text-align:right">₺'+fmt(perKapora)+'</div>';
+  if(araSum>0) html+='<div>Daire başına ara ödeme:</div><div style="text-align:right;color:var(--tl)">₺'+fmt(perAra)+'</div>';
+  if(pay==='Taksitli'&&taksitN>0) html+='<div>Daire başına taksit:</div><div style="text-align:right;color:var(--am)">'+taksitN+' x ₺'+fmt(taksitAmount)+'</div>';
+  html+='</div></div>';
+
+  if(pay==='Barter olarak ver (taşerona)') {
+    var sel=document.getElementById('bs-barter-taseron');
+    if(sel&&sel.value) {
+      var t=DB.taserons.find(function(x){return x.id==parseInt(sel.value)});
+      if(t) {
+        var kalan=Math.max(0, t.total-(t.paid||0)-(t.barterVal||0));
+        if(total>kalan) {
+          html+='<div class="warn" style="margin-top:8px;background:#FFF8E1;color:#F57F17">⚠ Toplam barter (₺'+fmt(total)+') taşeron borcu (₺'+fmt(kalan)+') aşıyor. Aşım: ₺'+fmt(total-kalan)+' (taşeron sayfasında uyarı görünecek)</div>';
+        } else if(total===kalan) {
+          html+='<div class="warn" style="margin-top:8px;background:#E8F8F0;color:#2E7D32">✓ Taşeron borcu tam olarak kapanacak.</div>';
+        } else {
+          html+='<div class="warn" style="margin-top:8px;background:var(--bll);color:var(--bl)">Taşeronun kalan borcu ₺'+fmt(kalan)+'. Bu kayıttan sonra: ₺'+fmt(kalan-total)+'</div>';
+        }
+      }
+    }
+  }
+  preview.innerHTML=html;
+}
+
+function saveBulkSale() {
+  var name=document.getElementById('bs-name').value.trim();
+  if(!name){alert('Müşteri adı giriniz');return}
+  var checked=document.querySelectorAll('.bs-unit-cb:checked');
+  var n=checked.length;
+  if(n<2){alert('Toplu satış için en az 2 daire seçilmelidir.');return}
+  var pi=parseInt(document.getElementById('bs-prj').value);
+  var p=DB.projects[pi];
+  var total=parseFloat(document.getElementById('bs-total').value)||0;
+  if(total<=0){alert('Toplam tutar giriniz');return}
+  var resmi=parseFloat(document.getElementById('bs-resmi').value)||0;
+  var kdv=parseFloat(document.getElementById('bs-kdv').value)||0;
+  var kapora=parseFloat(document.getElementById('bs-kapora').value)||0;
+  var date=document.getElementById('bs-date').value;
+  var phone=document.getElementById('bs-phone').value;
+  var pay=document.getElementById('bs-pay').value;
+
+  var perUnit=Math.round(total/n);
+  var perResmi=Math.round(resmi/n);
+  var perKdvTutar=Math.round(perResmi*kdv/(100+kdv));
+  var perKapora=Math.round(kapora/n);
+
+  // Barter taşeron bilgisi
+  var bulkTaseron=null, bulkTaseronAd='';
+  if(pay==='Barter olarak ver (taşerona)') {
+    var taseronId=parseInt((document.getElementById('bs-barter-taseron')||{}).value)||null;
+    var manualName=((document.getElementById('bs-barter-manual')||{}).value||'').trim();
+    bulkTaseron=taseronId?DB.taserons.find(function(x){return x.id===taseronId}):null;
+    bulkTaseronAd=bulkTaseron?bulkTaseron.name:(manualName||name);
+    if(!bulkTaseron && !manualName){alert('Taşeron seçin veya manuel ad girin.');return}
+  }
+
+  // Ortak ara ödemeler
+  var araDataPerUnit=[];
+  var araSum=0;
+  document.querySelectorAll('#bs-ara-list .blk-sec').forEach(function(s){
+    var amt=parseFloat(s.querySelector('.bs-ara-amt').value)||0;
+    if(amt>0) {
+      araDataPerUnit.push({amount:Math.round(amt/n), date:s.querySelector('.bs-ara-date').value, note:s.querySelector('.bs-ara-desc').value, planned:true});
+      araSum+=amt;
+    }
+  });
+  var perAra=Math.round(araSum/n);
+
+  // Taksit planı
+  var taksitN=0, taksitFirst=today(), taksitInt=30;
+  if(pay==='Taksitli') {
+    taksitN=parseInt(document.getElementById('bs-taksit-n').value)||1;
+    taksitFirst=document.getElementById('bs-taksit-first').value;
+    taksitInt=parseInt(document.getElementById('bs-taksit-int').value)||30;
+  }
+  var taksitToplamPerUnit=perUnit-perKapora-perAra;
+  var taksitAmt=taksitN>0?Math.round(taksitToplamPerUnit/taksitN):0;
+
+  var bulkId=nid();
+
+  // Her seçili daire için müşteri kaydı + transaction'lar oluştur
+  checked.forEach(function(cb,k){
+    var bi=parseInt(cb.dataset.bi), ui=parseInt(cb.dataset.ui);
+    var b=p.blocks[bi]; var u=b.units[ui];
+    var unitLabel=b.name+' / '+u.no;
+
+    if(pay==='Barter olarak ver (taşerona)') {
+      u.status='barter';
+    } else {
+      u.status='sold';
+    }
+
+    // Müşteri kaydı
+    var custId=nid();
+    var custData={
+      id:custId,
+      name:pay==='Barter olarak ver (taşerona)'?bulkTaseronAd+' (barter)':name,
+      phone:phone, project:p.name, unit:unitLabel,
+      total:perUnit, resmi:perResmi, kdvOran:kdv, kdvTutar:perKdvTutar,
+      kapora:pay==='Barter olarak ver (taşerona)'?perUnit:perKapora,
+      kaporaDate:date, saleDate:date,
+      payType:pay==='Barter olarak ver (taşerona)'?'Barter':pay,
+      remaining:pay==='Barter olarak ver (taşerona)'?0:(perUnit-perKapora),
+      bulkSaleId:bulkId
+    };
+    if(pay==='Barter olarak ver (taşerona)') {
+      custData.barterTaseronId=bulkTaseron?bulkTaseron.id:null;
+      custData.barterTaseronAdi=bulkTaseronAd;
+    }
+    if(pay==='Taksitli') {
+      var taksitler=[];
+      if(taksitToplamPerUnit>0&&taksitN>0) {
+        for(var i=0;i<taksitN;i++) {
+          taksitler.push({no:i+1, total:taksitN, amount:i===taksitN-1?taksitToplamPerUnit-taksitAmt*(taksitN-1):taksitAmt, date:addDays(taksitFirst,i*taksitInt), paid:false});
+        }
+      }
+      custData.taksitler=taksitler;
+      if(araDataPerUnit.length>0) custData.plannedAraOdemeler=JSON.parse(JSON.stringify(araDataPerUnit));
+    }
+    DB.customers.push(custData);
+
+    // Gelir kaydı
+    DB.transactions.push({
+      id:nid(), type:'gelir',
+      desc:'Toplu satış'+(pay==='Barter olarak ver (taşerona)'?' (barter)':'')+' — '+name+' ('+unitLabel+', '+(k+1)+'/'+n+')',
+      project:p.name,
+      category:pay==='Barter olarak ver (taşerona)'?'Daire satışı':(perKapora>0?'Peşinat':'Daire satışı'),
+      date:date,
+      total:pay==='Barter olarak ver (taşerona)'?perUnit:perKapora,
+      resmi:pay==='Barter olarak ver (taşerona)'?perResmi:Math.round(perKapora*(perResmi/perUnit||0)),
+      kdvOran:pay==='Barter olarak ver (taşerona)'?kdv:0,
+      kdvTutar:pay==='Barter olarak ver (taşerona)'?perKdvTutar:0,
+      bulkSaleId:bulkId, barterCustId:custId
+    });
+
+    // Barter ise gider + taşeron paid
+    if(pay==='Barter olarak ver (taşerona)' && bulkTaseron) {
+      DB.transactions.push({
+        id:nid(), type:'gider',
+        desc:'Taşeron barter ödemesi — '+bulkTaseronAd+' (daire: '+unitLabel+', '+(k+1)+'/'+n+')',
+        project:p.name, category:'Taşeron — barter',
+        date:date, total:perUnit, resmi:perResmi, kdvOran:kdv, kdvTutar:perKdvTutar,
+        taseronId:bulkTaseron.id, bulkSaleId:bulkId, barterCustId:custId
+      });
+    }
+  });
+
+  // Barter ise taşeron paid'ini topluca arttır (tek seferde)
+  if(pay==='Barter olarak ver (taşerona)' && bulkTaseron) {
+    bulkTaseron.paid=(bulkTaseron.paid||0)+total;
+  }
+
+  // Komisyon (toplu — 1 kayıt)
+  var komTutar=parseFloat((document.getElementById('bs-komisyon-tutar')||{}).value)||0;
+  var komAlan=((document.getElementById('bs-komisyon-alan')||{}).value||'').trim();
+  if(komTutar>0) {
+    DB.transactions.push({
+      id:nid(), type:'gider',
+      desc:'Toplu satış komisyonu — '+name+' ('+n+' daire)'+(komAlan?' — '+komAlan:''),
+      project:p.name, category:'Komisyon',
+      date:date, total:komTutar, resmi:0, kdvOran:0, kdvTutar:0,
+      bulkSaleId:bulkId
+    });
+  }
+
+  save(); closeM('m-sell'); render();
+  if(pay==='Barter olarak ver (taşerona)') toast('Toplu barter kaydedildi · '+n+' daire · '+bulkTaseronAd+' (₺'+fmtK(total)+')');
+  else toast('Toplu satış kaydedildi · '+n+' daire · '+name+' (₺'+fmtK(total)+')');
+}
+
 function uploadContractPDF(input,id) {
   if(!input.files||!input.files[0])return;
   var f=input.files[0];
@@ -3052,9 +3635,28 @@ function slPayChange() {
   var pay=document.getElementById('sl-pay').value;
   var d=document.getElementById('sl-odeme-plani');
   var ps=document.getElementById('sl-price-section');
-  if(pay==='Barter olarak ver'||pay==='Arsa sahibi olarak işaretle') {
+  if(pay==='Arsa sahibi olarak işaretle') {
     if(ps) ps.style.display='none';
-    d.innerHTML='<div class="warn">Bu seçim ile daire \''+pay+'\' olarak işaretlenecek. Bedel bilgisi alınmayacak.</div>';
+    d.innerHTML='<div class="warn">Bu daire arsa sahibine ait olarak işaretlenecek. Bedel veya kayıt oluşturulmayacak.</div>';
+  } else if(pay==='Barter olarak ver') {
+    // v22 #8: Barter — fiyat alanları açık kalsın, taşeron seçimi gelsin
+    if(ps) ps.style.display='block';
+    var taseronList=DB.taserons||[];
+    var taseronOpt='';
+    if(taseronList.length===0) {
+      taseronOpt='<option value="">— Hiç taşeron yok —</option>';
+    } else {
+      taseronOpt='<option value="">— Taşeron seçin —</option>';
+      taseronList.forEach(function(t){
+        var kalan=Math.max(0, t.total-(t.paid||0)-(t.barterVal||0));
+        taseronOpt+='<option value="'+t.id+'">'+t.name+' — '+t.job+' (kalan ₺'+fmtK(kalan)+')</option>';
+      });
+    }
+    d.innerHTML='<hr class="sep"><div class="sec-t">Barter — taşeron bilgisi</div>'+
+      '<div class="fg"><label class="fl">Hangi taşeron anlaşması?</label><select class="fi" id="sl-barter-taseron" onchange="slCheckBarterFark()">'+taseronOpt+'</select></div>'+
+      '<div class="fg" id="sl-barter-manual-row" style="display:'+(taseronList.length===0?'block':'none')+'"><label class="fl">Taşeron adı (manuel — taşeron listesinde olmayan)</label><input class="fi" id="sl-barter-manual" placeholder="ör: Ali İnşaat" oninput="slCheckBarterFark()"></div>'+
+      '<div id="sl-barter-warn" style="font-size:11px;margin-top:4px"></div>'+
+      '<div style="font-size:10.5px;color:var(--t2);margin-top:6px">Kaydedildiğinde 3 kayıt oluşur: <strong>(1)</strong> Daire bedeli gelir kaydı · <strong>(2)</strong> Müşteri/satış kaydı (taşeron adıyla) · <strong>(3)</strong> Taşerona barter ödemesi (gider, taşeron borcunu azaltır).</div>';
   } else {
     if(ps) ps.style.display='block';
     if(pay==='Taksitli') {
@@ -3069,6 +3671,27 @@ function slPayChange() {
     } else d.innerHTML='';
   }
   slRecalc();
+}
+
+// v22 #8 — barter farkı uyarısı (gerçek zamanlı, daire bedeli ile taşeron kalan borcu kıyaslar)
+function slCheckBarterFark() {
+  var sel=document.getElementById('sl-barter-taseron');
+  var warn=document.getElementById('sl-barter-warn');
+  if(!sel||!warn)return;
+  if(!sel.value) { warn.innerHTML=''; return; }
+  var t=(DB.taserons||[]).find(function(x){return x.id==parseInt(sel.value)});
+  if(!t) { warn.innerHTML=''; return; }
+  var total=parseFloat((document.getElementById('sl-total')||{}).value)||0;
+  var kalan=Math.max(0, t.total-(t.paid||0)-(t.barterVal||0));
+  if(total<=0) { warn.innerHTML='<span style="color:var(--t2)">Daire bedelini girince taşeron borcu ile karşılaştırma gösterilecek.</span>'; return; }
+  if(total>kalan) {
+    var fark=total-kalan;
+    warn.innerHTML='<span style="color:var(--am)">⚠ Daire bedeli (₺'+fmt(total)+') taşeronun kalan borcunu (₺'+fmt(kalan)+') aşıyor. Fazla: <strong>₺'+fmt(fark)+'</strong> (taşeron hesabında uyarı olarak görünecek)</span>';
+  } else if(total===kalan) {
+    warn.innerHTML='<span style="color:var(--gn)">✓ Daire bedeli taşeron borcuna birebir denk. Borç kapanacak.</span>';
+  } else {
+    warn.innerHTML='<span style="color:var(--bl)">Daire bedeli ₺'+fmt(total)+', taşeron kalan borcu ₺'+fmt(kalan)+'. Bu kayıttan sonra kalan: <strong>₺'+fmt(kalan-total)+'</strong></span>';
+  }
 }
 
 function slAddAra() {
@@ -3114,6 +3737,9 @@ function slRecalc() {
       '<div>Peşinat:</div><div style="text-align:right">₺'+fmt(kapora)+'</div>'+
       '</div></div>';
   } else if(tz) tz.innerHTML='';
+
+  // v22 #8 — barter farkı uyarısını güncelle (barter modunda)
+  if(typeof slCheckBarterFark==='function') slCheckBarterFark();
 }
 
 function confirmSell() {
@@ -3123,10 +3749,83 @@ function confirmSell() {
   var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
   var pay=document.getElementById('sl-pay').value;
   var name=document.getElementById('sl-name').value.trim();
-  if(!name){alert('Müşteri adı giriniz');return}
 
-  if(pay==='Barter olarak ver') { u.status='barter'; save(); closeM('m-sell'); render(); toast('Daire barter olarak işaretlendi'); return; }
+  // Arsa sahibi — bilgi gerekmez
   if(pay==='Arsa sahibi olarak işaretle') { u.status='owner'; save(); closeM('m-sell'); render(); toast('Daire arsa sahibi olarak işaretlendi'); return; }
+
+  // v22 #8: Barter — gelir + müşteri + taşeron ödemesi olarak kaydet
+  if(pay==='Barter olarak ver') {
+    var bTotal=parseFloat(document.getElementById('sl-total').value)||0;
+    if(bTotal<=0){alert('Daire bedelini giriniz (barter değeri)');return}
+    var bResmi=parseFloat(document.getElementById('sl-resmi').value)||0;
+    var bKdv=parseFloat(document.getElementById('sl-kdv').value)||0;
+    var bKdvTutar=Math.round(bResmi*bKdv/(100+bKdv));
+    var bDate=document.getElementById('sl-date').value;
+    var taseronId=parseInt((document.getElementById('sl-barter-taseron')||{}).value)||null;
+    var manualName=((document.getElementById('sl-barter-manual')||{}).value||'').trim();
+    var taseron=taseronId?DB.taserons.find(function(x){return x.id===taseronId}):null;
+    var taseronAd=taseron?taseron.name:(manualName||name||'Bilinmeyen');
+    if(!taseron && !manualName && !name) { alert('Taşeron seçin veya manuel ad girin'); return; }
+
+    u.status='barter';
+
+    // 1) Müşteri/satış kaydı (taşeron adıyla — Satış takipte görünür)
+    var custId=nid();
+    DB.customers.push({
+      id:custId, name:taseronAd+' (barter)', phone:document.getElementById('sl-phone').value||'',
+      project:p.name, unit:b.name+' / '+u.no, total:bTotal, resmi:bResmi, kdvOran:bKdv, kdvTutar:bKdvTutar,
+      kapora:bTotal, kaporaDate:bDate, saleDate:bDate,
+      payType:'Barter', remaining:0,
+      barterTaseronId: taseron?taseron.id:null,
+      barterTaseronAdi: taseronAd
+    });
+
+    // 2) Gelir kaydı — daire bedeli
+    DB.transactions.push({
+      id:nid(), type:'gelir',
+      desc:'Daire satışı (barter) — '+taseronAd+' ('+u.no+')',
+      project:p.name, category:'Daire satışı',
+      date:bDate, total:bTotal, resmi:bResmi, kdvOran:bKdv, kdvTutar:bKdvTutar,
+      barterCustId: custId
+    });
+
+    // 3) Taşerona ödeme (varsa) — paid'i artır + gider kaydı
+    if(taseron) {
+      taseron.paid=(taseron.paid||0)+bTotal;
+      DB.transactions.push({
+        id:nid(), type:'gider',
+        desc:'Taşeron barter ödemesi — '+taseronAd+' (daire: '+u.no+')',
+        project:p.name, category:'Taşeron — barter',
+        date:bDate, total:bTotal, resmi:bResmi, kdvOran:bKdv, kdvTutar:bKdvTutar,
+        taseronId: taseron.id, barterCustId: custId
+      });
+    }
+
+    // 4) Komisyon (girilmişse) — barter satışta da geçerli
+    var bKomTutar=parseFloat((document.getElementById('sl-komisyon-tutar')||{}).value)||0;
+    var bKomAlan=((document.getElementById('sl-komisyon-alan')||{}).value||'').trim();
+    if(bKomTutar>0) {
+      DB.transactions.push({
+        id:nid(), type:'gider',
+        desc:'Satış komisyonu — '+taseronAd+' (barter, '+u.no+')'+(bKomAlan?' — '+bKomAlan:''),
+        project:p.name, category:'Komisyon',
+        date:bDate, total:bKomTutar, resmi:0, kdvOran:0, kdvTutar:0
+      });
+    }
+
+    save(); closeM('m-sell'); render();
+    if(taseron) {
+      var asim=Math.max(0, (taseron.paid+(taseron.barterVal||0))-taseron.total);
+      if(asim>0) toast('Barter kaydedildi · '+taseronAd+' ₺'+fmtK(bTotal)+' (₺'+fmtK(asim)+' aşım — taşeron sayfasında uyarı)');
+      else toast('Barter kaydedildi — '+taseronAd+' (₺'+fmtK(bTotal)+')');
+    } else {
+      toast('Barter kaydedildi (taşerona bağlanmadı): '+taseronAd);
+    }
+    return;
+  }
+
+  // Normal satışlar için müşteri adı zorunlu
+  if(!name){alert('Müşteri adı giriniz');return}
 
   var total=parseFloat(document.getElementById('sl-total').value)||0;
   if(total<=0){alert('Toplam tutar giriniz');return}
