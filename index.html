@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.1</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.3</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -578,6 +578,7 @@ function loadFromFirestore() {
         if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
         if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
         if(!DB.settings) DB.settings={nextId:1};
+        migrateOldSchema(); // v23.3
         try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
         render();
         toast('Bulut verileri yüklendi');
@@ -613,6 +614,7 @@ function migrateFromOldPath() {
         if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
         if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
         if(!DB.settings) DB.settings={nextId:1};
+        migrateOldSchema(); // v23.3
         try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
         render();
         saveToFirestore();
@@ -660,6 +662,7 @@ function startRealtimeSync() {
           if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
           if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
           if(!DB.settings) DB.settings={nextId:1};
+        migrateOldSchema(); // v23.3
           try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
           render();
         }
@@ -691,7 +694,59 @@ function load() {
     if (!DB.bankaHesaplari) DB.bankaHesaplari = [];
     if (!DB.bankaHareketleri) DB.bankaHareketleri = [];
     if (!DB.settings) DB.settings = { nextId: 1 };
+    migrateOldSchema(); // v23.3
   } catch(e) { console.error('Load error', e); }
+}
+
+// v23.3 — Eski şema migration: daireType→bbType, brutM2→alan, netM2→netAlan, katNo→floor
+// Eski alanları silmez, sadece yeni alan adlarına KOPYALAR (yeni alan zaten doluysa dokunmaz)
+function migrateOldSchema() {
+  if(!DB.projects) return 0;
+  var migratedCount = 0;
+  DB.projects.forEach(function(p){
+    if(!p.blocks) return;
+    p.blocks.forEach(function(b){
+      // Blok seviyesi: unitType → bbType
+      if(b.unitType && !b.bbType) b.bbType = b.unitType;
+      if(!b.units) return;
+      b.units.forEach(function(u){
+        var changed = false;
+        // daireType → bbType (ve daireType detay olarak korunur)
+        if(u.daireType && !u.bbType) {
+          var dt = u.daireType.toString().toUpperCase();
+          if(dt.indexOf('DÜKKAN')>-1 || dt.indexOf('DUKKAN')>-1) u.bbType = 'Dükkan';
+          else if(dt.indexOf('OFİS')>-1 || dt.indexOf('OFIS')>-1) u.bbType = 'Ofis';
+          else if(dt.indexOf('DEPO')>-1) u.bbType = 'Depo';
+          else u.bbType = 'Daire';
+          changed = true;
+        }
+        // brutM2 → alan
+        if(u.brutM2 && !u.alan) { u.alan = u.brutM2; changed = true; }
+        // netM2 → netAlan (yeni alan, gösterimde kullanılır)
+        if(u.netM2 && !u.netAlan) { u.netAlan = u.netM2; changed = true; }
+        // katNo → floor
+        if(u.katNo!==undefined && u.floor===undefined) {
+          if(typeof u.katNo === 'number') u.floor = u.katNo;
+          else {
+            var k = u.katNo.toString().toUpperCase().trim();
+            if(k === 'ZEMİN' || k === 'ZEMIN' || k === 'Z' || k === 'GİRİŞ' || k === 'GIRIS') u.floor = 0;
+            else {
+              var num = parseInt(k);
+              if(!isNaN(num)) u.floor = num;
+            }
+          }
+          changed = true;
+        }
+        if(changed) migratedCount++;
+      });
+    });
+  });
+  if(migratedCount > 0) {
+    console.log('[v23.3 Migration] '+migratedCount+' BB için eski şema yeniye kopyalandı.');
+    // Migration sonrası kaydet (sessizce, save() recursion'a girmesin diye localStorage'a doğrudan)
+    try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
+  }
+  return migratedCount;
 }
 
 function save() {
@@ -1443,6 +1498,9 @@ function rBB() {
   var p=DB.projects[curPrj];
   if(!p)return h+'<div class="empty">Proje seçiniz</div>';
 
+  // v23.2 — Toplu BB değer atama butonu
+  h+='<div style="margin-bottom:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn bp bsm" onclick="openBulkUnitEdit()">📐 Toplu m²/tip/fiyat ata</button><span style="font-size:10.5px;color:var(--t2)">Kat aralığı seçip tüm BB\'lere hızlıca değer ata (kayıp/eksik bilgileri toplu girebilirsin)</span></div>';
+
   // Stats for this project
   var pT=0,pS=0,pF=0,pR=0,pBT=0,pO=0;
   p.blocks.forEach(function(b){b.units.forEach(function(u){pT++;if(u.status==='sold')pS++;else if(u.status==='free')pF++;else if(u.status==='reserved')pR++;else if(u.status==='barter')pBT++;else if(u.status==='owner')pO++;})});
@@ -1475,13 +1533,14 @@ function rBB() {
       h+='<div class="unit '+cls+'" title="'+tooltip.replace(/"/g,'&quot;')+'" onclick="clickUnit('+curPrj+','+bi+','+ui+')">'+u.no+floorStr+'</div>';
     });
     h+='</div>';
-    // v23.1 — Detay tablosu (toggle ile aç/kapa)
+    // v23.1 — Detay tablosu (toggle ile aç/kapa) · v23.3: netAlan ve daireType eklendi
     h+='<div style="margin-top:8px"><span onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.nextElementSibling.style.display===\'none\'?\'▸ Detay tablosu (m² ve tipler)\':\'▾ Detay tablosu (gizle)\'" style="font-size:10.5px;color:var(--am);cursor:pointer;font-weight:600;user-select:none">▸ Detay tablosu (m² ve tipler)</span>';
-    h+='<div style="display:none;margin-top:6px"><table class="tb" style="font-size:10.5px"><thead><tr><th>Daire</th><th>Kat</th><th>Tip</th><th>m²</th><th>Hedef fiyat</th><th>Durum</th></tr></thead><tbody>';
+    h+='<div style="display:none;margin-top:6px;overflow-x:auto"><table class="tb" style="font-size:10.5px"><thead><tr><th>Daire</th><th>Kat</th><th>Tip</th><th>Detay tip</th><th>Brüt m²</th><th>Net m²</th><th>Hedef fiyat</th><th>Durum</th></tr></thead><tbody>';
     b.units.forEach(function(u){
       var statusTxt=u.status==='free'?'Boş':u.status==='sold'?'Satıldı':u.status==='barter'?'Barter':u.status==='reserved'?'Rezerve':u.status==='owner'?'Arsa sahibi':u.status;
       var statusBg=u.status==='free'?'bgr':u.status==='sold'?'bgg':u.status==='barter'?'bgp':u.status==='reserved'?'bga':u.status==='owner'?'bgp':'bgb';
-      h+='<tr><td style="font-weight:600">'+u.no+'</td><td>'+(u.floor||'-')+'</td><td>'+(u.bbType||'-')+'</td><td>'+(u.alan?u.alan+' m²':'-')+'</td><td>'+(u.targetPrice?'₺'+fmt(u.targetPrice):'-')+'</td><td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
+      var katStr=u.floor===0?'Zemin':(u.floor||'-');
+      h+='<tr><td style="font-weight:600">'+u.no+'</td><td>'+katStr+'</td><td>'+(u.bbType||'-')+'</td><td style="color:var(--t2);font-size:10px">'+(u.daireType||'-')+'</td><td>'+(u.alan?u.alan+' m²':'-')+'</td><td style="color:var(--t2)">'+(u.netAlan?u.netAlan+' m²':'-')+'</td><td>'+(u.targetPrice?'₺'+fmt(u.targetPrice):'-')+'</td><td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
     });
     h+='</tbody></table></div></div>';
     h+='</div>';
@@ -1784,6 +1843,91 @@ function rMH() {
   return h;
 }
 
+// v23.2 — Toplu BB değer atama (kat aralığı seçip BB'lere tip/m²/fiyat ata)
+function openBulkUnitEdit() {
+  if(DB.projects.length===0){alert('Önce şantiye eklemelisiniz');return}
+  var p=DB.projects[curPrj];
+  if(!p){alert('Proje seçilmedi');return}
+  if(p.blocks.length===0){alert('Bu projede blok yok');return}
+  var blokOpt='';
+  p.blocks.forEach(function(b,bi){
+    var floors={};
+    b.units.forEach(function(u){if(u.floor) floors[u.floor]=true});
+    var floorList=Object.keys(floors).map(Number).sort(function(a,b){return a-b});
+    var floorRange=floorList.length>0?floorList[0]+'-'+floorList[floorList.length-1]:'?';
+    blokOpt+='<option value="'+bi+'">'+b.name+' ('+b.units.length+' BB · '+floorRange+'.kat)</option>';
+  });
+
+  document.getElementById('m-sell-body').innerHTML=
+    '<div class="warn">Seçili blok ve kat aralığındaki tüm bağımsız bölümlere değerleri topluca atar. <strong>Mevcut değerler üzerine yazılır.</strong> Boş bırakılan alanlar değiştirilmez.</div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Proje</label><input class="fi" value="'+p.name+'" disabled style="background:var(--bg)"></div>'+
+    '<div class="fg"><label class="fl">Blok</label><select class="fi" id="bu-blok" onchange="buPreview()">'+blokOpt+'</select></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Kat (başlangıç)</label><input class="fi" id="bu-kat-start" type="number" value="1" min="1" oninput="buPreview()"></div>'+
+    '<div class="fg"><label class="fl">Kat (bitiş — boş = tümü)</label><input class="fi" id="bu-kat-end" type="number" placeholder="ör: 5" oninput="buPreview()"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Atanacak değerler (boş bırakırsan değiştirilmez)</div>'+
+    '<div class="fr3"><div class="fg"><label class="fl">BB türü</label><select class="fi" id="bu-tip"><option value="">— Değiştirme —</option><option>Daire</option><option>Dükkan</option><option>Ofis</option><option>Depo</option></select></div>'+
+    '<div class="fg"><label class="fl">m² alan</label><input class="fi" id="bu-alan" type="number" placeholder="ör: 110"></div>'+
+    '<div class="fg"><label class="fl">m² fiyatı (₺)</label><input class="fi" id="bu-m2-fiyat" type="number" placeholder="ör: 50000"></div></div>'+
+    '<div class="fg"><label class="fl">Hedef satış fiyatı (₺) — opsiyonel, boş bırakılırsa <strong>m² fiyatı × alan</strong> otomatik hesaplanır</label><input class="fi" id="bu-hedef" type="number" placeholder="otomatik hesaplanacak"></div>'+
+    '<div id="bu-preview" style="margin-top:8px"></div>';
+
+  document.querySelector('#m-sell .mdt').textContent='Toplu BB değer ataması';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveBulkUnitEdit()">Uygula</button>';
+  setTimeout(buPreview,30);
+  openM('m-sell');
+}
+
+function buPreview() {
+  var p=DB.projects[curPrj];
+  if(!p)return;
+  var bIdx=parseInt((document.getElementById('bu-blok')||{}).value)||0;
+  var b=p.blocks[bIdx];
+  if(!b)return;
+  var katStart=parseInt((document.getElementById('bu-kat-start')||{}).value)||1;
+  var katEndVal=(document.getElementById('bu-kat-end')||{}).value;
+  var katEnd=katEndVal?parseInt(katEndVal):999;
+  var matched=b.units.filter(function(u){var f=u.floor||1;return f>=katStart&&f<=katEnd});
+  var prev=document.getElementById('bu-preview');
+  if(!prev)return;
+  prev.innerHTML='<div class="kdv-box"><div class="sec-t">Etkilenecek BB sayısı</div><div style="font-size:13px;font-weight:700;color:var(--am)">'+matched.length+' bağımsız bölüm</div>'+(matched.length>0&&matched.length<=10?'<div style="font-size:10.5px;color:var(--t2);margin-top:4px">'+matched.map(function(u){return u.no}).join(', ')+'</div>':'')+(matched.length>10?'<div style="font-size:10.5px;color:var(--t2);margin-top:4px">'+matched.slice(0,5).map(function(u){return u.no}).join(', ')+' ... '+matched.slice(-3).map(function(u){return u.no}).join(', ')+'</div>':'')+'</div>';
+}
+
+function saveBulkUnitEdit() {
+  var p=DB.projects[curPrj];
+  if(!p)return;
+  var bIdx=parseInt(document.getElementById('bu-blok').value)||0;
+  var b=p.blocks[bIdx];
+  if(!b)return;
+  var katStart=parseInt(document.getElementById('bu-kat-start').value)||1;
+  var katEndVal=document.getElementById('bu-kat-end').value;
+  var katEnd=katEndVal?parseInt(katEndVal):999;
+  var tip=document.getElementById('bu-tip').value;
+  var alan=parseFloat(document.getElementById('bu-alan').value)||0;
+  var m2Fiyat=parseFloat(document.getElementById('bu-m2-fiyat').value)||0;
+  var hedefManuel=parseFloat(document.getElementById('bu-hedef').value)||0;
+
+  if(!tip && alan===0 && m2Fiyat===0 && hedefManuel===0) {
+    alert('En az bir değer giriniz (tip, m², m² fiyatı veya hedef fiyat)');
+    return;
+  }
+
+  var count=0;
+  b.units.forEach(function(u){
+    var floor=u.floor||1;
+    if(floor<katStart||floor>katEnd) return;
+    if(tip) u.bbType=tip;
+    if(alan>0) u.alan=alan;
+    if(hedefManuel>0) u.targetPrice=hedefManuel;
+    else if(m2Fiyat>0 && u.alan) u.targetPrice=Math.round(m2Fiyat*u.alan);
+    count++;
+  });
+
+  if(count===0){alert('Belirtilen kat aralığında BB bulunamadı');return}
+
+  save(); closeM('m-sell'); render();
+  toast(count+' bağımsız bölüme değer atandı');
+}
+
 function openMHEdit(pIdx) {
   var p=DB.projects[pIdx];
   if(!p)return;
@@ -1913,10 +2057,13 @@ function rST() {
   function rowHTML(item){
     var u=item.u, c=item.customer;
     // v23.1 — m² ve tip bilgisini daire altında göster
+    // v23.3 — daireType ve netAlan da göster
     var typeAlanParts=[];
     if(u.bbType) typeAlanParts.push(u.bbType);
-    if(u.alan) typeAlanParts.push(u.alan+' m²');
-    if(u.floor) typeAlanParts.push(u.floor+'. kat');
+    if(u.daireType) typeAlanParts.push(u.daireType);
+    if(u.alan) typeAlanParts.push(u.alan+' m² brüt');
+    if(u.netAlan) typeAlanParts.push(u.netAlan+' m² net');
+    if(u.floor!==undefined) typeAlanParts.push((u.floor===0?'Zemin':u.floor+'.kat'));
     var typeAlanHTML=typeAlanParts.length>0?'<div style="font-size:10px;color:var(--t2);font-weight:500;margin-top:1px">'+typeAlanParts.join(' · ')+'</div>':'';
     var rh='<tr>';
     rh+='<td><div style="font-weight:600">'+item.unitLabel+'</div>'+typeAlanHTML+'</td>';
