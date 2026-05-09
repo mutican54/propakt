@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.3</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.4</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -724,6 +724,13 @@ function migrateOldSchema() {
         if(u.brutM2 && !u.alan) { u.alan = u.brutM2; changed = true; }
         // netM2 → netAlan (yeni alan, gösterimde kullanılır)
         if(u.netM2 && !u.netAlan) { u.netAlan = u.netM2; changed = true; }
+        // v23.4 — Brüt < Net ise mantıken yanlış, takas et (brüt her zaman net'ten büyük olmalı)
+        if(u.alan && u.netAlan && u.alan < u.netAlan) {
+          var tmp = u.alan;
+          u.alan = u.netAlan;
+          u.netAlan = tmp;
+          changed = true;
+        }
         // katNo → floor
         if(u.katNo!==undefined && u.floor===undefined) {
           if(typeof u.katNo === 'number') u.floor = u.katNo;
