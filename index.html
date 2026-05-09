@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v22</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.1</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1234,6 +1234,13 @@ function markTaksitPaid(custIdx,taksitIdx) {
   var c=DB.customers[custIdx];
   if(!c||!c.taksitler||!c.taksitler[taksitIdx]) return;
   var t=c.taksitler[taksitIdx];
+  // v23 fix: 0 tutarlı taksit kontrolü
+  if(t.amount<=0) {
+    if(confirm('Bu taksitin tutarı ₺0 — geçersiz plan. Ödeme planını düzenlemek ister misiniz?')) {
+      openPaymentPlanEdit(custIdx);
+    }
+    return;
+  }
   // v22 #4 — paidPartial varsa, sadece kalan kısım için tahsilat kaydet
   var partial=t.paidPartial||0;
   var paymentNow=Math.max(0, t.amount-partial);
@@ -1258,6 +1265,13 @@ function markTaksitPartial(custIdx,taksitIdx) {
   var c=DB.customers[custIdx];
   if(!c||!c.taksitler||!c.taksitler[taksitIdx]) return;
   var t=c.taksitler[taksitIdx];
+  // v23 fix: taksit tutarı 0 ise anlamlı mesaj + plan düzenle önerisi
+  if(t.amount<=0) {
+    if(confirm('Bu taksitin tutarı ₺0 — büyük olasılıkla satış sırasında "peşinat = toplam tutar" girilmiş veya plan eksik kurulmuş.\n\nÖdeme planını yeniden düzenlemek ister misiniz? (Önce müşterinin doğru bedel/peşinat/taksit yapısı kurulmalı.)')) {
+      openPaymentPlanEdit(custIdx);
+    }
+    return;
+  }
   var partial=t.paidPartial||0;
   var kalan=t.amount-partial;
   if(kalan<=0){alert('Bu taksit zaten tamamen ödenmiş');return}
@@ -1451,9 +1465,26 @@ function rBB() {
     b.units.forEach(function(u,ui){
       var cls='u-'+(u.status==='sold'?'sold':u.status==='reserved'?'rsv':u.status==='barter'?'barter':u.status==='owner'?'rsv':'free');
       var floorStr = (u.floor!==undefined?'<br><span style="font-size:8px;opacity:.7">'+u.floor+'</span>':'');
-      h+='<div class="unit '+cls+'" onclick="clickUnit('+curPrj+','+bi+','+ui+')">'+u.no+floorStr+'</div>';
+      // v23.1 — hover tooltip: m², tip, durum
+      var tipParts=[];
+      if(u.bbType) tipParts.push(u.bbType);
+      if(u.alan) tipParts.push(u.alan+'m²');
+      if(u.floor) tipParts.push(u.floor+'.kat');
+      tipParts.push(u.status==='free'?'Boş':u.status==='sold'?'Satıldı':u.status==='barter'?'Barter':u.status==='reserved'?'Rezerve':u.status==='owner'?'Arsa sahibi':u.status);
+      var tooltip = b.name+' / '+u.no+(tipParts.length?' — '+tipParts.join(' · '):'');
+      h+='<div class="unit '+cls+'" title="'+tooltip.replace(/"/g,'&quot;')+'" onclick="clickUnit('+curPrj+','+bi+','+ui+')">'+u.no+floorStr+'</div>';
     });
-    h+='</div></div>';
+    h+='</div>';
+    // v23.1 — Detay tablosu (toggle ile aç/kapa)
+    h+='<div style="margin-top:8px"><span onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.nextElementSibling.style.display===\'none\'?\'▸ Detay tablosu (m² ve tipler)\':\'▾ Detay tablosu (gizle)\'" style="font-size:10.5px;color:var(--am);cursor:pointer;font-weight:600;user-select:none">▸ Detay tablosu (m² ve tipler)</span>';
+    h+='<div style="display:none;margin-top:6px"><table class="tb" style="font-size:10.5px"><thead><tr><th>Daire</th><th>Kat</th><th>Tip</th><th>m²</th><th>Hedef fiyat</th><th>Durum</th></tr></thead><tbody>';
+    b.units.forEach(function(u){
+      var statusTxt=u.status==='free'?'Boş':u.status==='sold'?'Satıldı':u.status==='barter'?'Barter':u.status==='reserved'?'Rezerve':u.status==='owner'?'Arsa sahibi':u.status;
+      var statusBg=u.status==='free'?'bgr':u.status==='sold'?'bgg':u.status==='barter'?'bgp':u.status==='reserved'?'bga':u.status==='owner'?'bgp':'bgb';
+      h+='<tr><td style="font-weight:600">'+u.no+'</td><td>'+(u.floor||'-')+'</td><td>'+(u.bbType||'-')+'</td><td>'+(u.alan?u.alan+' m²':'-')+'</td><td>'+(u.targetPrice?'₺'+fmt(u.targetPrice):'-')+'</td><td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+    h+='</div>';
   });
   h+='</div></div>';
 
@@ -1486,7 +1517,7 @@ function rMS() {
         h+='<td><span class="bg '+(c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':c.payType==='Arsa sahibi'?'bgp':'bgr')+'">'+c.payType+'</span></td>';
         h+='<td style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
         h+='<td>'+sozlesme+'</td>';
-        h+='<td>'+(c.payType==='Taksitli'?'<button class="btn bo bsm" onclick="openPaymentPlanEdit('+idx+')" style="margin-right:3px">Ödeme planı</button>':'')+'<button class="btn bo bsm" onclick="cancelSale('+idx+')" style="color:var(--rd);margin-right:3px">Satışı iptal et</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delCust('+idx+')">✕</span></td></tr>';
+        h+='<td><button class="btn bo bsm" onclick="openCustomerEdit('+idx+')" style="margin-right:3px">Düzenle</button>'+(c.payType==='Taksitli'?'<button class="btn bo bsm" onclick="openPaymentPlanEdit('+idx+')" style="margin-right:3px">Ödeme planı</button>':'')+'<button class="btn bo bsm" onclick="cancelSale('+idx+')" style="color:var(--rd);margin-right:3px">İptal</button><span style="color:var(--rd);cursor:pointer;font-weight:700" onclick="delCust('+idx+')">✕</span></td></tr>';
       });
       h+='</tbody></table>';
     }
@@ -1802,8 +1833,8 @@ function saveMHEdit() {
   toast('Maliyet hesabı güncellendi');
 }
 
-// ===== SATIŞ TAKİP =====
-var stFilter={project:'all'};
+// ===== SATIŞ TAKİP — v23: tüm bağımsız bölümleri listele =====
+var stFilter={project:'all', status:'all'};
 function rST() {
   var h='';
   // Proje filtresi
@@ -1815,87 +1846,118 @@ function rST() {
     h+='</div>';
   }
 
-  // v22 #2 — Toplu satış butonu (sayfa başında)
-  if(DB.projects.length>0) h+='<div style="margin-bottom:10px;display:flex;gap:6px;align-items:center"><button class="btn bp bsm" onclick="openBulkSaleModal()">⊞ Toplu satış (3+ daire ortak ödeme)</button><span style="font-size:10.5px;color:var(--t2)">Aynı müşteriye birden fazla daireyi tek ödeme planıyla satış</span></div>';
-
-  var customers=DB.customers.filter(function(c){return stFilter.project==='all'||c.project===stFilter.project});
-
-  // Stats
-  var totalSales=customers.reduce(function(s,c){return s+c.total},0);
-  var totalResmi=customers.reduce(function(s,c){return s+c.resmi},0);
-  var totalRemaining=customers.reduce(function(s,c){return s+(c.remaining||0)},0);
-  var totalKDV=customers.reduce(function(s,c){return s+(c.kdvTutar||0)},0);
-  var totalCustomers=customers.length;
-
-  h+='<div class="sts s5">';
-  h+='<div class="st xg"><div class="stl">Toplam satış</div><div class="stv" style="color:var(--gn)">₺'+fmtK(totalSales)+'</div></div>';
-  h+='<div class="st xb"><div class="stl">Resmi satış</div><div class="stv" style="color:var(--bl)">₺'+fmtK(totalResmi)+'</div></div>';
-  h+='<div class="st xt"><div class="stl">KDV (gelir)</div><div class="stv" style="color:var(--tl)">₺'+fmtK(totalKDV)+'</div></div>';
-  h+='<div class="st xr"><div class="stl">Kalan alacak</div><div class="stv" style="color:var(--rd)">₺'+fmtK(totalRemaining)+'</div></div>';
-  h+='<div class="st xa"><div class="stl">Müşteri sayısı</div><div class="stv" style="color:var(--am)">'+totalCustomers+'</div></div>';
+  // Durum filtresi
+  h+='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">';
+  h+='<span style="font-size:11px;font-weight:600;color:var(--t2);margin-right:4px">Durum:</span>';
+  ['all','sold','free','barter','reserved','owner'].forEach(function(s){
+    var lbl=s==='all'?'Tümü':s==='sold'?'Satıldı':s==='free'?'Boş':s==='barter'?'Barter':s==='reserved'?'Rezerve':'Arsa sahibi';
+    h+='<div class="prj-btn'+(stFilter.status===s?' on':'')+'" onclick="stFilter.status=\''+s+'\';render()">'+lbl+'</div>';
+  });
   h+='</div>';
 
-  // v22 #9 — Şantiye bazlı gruplama (Tümü modunda) ya da düz liste (tek proje modunda)
-  function stRowHTML(c){
-    var statusBg=(c.remaining||0)===0?'bgg':'bgr';
-    var statusTxt=(c.remaining||0)===0?'Tamamlandı':'Aktif';
-    var payBg=c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':c.payType==='Arsa sahibi'?'bgp':'bgr';
-    var rh='<tr><td style="font-weight:600">'+c.name+'</td>';
-    rh+='<td style="color:var(--t2)">'+c.unit+'</td>';
-    rh+='<td>'+(c.saleDate||c.kaporaDate||'-')+'</td>';
-    rh+='<td style="font-weight:700">₺'+fmt(c.total)+'</td>';
-    rh+='<td style="color:var(--bl)">₺'+fmt(c.resmi)+'</td>';
-    rh+='<td><span class="bg '+payBg+'">'+c.payType+'</span></td>';
-    rh+='<td style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</td>';
-    rh+='<td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
+  // Toplu satış butonu
+  if(DB.projects.length>0) h+='<div style="margin-bottom:10px;display:flex;gap:6px;align-items:center"><button class="btn bp bsm" onclick="openBulkSaleModal()">⊞ Toplu satış (3+ daire ortak ödeme)</button><span style="font-size:10.5px;color:var(--t2)">Aynı müşteriye birden fazla daireyi tek ödeme planıyla satış</span></div>';
+
+  // Tüm BB'leri topla, projeye filtrele, durum'a filtrele
+  var allUnits=[];
+  DB.projects.forEach(function(p,pi){
+    if(stFilter.project!=='all' && p.name!==stFilter.project) return;
+    p.blocks.forEach(function(b,bi){
+      b.units.forEach(function(u,ui){
+        if(stFilter.status!=='all' && u.status!==stFilter.status) return;
+        var unitLabel=b.name+' / '+u.no;
+        var customer=DB.customers.find(function(c){return c.project===p.name && c.unit===unitLabel});
+        allUnits.push({pi:pi,bi:bi,ui:ui,p:p,b:b,u:u,unitLabel:unitLabel,customer:customer});
+      });
+    });
+  });
+
+  // Stats — sadece görünen üzerinde
+  var totalUnits=allUnits.length;
+  var soldCount=allUnits.filter(function(x){return x.u.status==='sold'||x.u.status==='barter'}).length;
+  var freeCount=allUnits.filter(function(x){return x.u.status==='free'}).length;
+  var customers=allUnits.filter(function(x){return x.customer}).map(function(x){return x.customer});
+  var totalSales=customers.reduce(function(s,c){return s+(c.total||0)},0);
+  var totalRemaining=customers.reduce(function(s,c){return s+(c.remaining||0)},0);
+  var totalKDV=customers.reduce(function(s,c){return s+(c.kdvTutar||0)},0);
+
+  h+='<div class="sts s5">';
+  h+='<div class="st xa"><div class="stl">Toplam BB</div><div class="stv" style="color:var(--am)">'+totalUnits+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Satılan / barter</div><div class="stv" style="color:var(--gn)">'+soldCount+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Boş</div><div class="stv" style="color:var(--rd)">'+freeCount+'</div></div>';
+  h+='<div class="st xg"><div class="stl">Toplam satış</div><div class="stv" style="color:var(--gn);font-size:18px">₺'+fmtK(totalSales)+'</div><div class="stc" style="color:var(--t2)">KDV: ₺'+fmtK(totalKDV)+'</div></div>';
+  h+='<div class="st xr"><div class="stl">Kalan alacak</div><div class="stv" style="color:var(--rd);font-size:18px">₺'+fmtK(totalRemaining)+'</div></div>';
+  h+='</div>';
+
+  // Liste oluşturma yardımcıları
+  function statusBadge(u){
+    if(u.status==='sold') return '<span class="bg bgg">Satıldı</span>';
+    if(u.status==='barter') return '<span class="bg bgp">Barter</span>';
+    if(u.status==='reserved') return '<span class="bg bga">Rezerve</span>';
+    if(u.status==='owner') return '<span class="bg bgp">Arsa sahibi</span>';
+    return '<span class="bg bgr">Boş</span>';
+  }
+  function actionBtn(item){
+    var u=item.u;
+    if(u.status==='free') return '<button class="btn bp bsm" onclick="openSellModal('+item.pi+','+item.bi+','+item.ui+')">Satış yap</button>';
+    if(u.status==='owner') return '<button class="btn bo bsm" onclick="if(confirm(\'Bu daireyi tekrar boş\\u00a0duruma almak istiyor musunuz?\')){DB.projects['+item.pi+'].blocks['+item.bi+'].units['+item.ui+'].status=\'free\';save();render()}" style="color:var(--rd)">Boşa al</button>';
+    if(item.customer) {
+      var custIdx=DB.customers.indexOf(item.customer);
+      var btns='<button class="btn bo bsm" onclick="openCustomerEdit('+custIdx+')" style="margin-right:3px">Düzenle</button>';
+      if(item.customer.payType==='Taksitli') btns+='<button class="btn bo bsm" onclick="openPaymentPlanEdit('+custIdx+')">Plan</button>';
+      return btns;
+    }
+    // Rezerve ama müşteri kaydı yok — doğrudan satışa geç
+    return '<button class="btn bp bsm" onclick="openSellModal('+item.pi+','+item.bi+','+item.ui+')">Satış yap</button>';
+  }
+  function rowHTML(item){
+    var u=item.u, c=item.customer;
+    // v23.1 — m² ve tip bilgisini daire altında göster
+    var typeAlanParts=[];
+    if(u.bbType) typeAlanParts.push(u.bbType);
+    if(u.alan) typeAlanParts.push(u.alan+' m²');
+    if(u.floor) typeAlanParts.push(u.floor+'. kat');
+    var typeAlanHTML=typeAlanParts.length>0?'<div style="font-size:10px;color:var(--t2);font-weight:500;margin-top:1px">'+typeAlanParts.join(' · ')+'</div>':'';
+    var rh='<tr>';
+    rh+='<td><div style="font-weight:600">'+item.unitLabel+'</div>'+typeAlanHTML+'</td>';
+    rh+='<td>'+statusBadge(u)+'</td>';
+    rh+='<td style="font-weight:600">'+(c?c.name:(u.status==='owner'?'<span style="color:var(--pr)">Arsa sahibi</span>':'<span style="color:var(--t3)">—</span>'))+'</td>';
+    rh+='<td>'+(c?'<span style="font-weight:700">₺'+fmt(c.total)+'</span>':(u.targetPrice?'<span style="color:var(--am)">hedef ₺'+fmtK(u.targetPrice)+'</span>':'<span style="color:var(--t3)">—</span>'))+'</td>';
+    rh+='<td>'+(c?'<span style="color:var(--bl)">₺'+fmt(c.resmi)+'</span>':'<span style="color:var(--t3)">—</span>')+'</td>';
+    rh+='<td>'+(c?'<span class="bg '+(c.payType==='Peşin'?'bgg':c.payType==='Taksitli'?'bga':c.payType==='Banka kredisi'?'bgb':c.payType==='Barter'?'bgp':'bgp')+'">'+c.payType+'</span>':'<span style="color:var(--t3)">—</span>')+'</td>';
+    rh+='<td>'+(c?'<span style="color:'+((c.remaining||0)>0?'var(--rd)':'var(--gn)')+';font-weight:700">₺'+fmt(c.remaining||0)+'</span>':'<span style="color:var(--t3)">—</span>')+'</td>';
+    rh+='<td>'+actionBtn(item)+'</td>';
+    rh+='</tr>';
     return rh;
   }
-  function stTableHead(){ return '<table class="tb"><thead><tr><th>Müşteri</th><th>Daire</th><th>Tarih</th><th>Toplam</th><th>Resmi</th><th>Ödeme</th><th>Kalan</th><th>Durum</th></tr></thead><tbody>'; }
+  function tableHead(){ return '<table class="tb"><thead><tr><th>Daire</th><th>Durum</th><th>Müşteri</th><th>Toplam</th><th>Resmi</th><th>Ödeme</th><th>Kalan</th><th>İşlem</th></tr></thead><tbody>'; }
 
-  if(customers.length===0) {
-    h+='<div class="cd"><div class="chd"><span class="cht">Satış kayıtları</span><span class="cha" onclick="openCustomerModal()">+ Yeni satış</span></div><div class="empty">Henüz satış kaydı yok.</div></div>';
+  if(allUnits.length===0) {
+    if(DB.projects.length===0) {
+      h+='<div class="cd"><div class="empty">Önce şantiye ve bağımsız bölüm ekleyiniz.</div></div>';
+    } else {
+      h+='<div class="cd"><div class="empty">Bu filtreye uyan bağımsız bölüm yok.</div></div>';
+    }
   } else if(stFilter.project==='all') {
-    // Tümü — şantiye şantiye gruplandır
-    var addBtnShown=false;
+    // Tümü modu — şantiye gruplandırması
     DB.projects.forEach(function(p){
-      var pcust=customers.filter(function(c){return c.project===p.name});
-      if(pcust.length===0) return;
-      var pSales=pcust.reduce(function(s,c){return s+c.total},0);
-      var pResmi=pcust.reduce(function(s,c){return s+c.resmi},0);
-      var pRemaining=pcust.reduce(function(s,c){return s+(c.remaining||0)},0);
-      h+='<div class="cd"><div class="chd">';
-      h+='<span class="cht">'+p.name+' <span style="font-size:10px;color:var(--t2);font-weight:600;margin-left:6px">'+pcust.length+' satış · ₺'+fmtK(pSales)+' toplam'+(pRemaining>0?' · ₺'+fmtK(pRemaining)+' kalan':'')+'</span></span>';
-      h+=(addBtnShown?'':'<span class="cha" onclick="openCustomerModal()">+ Yeni satış</span>');
-      addBtnShown=true;
-      h+='</div>';
-      h+=stTableHead();
-      pcust.forEach(function(c){h+=stRowHTML(c)});
+      var pUnits=allUnits.filter(function(x){return x.p.name===p.name});
+      if(pUnits.length===0) return;
+      var pSold=pUnits.filter(function(x){return x.u.status==='sold'||x.u.status==='barter'}).length;
+      var pFree=pUnits.filter(function(x){return x.u.status==='free'}).length;
+      var pCust=pUnits.filter(function(x){return x.customer}).map(function(x){return x.customer});
+      var pSales=pCust.reduce(function(s,c){return s+(c.total||0)},0);
+      var pRemain=pCust.reduce(function(s,c){return s+(c.remaining||0)},0);
+      h+='<div class="cd"><div class="chd"><span class="cht">'+p.name+' <span style="font-size:10px;color:var(--t2);font-weight:600;margin-left:6px">'+pUnits.length+' BB · '+pSold+' satıldı · '+pFree+' boş · ₺'+fmtK(pSales)+' satış'+(pRemain>0?' · ₺'+fmtK(pRemain)+' kalan':'')+'</span></span></div>';
+      h+=tableHead();
+      pUnits.forEach(function(item){h+=rowHTML(item)});
       h+='</tbody></table></div>';
     });
-    // Proje bulunamayan kayıtlar (silinmiş proje vb)
-    var orphans=customers.filter(function(c){return !DB.projects.find(function(p){return p.name===c.project})});
-    if(orphans.length>0) {
-      h+='<div class="cd"><div class="chd"><span class="cht" style="color:var(--am)">Proje bulunamayan kayıtlar <span style="font-size:10px;color:var(--t2);font-weight:600;margin-left:6px">'+orphans.length+' kayıt</span></span></div>';
-      h+=stTableHead();
-      orphans.forEach(function(c){
-        var statusBg=(c.remaining||0)===0?'bgg':'bgr';
-        var statusTxt=(c.remaining||0)===0?'Tamamlandı':'Aktif';
-        var payBg=c.payType==='Peşin'?'bgg':'bgr';
-        h+='<tr><td style="font-weight:600">'+c.name+'</td>';
-        h+='<td style="color:var(--am)">'+(c.project||'(yok)')+' / '+c.unit+'</td>';
-        h+='<td>'+(c.saleDate||c.kaporaDate||'-')+'</td>';
-        h+='<td>₺'+fmt(c.total)+'</td><td>₺'+fmt(c.resmi)+'</td>';
-        h+='<td><span class="bg '+payBg+'">'+c.payType+'</span></td>';
-        h+='<td>₺'+fmt(c.remaining||0)+'</td>';
-        h+='<td><span class="bg '+statusBg+'">'+statusTxt+'</span></td></tr>';
-      });
-      h+='</tbody></table></div>';
-    }
   } else {
     // Tek proje — düz liste
-    h+='<div class="cd"><div class="chd"><span class="cht">'+stFilter.project+' — satış kayıtları</span><span class="cha" onclick="openCustomerModal()">+ Yeni satış</span></div>';
-    h+=stTableHead();
-    customers.forEach(function(c){h+=stRowHTML(c)});
+    h+='<div class="cd"><div class="chd"><span class="cht">'+stFilter.project+'</span></div>';
+    h+=tableHead();
+    allUnits.forEach(function(item){h+=rowHTML(item)});
     h+='</tbody></table></div>';
   }
   return h;
@@ -2535,6 +2597,28 @@ function saveBlockDetail() {
   var newType=document.getElementById('ebd-bbtype').value;
   var newm2=parseFloat(document.getElementById('ebd-targetm2').value)||0;
   if(b.bbType!==newType||b.targetm2!==newm2) {
+    // v23.1 — Daireler tek tek farklı tip/alan değerine sahip olabilir; yeni tip uygulamadan önce sor
+    var farkliTipler={};
+    var farkliAlanlar={};
+    b.units.forEach(function(u){
+      if(u.bbType) farkliTipler[u.bbType]=(farkliTipler[u.bbType]||0)+1;
+      if(u.alan) farkliAlanlar[u.alan]=(farkliAlanlar[u.alan]||0)+1;
+    });
+    var coktipliMi=Object.keys(farkliTipler).length>1;
+    var coktipliAlan=Object.keys(farkliAlanlar).length>1;
+    if(coktipliMi||coktipliAlan) {
+      var msg='Bu blokta tek tek farklı '+(coktipliMi?'BB türleri':'')+(coktipliMi&&coktipliAlan?' ve ':'')+(coktipliAlan?'m² alanlar':'')+' kayıtlı:\n';
+      Object.keys(farkliTipler).forEach(function(t){msg+='  • '+t+': '+farkliTipler[t]+' adet\n'});
+      Object.keys(farkliAlanlar).forEach(function(a){msg+='  • '+a+'m²: '+farkliAlanlar[a]+' adet\n'});
+      msg+='\nDevam edersen TÜM dairelerin tipi ve alanı tek değere sahip olacak (mevcut farklılıklar kaybolacak).\n\nDevam edilsin mi?';
+      if(!confirm(msg)) {
+        // sadece blok başlık ayarlarını uygula, daireleri ezme
+        b.bbType=newType;
+        b.targetm2=newm2;
+        save(); editSite(pIdx); toast('Blok başlığı güncellendi (daireler dokunulmadı)');
+        return;
+      }
+    }
     b.bbType=newType;
     b.targetm2=newm2;
     var defAlan=newType==='Daire'?100:newType==='Dükkan'?80:newType==='Ofis'?70:50;
@@ -3061,6 +3145,96 @@ function cancelSale(idx) {
   if(!c)return;
   if(!confirm(c.name+' müşterisinin satışını iptal etmek istediğinize emin misiniz?\nDaire tekrar boşa alınacak ve müşteri kaydı silinecek.'))return;
   delCust(idx);
+}
+
+// v22 #5 — Satış sonrası ödeme planı düzenleme
+// v23 — Müşteri/satış kaydı düzenleme (tutar, peşinat, KDV, ödeme şekli, müşteri bilgileri)
+function openCustomerEdit(custIdx) {
+  var c=DB.customers[custIdx];
+  if(!c){alert('Müşteri bulunamadı');return}
+
+  // Ödenmiş tahsilat hesabı (toplam tutar düşürülürken kontrol için)
+  var paidTaksit=(c.taksitler||[]).filter(function(t){return t.paid}).reduce(function(s,t){return s+t.amount},0);
+  var araPaid=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+  var totalCollected=(c.kapora||0)+paidTaksit+araPaid;
+
+  document.getElementById('m-sell-body').innerHTML=
+    '<input type="hidden" id="ce-cidx" value="'+custIdx+'">'+
+    '<div style="padding:10px;background:var(--bg);border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700">Mevcut kayıt: '+c.name+'</div>'+
+    '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+c.project+' — '+c.unit+' · '+c.payType+'</div>'+
+    (totalCollected>0?'<div style="font-size:11px;color:var(--gn);margin-top:4px;font-weight:600">Şu ana kadar tahsil edilen: ₺'+fmt(totalCollected)+' (peşinat ₺'+fmt(c.kapora||0)+' + ödenmiş taksit ₺'+fmt(paidTaksit)+(araPaid?' + ara ₺'+fmt(araPaid):'')+')</div>':'')+
+    '</div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Müşteri adı</label><input class="fi" id="ce-name" value="'+(c.name||'').replace(/"/g,'&quot;')+'"></div>'+
+    '<div class="fg"><label class="fl">Telefon</label><input class="fi" id="ce-phone" value="'+(c.phone||'').replace(/"/g,'&quot;')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">E-posta</label><input class="fi" id="ce-email" value="'+(c.email||'').replace(/"/g,'&quot;')+'"></div>'+
+    '<div class="fg"><label class="fl">Satış tarihi</label><input class="fi" id="ce-date" type="date" value="'+(c.saleDate||c.kaporaDate||today())+'"></div></div>'+
+    '<hr class="sep"><div class="sec-t">Bedel bilgileri</div>'+
+    '<div class="fr3"><div class="fg"><label class="fl">Toplam tutar (₺)</label><input class="fi" id="ce-total" type="number" value="'+(c.total||0)+'" oninput="ceCalc()"></div>'+
+    '<div class="fg"><label class="fl">Resmi (₺)</label><input class="fi" id="ce-resmi" type="number" value="'+(c.resmi||0)+'" oninput="ceCalc()"></div>'+
+    '<div class="fg"><label class="fl">KDV (%)</label><input class="fi" id="ce-kdv" type="number" min="0" max="100" step="0.5" value="'+(c.kdvOran||0)+'" oninput="ceCalc()"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Peşinat (₺)</label><input class="fi" id="ce-kapora" type="number" value="'+(c.kapora||0)+'" oninput="ceCalc()"></div>'+
+    '<div class="fg"><label class="fl">Ödeme şekli</label><select class="fi" id="ce-pay"><option>Peşin</option><option>Taksitli</option><option>Banka kredisi</option><option>Barter</option><option>Arsa sahibi</option></select></div></div>'+
+    '<div id="ce-info"></div>'+
+    '<div class="warn" style="margin-top:10px;font-size:10.5px"><strong>Not:</strong> Bedel/peşinat değişiklikleri ödeme planını otomatik yeniden hesaplamaz. Plan değişmesi gerekiyorsa kayıttan sonra "Ödeme planı" butonuna tıklayın. Daha önce oluşturulmuş gelir/peşinat işlem kayıtları olduğu gibi kalır.</div>';
+
+  document.getElementById('ce-pay').value=c.payType||'Peşin';
+  document.querySelector('#m-sell .mdt').textContent='Müşteri / satış kaydını düzenle';
+  document.querySelector('#m-sell .mdf').innerHTML='<button class="btn bo" onclick="closeM(\'m-sell\')">İptal</button><button class="btn bp" onclick="saveCustomerEdit()">Değişiklikleri kaydet</button>';
+  ceCalc();
+  openM('m-sell');
+}
+
+function ceCalc() {
+  var total=parseFloat(document.getElementById('ce-total').value)||0;
+  var resmi=parseFloat(document.getElementById('ce-resmi').value)||0;
+  var kdv=parseFloat(document.getElementById('ce-kdv').value)||0;
+  var kapora=parseFloat(document.getElementById('ce-kapora').value)||0;
+  var kdvTutar=Math.round(resmi*kdv/(100+kdv));
+  var d=document.getElementById('ce-info');
+  if(!d)return;
+  d.innerHTML='<div class="kdv-box"><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11.5px">'+
+    '<div>KDV tutarı:</div><div style="text-align:right;color:var(--tl)">₺'+fmt(kdvTutar)+'</div>'+
+    '<div>Gayri resmi:</div><div style="text-align:right;color:var(--pr)">₺'+fmt(total-resmi)+'</div>'+
+    '<div>Yeni kalan borç:</div><div style="text-align:right;font-weight:700;color:var(--rd)">₺'+fmt(Math.max(0,total-kapora))+'</div>'+
+    '</div></div>';
+}
+
+function saveCustomerEdit() {
+  var idx=parseInt(document.getElementById('ce-cidx').value);
+  var c=DB.customers[idx];
+  if(!c)return;
+  var name=document.getElementById('ce-name').value.trim();
+  if(!name){alert('Müşteri adı giriniz');return}
+  var total=parseFloat(document.getElementById('ce-total').value)||0;
+  if(total<=0){alert('Toplam tutar 0\'dan büyük olmalı');return}
+  var resmi=parseFloat(document.getElementById('ce-resmi').value)||0;
+  var kdv=parseFloat(document.getElementById('ce-kdv').value)||0;
+  var kdvTutar=Math.round(resmi*kdv/(100+kdv));
+  var kapora=parseFloat(document.getElementById('ce-kapora').value)||0;
+  var pay=document.getElementById('ce-pay').value;
+
+  // Tahsilat kontrolü — yeni toplam mevcut tahsilattan az olmasın
+  var paidTaksit=(c.taksitler||[]).filter(function(t){return t.paid}).reduce(function(s,t){return s+t.amount},0);
+  var araPaid=(c.araOdemeler||[]).reduce(function(s,a){return s+a.amount},0);
+  var totalCollected=kapora+paidTaksit+araPaid;
+  if(total<totalCollected) {
+    if(!confirm('Yeni toplam tutar (₺'+fmt(total)+') şu ana kadar tahsil edilen tutardan (₺'+fmt(totalCollected)+') daha düşük. Yine de kaydedilsin mi? (Kalan borç 0 olarak ayarlanacak.)')) return;
+  }
+
+  c.name=name;
+  c.phone=document.getElementById('ce-phone').value;
+  c.email=document.getElementById('ce-email').value;
+  c.saleDate=document.getElementById('ce-date').value;
+  c.total=total;
+  c.resmi=resmi;
+  c.kdvOran=kdv;
+  c.kdvTutar=kdvTutar;
+  c.kapora=kapora;
+  c.payType=pay;
+  c.remaining=Math.max(0, total-totalCollected);
+
+  save(); closeM('m-sell'); render(); toast('Müşteri kaydı güncellendi');
 }
 
 // v22 #5 — Satış sonrası ödeme planı düzenleme
@@ -4207,21 +4381,17 @@ function runAllTests() {
       .catch(function(e){addResult('Firestore okuma','err',e.message)});
   }
 
-  // 4. Firestore yazma
+  // 4. Firestore yazma — gerçek shared_data path'inde merge ile test et
   if(!isOnlineMode) addResult('Firestore yazma','warn','Offline mod — atlandı');
   else {
-    db_fire.collection('_test').doc('ping').set({t:Date.now()},{merge:true})
-      .then(function(){addResult('Firestore yazma','ok','Yazma izni mevcut')})
+    db_fire.doc('shared_data/main').set({lastTestPing:Date.now()},{merge:true})
+      .then(function(){addResult('Firestore yazma','ok','Yazma izni mevcut (shared_data/main üzerinde)')})
       .catch(function(e){addResult('Firestore yazma','err',e.message)});
   }
 
-  // 5. App Check durumu
+  // 5. App Check durumu — bilerek devre dışı, bilgi olarak işaretle
   if(typeof firebase.appCheck==='function') {
-    try {
-      var ac=firebase.appCheck();
-      if(ac) addResult('App Check','warn','Modül yüklü ama bu sürümde devre dışı (kod yorum satırında)');
-      else addResult('App Check','warn','Modül yüklü ama aktivasyon yok');
-    } catch(e){addResult('App Check','warn','Aktif değil — '+e.message)}
+    addResult('App Check','ok','Bilerek devre dışı (reCAPTCHA token sorunu nedeniyle yorum satırında — Firestore kuralları ve API anahtarı kısıtlaması koruma sağlıyor)');
   } else addResult('App Check','warn','firebase-app-check-compat.js yüklü değil');
 
   // 6. localStorage erişimi
