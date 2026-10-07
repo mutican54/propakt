@@ -1,4 +1,4 @@
-var CACHE_NAME = 'propakt-v20';
+var CACHE_NAME = 'propakt-v23.5.1';
 var urlsToCache = [
   './',
   './index.html',
@@ -43,8 +43,12 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
+  // v23.5.1: sayfa dosyaları tarayıcı önbelleğine takılmadan her seferinde sunucudan kontrol edilir
+  var req = event.request;
+  var sameOrigin = req.url.indexOf(self.location.origin) === 0;
+  var netReq = (sameOrigin && req.method === 'GET') ? fetch(req.url, {cache: 'no-cache', credentials: 'same-origin'}) : fetch(req);
   event.respondWith(
-    fetch(event.request).then(function(networkResponse) {
+    netReq.then(function(networkResponse) {
       // İnternetten başarıyla aldık — cache'i güncelle
       if (networkResponse && networkResponse.status === 200) {
         var responseClone = networkResponse.clone();

@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.5</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.5.1</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -761,7 +761,7 @@ function startRealtimeSync() {
       var rep = applyCloudData(d.data, rc);
       render();
       if(d.lastEditedBy && currentUser && d.lastEditedBy!==currentUser.email) toast('Güncellendi — '+d.lastEditedBy+' değişiklik yaptı');
-      if(rep > 0) save();
+      // v23.5.1: anlık güncellemede otomatik kayıt YAPILMAZ (iki cihaz arasında kayıt döngüsünü önler)
     } catch(e) { console.error('Realtime sync parse error:', e); }
     updateSyncStatus(true, isPending());
   }, function(err) {
@@ -878,6 +878,20 @@ function buildBackupData() {
       .catch(function(){ copy._filesMissing=(copy._filesMissing||0)+1; });
   })).then(function(){ return copy; });
 }
+
+// ===== v23.5.1 — Yeni sürüm kontrolü (tarayıcı önbelleği eski sürümü açarsa uyarır) =====
+var APP_VERSION = 'v23.5.1';
+function versionNum(v) { return String(v||'').replace(/^v/,'').split('.').map(function(x){return parseInt(x,10)||0}); }
+function isNewerVersion(a, b) { var x=versionNum(a), y=versionNum(b); for(var i=0;i<Math.max(x.length,y.length);i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0; } return false; }
+function checkNewVersion() {
+  if(location.protocol!=='https:') return;
+  fetch(location.pathname+'?vc='+Date.now(), {cache:'no-store'}).then(function(r){return r.text()}).then(function(t){
+    var m=t.match(/Yönetim Sistemi (v[0-9.]+)<\/title>/);
+    if(m && isNewerVersion(m[1], APP_VERSION) && !document.getElementById('upd-bar')) showUpdateBar(m[1]);
+  }).catch(function(){});
+}
+setTimeout(checkNewVersion, 8000);
+setInterval(checkNewVersion, 10*60*1000);
 
 // ===== v23.5 — VERİ ONARIMI =====
 // 1) Aynı adlı iki blok: biri tamamen boş DÜKKAN bloğuysa ana bloğa taşınır, numaralar devam eder (A-60 → A-61, A-62 …)
@@ -1063,7 +1077,7 @@ function migrateOldSchema() {
               if(!isNaN(num)) u.floor = num;
             }
           }
-          changed = true;
+          if(u.floor!==undefined) changed = true;  // v23.5.1
         }
         if(changed) migratedCount++;
       });
@@ -1635,7 +1649,7 @@ function markTaksitPaid(custIdx,taksitIdx) {
   if(paymentNow>0) {
     DB.transactions.push({
       id:nid(), type:'gelir',
-      desc:'Taksit tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(partial>0?' (kalan ödendi)':''),
+      custId:c.id, desc:'Taksit tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(partial>0?' (kalan ödendi)':''),
       project:c.project, category:'Taksit tahsilat',
       date:today(), total:paymentNow,
       resmi:c.total>0?Math.round(paymentNow*(c.resmi/c.total)):0,
@@ -1716,7 +1730,7 @@ function saveTaksitPartial() {
   c.remaining=Math.max(0,(c.remaining||0)-amount);
   DB.transactions.push({
     id:nid(), type:'gelir',
-    desc:'Taksit kısmi tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(note?' — '+note:''),
+    custId:c.id, desc:'Taksit kısmi tahsilat — '+c.name+' ('+t.no+'/'+t.total+')'+(note?' — '+note:''),
     project:c.project, category:'Taksit tahsilat',
     date:date, total:amount, resmi:resmi, kdvOran:0, kdvTutar:0
   });
@@ -1785,7 +1799,7 @@ function saveAraOdeme() {
   // Record as gelir transaction
   DB.transactions.push({
     id:nid(), type:'gelir',
-    desc:'Ara ödeme — '+c.name+' ('+c.unit+')'+(note?' — '+note:''),
+    custId:c.id, desc:'Ara ödeme — '+c.name+' ('+c.unit+')'+(note?' — '+note:''),
     project:c.project, category:'Ara ödeme',
     date:date, total:amount, resmi:resmi, kdvOran:0, kdvTutar:0
   });
@@ -3587,7 +3601,7 @@ function saveCustomer() {
   // Otomatik gelir transaction (peşinat ve resmi tutar bilgisi)
   if(kapora>0) {
     DB.transactions.push({
-      id:nid(),type:'gelir',desc:'Satış peşinat — '+name+' ('+unit+')',
+      id:nid(),custId:data.id,type:'gelir',desc:'Satış peşinat — '+name+' ('+unit+')',
       project:prjName,category:'Peşinat',
       date:date,total:kapora,resmi:total>0?Math.round(kapora*(resmi/total)):0,kdvOran:0,kdvTutar:0
     });
@@ -3599,30 +3613,51 @@ function saveCustomer() {
 function delCust(idx) {
   var c=DB.customers[idx];
   if(!c)return;
-  if(!confirm(c.name+' müşterisini silmek istediğinize emin misiniz? İlgili daire boşa düşecek.'))return;
-  // Restore unit status
+  var linked=custLinkedTx(c);
+  var gelir=0,gider=0; linked.forEach(function(t){ if(t.type==='gelir') gelir+=(t.total||0); else gider+=(t.total||0); });
+  var tsGeri=linked.filter(function(t){return t.type==='gider'&&t.taseronId});
+  var msg=c.name+' ('+c.unit+') silinecek ve daire boşa düşecek.';
+  if(linked.length) msg+='\n\nBu müşteriye bağlı '+linked.length+' işlem kaydı da silinecek'+(gelir?' — gelir ₺'+fmt(gelir):'')+(gider?' — gider ₺'+fmt(gider):'')+'.';
+  if(tsGeri.length) msg+='\nBarter ödemesi taşeron hesabından geri alınacak.';
+  msg+='\n\nDevam edilsin mi?';
+  if(!confirm(msg))return;
+  // barter: taşeronun "ödenen" tutarını geri al
+  tsGeri.forEach(function(t){ var ts=DB.taserons.find(function(x){return x.id===t.taseronId}); if(ts) ts.paid=Math.max(0,(ts.paid||0)-(t.total||0)); });
+  // daireyi boşa al (aynı daireye bağlı başka müşteri yoksa)
   var prj=DB.projects.find(function(p){return p.name===c.project});
-  if(prj) {
-    var parts=c.unit.split(' / ');
+  var others=DB.customers.filter(function(x){return x!==c && x.project===c.project && x.unit===c.unit}).length;
+  if(prj && !others) {
+    var parts=String(c.unit).split(' / ');
     if(parts.length===2) {
       var blk=prj.blocks.find(function(b){return b.name===parts[0]});
-      if(blk) {
-        var u=blk.units.find(function(u2){return u2.no===parts[1]});
-        if(u) u.status='free';
-      }
+      if(blk) { var u=blk.units.find(function(u2){return String(u2.no)===parts[1]}); if(u) u.status='free'; }
     }
   }
-  // Remove related transactions
-  DB.transactions=DB.transactions.filter(function(t){return !t.desc||(t.desc.indexOf(c.name)===-1&&t.desc.indexOf('('+c.unit+')')===-1)});
+  var ids=linked.map(function(t){return t.id});
+  DB.transactions=DB.transactions.filter(function(t){return ids.indexOf(t.id)===-1});
   DB.customers.splice(idx,1);
-  save(); render(); toast('Müşteri silindi');
+  save(); render(); toast('Müşteri silindi'+(linked.length?' · '+linked.length+' işlem kaydı kaldırıldı':''));
+}
+
+// v23.5.1 — Müşteriye ait işlemler: önce numara bağlantısı (custId / barterCustId);
+// eski kayıtlarda açıklamadaki TAM isim ("— İsim (") aranır, aynı isimde başka müşteri varsa daire de eşleşmeli
+function custLinkedTx(c) {
+  var nameKey='— '+c.name+' (';
+  var sameName=DB.customers.filter(function(x){return x!==c && x.name===c.name}).length;
+  var unitNo=String(c.unit||'').split(' / ').pop();
+  return DB.transactions.filter(function(t){
+    if(t.custId===c.id || t.barterCustId===c.id) return true;
+    if(t.custId || t.barterCustId) return false;
+    if(c.bulkSaleId && t.bulkSaleId===c.bulkSaleId) return false;  // toplu satış ortak kayıtları (komisyon)
+    var d=t.desc||'';
+    if(d.indexOf(nameKey)===-1) return false;
+    if(sameName>0) return d.indexOf('('+c.unit)>-1 || d.indexOf('('+unitNo+')')>-1 || d.indexOf('('+unitNo+',')>-1;
+    return true;
+  });
 }
 
 function cancelSale(idx) {
-  var c=DB.customers[idx];
-  if(!c)return;
-  if(!confirm(c.name+' müşterisinin satışını iptal etmek istediğinize emin misiniz?\nDaire tekrar boşa alınacak ve müşteri kaydı silinecek.'))return;
-  delCust(idx);
+  delCust(idx);  // v23.5.1: tek onay penceresi, bağlı kayıtlar listelenerek
 }
 
 // v22 #5 — Satış sonrası ödeme planı düzenleme
@@ -4464,7 +4499,7 @@ function confirmSell() {
     if(bKomTutar>0) {
       DB.transactions.push({
         id:nid(), type:'gider',
-        desc:'Satış komisyonu — '+taseronAd+' (barter, '+u.no+')'+(bKomAlan?' — '+bKomAlan:''),
+        barterCustId:custId, desc:'Satış komisyonu — '+taseronAd+' (barter, '+u.no+')'+(bKomAlan?' — '+bKomAlan:''),
         project:p.name, category:'Komisyon',
         date:bDate, total:bKomTutar, resmi:0, kdvOran:0, kdvTutar:0
       });
@@ -4523,7 +4558,7 @@ function confirmSell() {
   // Otomatik peşinat gelir kaydı
   if(kapora>0) {
     DB.transactions.push({
-      id:nid(),type:'gelir',desc:'Satış peşinat — '+name+' ('+u.no+')',
+      id:nid(),custId:data.id,type:'gelir',desc:'Satış peşinat — '+name+' ('+u.no+')',
       project:p.name,category:'Peşinat',
       date:date,total:kapora,resmi:total>0?Math.round(kapora*(resmi/total)):0,kdvOran:0,kdvTutar:0
     });
@@ -4535,7 +4570,7 @@ function confirmSell() {
   if(komTutar>0) {
     DB.transactions.push({
       id:nid(),type:'gider',
-      desc:'Satış komisyonu — '+name+' ('+u.no+')'+(komAlan?' — '+komAlan:''),
+      custId:data.id, desc:'Satış komisyonu — '+name+' ('+u.no+')'+(komAlan?' — '+komAlan:''),
       project:p.name,category:'Komisyon',
       date:date,total:komTutar,resmi:0,kdvOran:0,kdvTutar:0
     });
@@ -5083,10 +5118,12 @@ if('serviceWorker' in navigator && location.protocol==='https:') {
   }).catch(function(e){console.warn('SW reg failed:',e)});
 }
 
-function showUpdateBar() {
+function showUpdateBar(ver) {
+  if(document.getElementById('upd-bar')) return;
   var bar=document.createElement('div');
+  bar.id='upd-bar';
   bar.style.cssText='position:fixed;bottom:0;left:0;right:0;background:var(--am);color:#fff;padding:10px 16px;text-align:center;z-index:3000;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
-  bar.innerHTML='Yeni sürüm hazır <button class="btn bsm" style="background:#fff;color:var(--am)" onclick="window.location.reload()">Yenile</button>';
+  bar.innerHTML='Yeni sürüm hazır'+(ver?' ('+ver+')':'')+' <button class="btn bsm" style="background:#fff;color:var(--am)" onclick="window.location.reload()">Yenile</button>';
   document.body.appendChild(bar);
 }
 
