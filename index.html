@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.4</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.5</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -529,37 +529,146 @@ function forgotPassword() {
   });
 }
 
-function updateSyncStatus(online) {
+function updateSyncStatus(online, pending) {
   var el=document.getElementById('sync-status');
   if(!el) return;
-  if(online) { el.className='sync-badge sync-on'; el.textContent='bulut'; }
-  else { el.className='sync-badge sync-off'; el.textContent='offline'; }
+  if(pending===undefined) pending=(typeof isPending==='function')?isPending():false;
+  if(online && pending) { el.className='sync-badge'; el.style.background='#FFF4E5'; el.style.color='#B26A00'; el.textContent='bekliyor'; el.title='Değişiklikler henüz buluta gönderilmedi'; }
+  else if(online) { el.className='sync-badge sync-on'; el.style.background=''; el.style.color=''; el.textContent='bulut'; el.title='Rev '+(typeof cloudRev!=='undefined'?cloudRev:''); }
+  else { el.className='sync-badge sync-off'; el.style.background=''; el.style.color=''; el.textContent='offline'; el.title=''; }
 }
 
-// ===== FIRESTORE SYNC =====
-// v19→v20: Ortak veri modeli — tüm onaylı kullanıcılar aynı dokümanı paylaşır
+// ===== FIRESTORE SYNC — v23.5: sürüm (rev) kontrollü kayıt + dosyalar ayrı belgede =====
+// Ana veri: shared_data/main  { data, rev, updatedAt, lastEditedBy }
+// Dosyalar: shared_data/f_<id> { name, type, data, sizeKB }  (her dosya kendi belgesinde → ana belge 1 MB sınırına dolmaz)
+// Kayıt: önce bulut sürümü (rev) kontrol edilir; arada başka kullanıcı yazdıysa üzerine YAZILMAZ.
 var SHARED_DOC_PATH = 'shared_data/main';
+var FILE_DOC_PREFIX = 'shared_data/f_';
+var DOC_WARN_KB = 700, DOC_BLOCK_KB = 950;
+var cloudRev = 0;
+try { cloudRev = parseInt(localStorage.getItem('propakt_rev')||'0')||0; } catch(e) {}
+var saveInProgress = false, saveQueued = false, saveQueuedForce = false, sizeWarnShown = false;
+var fileCache = {};
 
 function getFirestorePath() {
   if(!currentUser) return null;
   return SHARED_DOC_PATH;
 }
 
-function saveToFirestore() {
-  if(!isOnlineMode || !currentUser) return;
-  var path = getFirestorePath();
-  if(!path) return;
-  var data = JSON.parse(JSON.stringify(DB));
-  db_fire.doc(path).set({
-    data: JSON.stringify(data),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    lastEditedBy: currentUser.email
-  }).then(function(){
-    console.log('Firestore save OK');
+function setCloudRev(r) {
+  cloudRev = r||0;
+  try { localStorage.setItem('propakt_rev', String(cloudRev)); } catch(e) {}
+}
+function isPending() {
+  try { return localStorage.getItem('propakt_pending')==='1'; } catch(e) { return false; }
+}
+function setPending(v) {
+  try { if(v) localStorage.setItem('propakt_pending','1'); else localStorage.removeItem('propakt_pending'); } catch(e) {}
+  updateSyncStatus(isOnlineMode, v);
+}
+
+function normalizeDB() {
+  if(!DB.projects) DB.projects=[];
+  if(!DB.transactions) DB.transactions=[];
+  if(!DB.taserons) DB.taserons=[];
+  if(!DB.customers) DB.customers=[];
+  if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
+  if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
+  if(!DB.settings) DB.settings={nextId:1};
+}
+
+// Buluttan gelen veriyi uygula. Dönüş: migration/onarım sayısı (>0 ise kaydedilmeli)
+function applyCloudData(str, rev) {
+  DB = JSON.parse(str);
+  normalizeDB();
+  var rep = migrateOldSchema();
+  setCloudRev(rev);
+  try { localStorage.setItem('propakt_db', JSON.stringify(DB)); } catch(e) {}
+  return rep;
+}
+
+function dbSizeKB() {
+  try { return Math.round(new Blob([JSON.stringify(DB)]).size/1024); } catch(e) { return 0; }
+}
+
+function stampNow() {
+  var d=new Date();
+  return d.toISOString().substring(0,10)+'-'+d.toTimeString().substring(0,5).replace(':','');
+}
+
+function downloadJSON(obj, fname) {
+  try {
+    var blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url)},2000);
+    return true;
+  } catch(e) { console.error('Download failed', e); return false; }
+}
+
+function saveToFirestore(force) {
+  if(!isOnlineMode || !currentUser) return Promise.resolve(false);
+  if(saveInProgress) { saveQueued=true; if(force) saveQueuedForce=true; return Promise.resolve(false); }
+  saveInProgress = true;
+  setPending(true);
+  return externalizeFiles().then(function(){
+    var str = JSON.stringify(DB);
+    var kb = Math.round(new Blob([str]).size/1024);
+    if(kb > DOC_BLOCK_KB) { var se=new Error('size'); se.sizeKB=kb; throw se; }
+    if(kb > DOC_WARN_KB && !sizeWarnShown) { sizeWarnShown=true; toast('Uyarı: ana veri '+kb+' KB — üst sınır 1024 KB'); }
+    var ref = db_fire.doc(SHARED_DOC_PATH);
+    return db_fire.runTransaction(function(tx){
+      return tx.get(ref).then(function(doc){
+        var d = doc.exists ? doc.data() : {};
+        var rc = d.rev||0;
+        if(!force && doc.exists && d.data && rc!==cloudRev) {
+          var ce=new Error('conflict'); ce.conflict=true; ce.cloudData=d.data; ce.cloudRev=rc; ce.by=d.lastEditedBy;
+          throw ce;
+        }
+        tx.set(ref, {
+          data: str,
+          rev: rc+1,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastEditedBy: currentUser.email
+        });
+        return rc+1;
+      });
+    });
+  }).then(function(newRev){
+    setCloudRev(newRev);
+    setPending(false);
+    console.log('Firestore save OK (rev '+newRev+')');
+    return true;
   }).catch(function(err){
+    if(err && err.sizeKB) {
+      alert('KAYIT BULUTA GÖNDERİLEMEDİ\n\nAna veri '+err.sizeKB+' KB oldu (güvenli sınır '+DOC_BLOCK_KB+' KB).\nDeğişiklikler bu cihazda saklandı. Lütfen hemen Yedekleme sayfasından yedek alın ve yöneticiye haber verin.');
+      return false;
+    }
+    if(err && err.conflict) { handleSaveConflict(err); return false; }
     console.error('Firestore save error:', err);
-    toast('Bulut kayıt hatası — veriler yerel olarak saklandı');
+    var offline = !navigator.onLine || (err && (err.code==='unavailable'||err.code==='deadline-exceeded'));
+    toast(offline ? 'İnternet yok — değişiklik bu cihazda bekliyor, bağlantı gelince gönderilecek' : 'Bulut kayıt hatası — değişiklik bu cihazda bekliyor');
+    return false;
+  }).then(function(r){
+    saveInProgress = false;
+    if(saveQueued) {
+      var f = saveQueuedForce; saveQueued=false; saveQueuedForce=false;
+      saveToFirestore(f);
+    }
+    return r;
   });
+}
+
+// Aynı anda iki kişi yazarsa: bulut korunur, bu cihazdaki son hal indirilir, kullanıcı uyarılır
+function handleSaveConflict(err) {
+  saveQueued = false; saveQueuedForce = false;
+  downloadJSON(DB, 'propakt-cakisma-yerel-'+stampNow()+'.json');
+  try { applyCloudData(err.cloudData, err.cloudRev); } catch(e) { console.error(e); }
+  setPending(false);
+  render();
+  alert('Son değişikliğiniz buluta YAZILMADI.\n\nSiz çalışırken başka bir kullanıcı ('+(err.by||'bilinmiyor')+') kayıt yapmış. Onun kaydını silmemek için ekran en güncel bulut verisiyle yenilendi.\n\nSizin son halinizin kopyası "İndirilenler" klasörüne kaydedildi.\nLütfen son yaptığınız işlemi tekrar yapın.');
 }
 
 function loadFromFirestore() {
@@ -568,27 +677,33 @@ function loadFromFirestore() {
   if(!path) return;
   db_fire.doc(path).get().then(function(doc) {
     if(doc.exists && doc.data().data) {
+      var rc = doc.data().rev||0;
+      var localStr = null;
+      try { localStr = localStorage.getItem('propakt_db'); } catch(e) {}
+      if(isPending() && localStr) {
+        if(rc === cloudRev) {
+          // Bulut, bu cihazın bildiği son sürümden beri değişmemiş → bekleyen yerel değişiklikleri gönder
+          load(); render();
+          toast('Bu cihazda bekleyen değişiklikler buluta gönderiliyor');
+          startRealtimeSync();
+          saveToFirestore();
+          return;
+        }
+        try { downloadJSON(JSON.parse(localStr), 'propakt-gonderilemeyen-yerel-'+stampNow()+'.json'); } catch(e) {}
+        alert('Bu cihazda buluta gönderilemeyen değişiklikler vardı; bu arada başka bir kullanıcı da kayıt yapmış.\n\nBulut verisi yüklendi. Bu cihazdaki son halin kopyası "İndirilenler" klasörüne kaydedildi.');
+      }
       try {
-        var cloudData = JSON.parse(doc.data().data);
-        DB = cloudData;
-        if(!DB.projects) DB.projects=[];
-        if(!DB.transactions) DB.transactions=[];
-        if(!DB.taserons) DB.taserons=[];
-        if(!DB.customers) DB.customers=[];
-        if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
-        if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
-        if(!DB.settings) DB.settings={nextId:1};
-        migrateOldSchema(); // v23.3
-        try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
+        var rep = applyCloudData(doc.data().data, rc);
+        setPending(false);
         render();
         toast('Bulut verileri yüklendi');
+        if(rep > 0) save();
       } catch(e) {
         console.error('Firestore parse error:', e);
         load(); render();
       }
       startRealtimeSync();
     } else {
-      // shared_data/main henüz yok — eski users/{uid} verisini taşımayı dene
       migrateFromOldPath();
     }
   }).catch(function(err) {
@@ -603,18 +718,10 @@ function migrateFromOldPath() {
   var oldPath = 'users/' + currentUser.uid;
   db_fire.doc(oldPath).get().then(function(oldDoc) {
     if(oldDoc.exists && oldDoc.data().data) {
-      // Eski veri bulundu — shared_data/main'e kopyala
       try {
-        var oldData = JSON.parse(oldDoc.data().data);
-        DB = oldData;
-        if(!DB.projects) DB.projects=[];
-        if(!DB.transactions) DB.transactions=[];
-        if(!DB.taserons) DB.taserons=[];
-        if(!DB.customers) DB.customers=[];
-        if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
-        if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
-        if(!DB.settings) DB.settings={nextId:1};
-        migrateOldSchema(); // v23.3
+        DB = JSON.parse(oldDoc.data().data);
+        normalizeDB();
+        migrateOldSchema();
         try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
         render();
         saveToFirestore();
@@ -624,7 +731,6 @@ function migrateFromOldPath() {
         load(); render();
       }
     } else {
-      // Eski veri de yok — yerel veriden başla
       load();
       render();
       if(DB.projects.length>0 || DB.transactions.length>0) {
@@ -635,7 +741,6 @@ function migrateFromOldPath() {
     startRealtimeSync();
   }).catch(function(err) {
     console.error('Migration error:', err);
-    // Eski veriye erişilemedi — yerel ile devam et
     load(); render();
     startRealtimeSync();
   });
@@ -647,31 +752,247 @@ function startRealtimeSync() {
   if(!path) return;
   if(firestoreUnsubscribe) firestoreUnsubscribe();
   firestoreUnsubscribe = db_fire.doc(path).onSnapshot(function(doc) {
-    if(doc.exists && doc.data().data && doc.metadata.hasPendingWrites===false) {
-      try {
-        var cloudData = JSON.parse(doc.data().data);
-        var cloudTime = cloudData.lastSaveTime || '';
-        var localTime = DB.lastSaveTime || '';
-        // Sadece bulut daha yeniyse güncelle
-        if(cloudTime > localTime) {
-          DB = cloudData;
-          if(!DB.projects) DB.projects=[];
-          if(!DB.transactions) DB.transactions=[];
-          if(!DB.taserons) DB.taserons=[];
-          if(!DB.customers) DB.customers=[];
-          if(!DB.bankaHesaplari) DB.bankaHesaplari=[];
-          if(!DB.bankaHareketleri) DB.bankaHareketleri=[];
-          if(!DB.settings) DB.settings={nextId:1};
-        migrateOldSchema(); // v23.3
-          try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){}
-          render();
-        }
-      } catch(e) { console.error('Realtime sync parse error:', e); }
-    }
+    if(!doc.exists || !doc.data().data || doc.metadata.hasPendingWrites) return;
+    var d = doc.data();
+    var rc = d.rev||0;
+    if(rc === cloudRev) return;                 // zaten bu sürümdeyiz (kendi kaydımız)
+    if(saveInProgress || isPending()) return;   // bekleyen kaydımız var — kayıt sırasında çakışma kontrolü yapılacak
+    try {
+      var rep = applyCloudData(d.data, rc);
+      render();
+      if(d.lastEditedBy && currentUser && d.lastEditedBy!==currentUser.email) toast('Güncellendi — '+d.lastEditedBy+' değişiklik yaptı');
+      if(rep > 0) save();
+    } catch(e) { console.error('Realtime sync parse error:', e); }
+    updateSyncStatus(true, isPending());
   }, function(err) {
     console.error('Realtime sync error:', err);
     updateSyncStatus(false);
   });
+}
+
+// Bağlantı gelince / periyodik: bekleyen kaydı gönder
+function retryPendingSave() {
+  if(isOnlineMode && currentUser && isPending() && !saveInProgress) saveToFirestore();
+}
+window.addEventListener('online', function(){ setTimeout(retryPendingSave, 1500); });
+setInterval(retryPendingSave, 30000);
+
+// ===== DOSYALAR (v23.5) =====
+function isInlineFile(f) {
+  return !!(f && typeof f==='object' && typeof f.data==='string' && f.data.indexOf('data:')===0);
+}
+function collectFileSlots() {
+  var s=[];
+  DB.customers.forEach(function(c){ if(c.contractPDF) s.push({obj:c,key:'contractPDF'}); });
+  DB.taserons.forEach(function(t){ if(t.contractPDF) s.push({obj:t,key:'contractPDF'}); });
+  DB.projects.forEach(function(p){ if(p.sitePlan) s.push({obj:p,key:'sitePlan'}); });
+  return s;
+}
+function newFileId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+// Veri içindeki gömülü dosyaları kendi belgelerine taşı (ana belgede sadece referans kalır)
+function externalizeFiles() {
+  if(!isOnlineMode || !currentUser) return Promise.resolve(0);
+  var slots = collectFileSlots().filter(function(s){ return isInlineFile(s.obj[s.key]); });
+  if(!slots.length) return Promise.resolve(0);
+  var n=0, chain=Promise.resolve();
+  slots.forEach(function(s){
+    chain = chain.then(function(){
+      var f = s.obj[s.key];
+      if(!isInlineFile(f)) return;
+      var id = newFileId();
+      var kb = Math.round(f.data.length*0.75/1024);
+      return db_fire.doc(FILE_DOC_PREFIX+id).set({
+        name:f.name||'dosya', type:f.type||'', data:f.data, sizeKB:kb,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        by: currentUser.email
+      }).then(function(){
+        if(s.obj[s.key]===f) {
+          s.obj[s.key] = {name:f.name, type:f.type, fileId:id, sizeKB:kb};
+          fileCache[id] = f.data;
+          n++;
+        }
+      });
+    });
+  });
+  return chain.then(function(){
+    if(n>0) { try{localStorage.setItem('propakt_db', JSON.stringify(DB));}catch(e){} console.log('[v23.5] '+n+' dosya ayrı belgeye taşındı'); }
+    return n;
+  });
+}
+
+function deleteFileDoc(f) {
+  if(f && f.fileId && isAdmin && isOnlineMode) {
+    db_fire.doc(FILE_DOC_PREFIX+f.fileId).delete().catch(function(){});
+    delete fileCache[f.fileId];
+  }
+}
+
+function getFileData(f) {
+  if(!f) return Promise.reject(new Error('Dosya yok'));
+  if(f.data) return Promise.resolve(f.data);
+  if(!f.fileId) return Promise.reject(new Error('Dosya bilgisi eksik'));
+  if(fileCache[f.fileId]) return Promise.resolve(fileCache[f.fileId]);
+  if(!isOnlineMode) return Promise.reject(new Error('Dosyayı açmak için internet bağlantısı gerekli'));
+  return db_fire.doc(FILE_DOC_PREFIX+f.fileId).get().then(function(d){
+    if(!d.exists || !d.data().data) throw new Error('Dosya bulutta bulunamadı');
+    fileCache[f.fileId] = d.data().data;
+    return d.data().data;
+  });
+}
+
+function dataURLtoBlob(u) {
+  var i=u.indexOf(',');
+  var head=u.substring(0,i), body=u.substring(i+1);
+  var mime=(head.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+  var bin=atob(body), arr=new Uint8Array(bin.length);
+  for(var k=0;k<bin.length;k++) arr[k]=bin.charCodeAt(k);
+  return new Blob([arr],{type:mime});
+}
+
+function escHtml(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function viewFile(f, title) {
+  if(!f) return;
+  var w = window.open('', '_blank');
+  if(w) { try { w.document.write('<title>'+escHtml(title)+'</title><p style="font-family:sans-serif;padding:24px;color:#555">Dosya yükleniyor…</p>'); } catch(e) {} }
+  getFileData(f).then(function(data){
+    var url = URL.createObjectURL(dataURLtoBlob(data));
+    if(w && !w.closed) w.location.href = url; else window.open(url, '_blank');
+  }).catch(function(e){
+    if(w) { try { w.close(); } catch(x) {} }
+    alert('Dosya açılamadı: '+(e && e.message ? e.message : 'bilinmeyen hata'));
+  });
+}
+
+// Yedek: dosyalar dahil tam kopya
+function buildBackupData() {
+  var copy = JSON.parse(JSON.stringify(DB));
+  var refs = collectFileSlots().map(function(s){ return s.obj[s.key]; }).filter(function(f){ return f && f.fileId; });
+  if(!refs.length) return Promise.resolve(copy);
+  copy._files = {};
+  return Promise.all(refs.map(function(f){
+    return getFileData(f).then(function(d){ copy._files[f.fileId]={name:f.name,type:f.type,data:d}; })
+      .catch(function(){ copy._filesMissing=(copy._filesMissing||0)+1; });
+  })).then(function(){ return copy; });
+}
+
+// ===== v23.5 — VERİ ONARIMI =====
+// 1) Aynı adlı iki blok: biri tamamen boş DÜKKAN bloğuysa ana bloğa taşınır, numaralar devam eder (A-60 → A-61, A-62 …)
+// 2) Aynı adlı, satışı olmayan diğer bloklar "(2)" ekiyle ayrılır
+// 3) Blok adı yazılmamış müşteri daire etiketleri ("A-6") tek eşleşme varsa "A BLOK / A-6" yapılır
+function unitNoParts(no) {
+  var m=String(no==null?'':no).trim().match(/^(.*?)(\d+)$/);
+  return m?{pre:m[1],num:parseInt(m[2],10)}:null;
+}
+function blockKey(name) { return String(name||'').trim().toLocaleUpperCase('tr'); }
+function unitType(u,b) { return u.bbType||(b&&b.bbType!=='Karma'?b.bbType:'')||'Daire'; }
+function blockAllFree(b) { return b.units.every(function(u){ return !u.status||u.status==='free'; }); }
+function blockAllShop(b) { return b.units.length>0 && b.units.every(function(u){ return unitType(u,b)==='Dükkan'; }); }
+
+function mergeShopBlock(target, shop) {
+  var preCount={}, maxNum=0;
+  target.units.forEach(function(u){
+    var pp=unitNoParts(u.no);
+    if(pp){ preCount[pp.pre]=(preCount[pp.pre]||0)+1; if(pp.num>maxNum) maxNum=pp.num; }
+  });
+  var pre=Object.keys(preCount).sort(function(a,c){return preCount[c]-preCount[a]})[0]||'';
+  shop.units.forEach(function(u){
+    maxNum++;
+    if(u.eskiNo===undefined) u.eskiNo=u.no;
+    u.no=pre+maxNum;
+    if(!u.bbType) u.bbType='Dükkan';
+    if(u.floor===undefined||u.floor===null||u.floor==='') u.floor=0;
+    target.units.push(u);
+  });
+  if(target.bbType!=='Karma') { target.bbType='Karma'; target.unitType='Karma'; }
+}
+
+function repairDataV235() {
+  var changes=0;
+  (DB.projects||[]).forEach(function(p){
+    if(!p.blocks) return;
+    var seen={};   // blok adı → blok nesnesi
+    for(var i=0;i<p.blocks.length;i++) {
+      var b=p.blocks[i];
+      if(!b.units) b.units=[];
+      var key=blockKey(b.name);
+      if(!seen[key]) { seen[key]=b; continue; }
+      var first=seen[key];
+      if(blockAllShop(b) && blockAllFree(b) && !blockAllShop(first)) {
+        mergeShopBlock(first, b);
+        p.blocks.splice(i,1); i--; changes++;
+        console.log('[v23.5] '+p.name+' / '+first.name+': dükkan bloğu ana bloğa taşındı');
+      } else if(blockAllShop(first) && blockAllFree(first) && !blockAllShop(b)) {
+        mergeShopBlock(b, first);
+        p.blocks.splice(p.blocks.indexOf(first),1); i--; seen[key]=b; changes++;
+        console.log('[v23.5] '+p.name+' / '+b.name+': dükkan bloğu ana bloğa taşındı');
+      } else if(blockAllFree(b)) {
+        var n=2, nn;
+        do { nn=String(b.name).trim()+' ('+n+')'; n++; } while(p.blocks.some(function(x){return blockKey(x.name)===blockKey(nn)}));
+        b.name=nn; seen[blockKey(nn)]=b; changes++;
+        console.log('[v23.5] Çift blok adı ayrıldı → '+nn);
+      }
+      // satış içeren çift blok: otomatik dokunulmaz, sistem testi uyarır
+    }
+  });
+  (DB.customers||[]).forEach(function(c){
+    if(!c.unit || String(c.unit).indexOf(' / ')>-1) return;
+    var p=DB.projects.find(function(x){return x.name===c.project});
+    if(!p) return;
+    var no=String(c.unit).trim(), cands=[];
+    p.blocks.forEach(function(b){ b.units.forEach(function(u){ if(String(u.no).trim()===no) cands.push({b:b,u:u}); }); });
+    var taken=cands.filter(function(x){return x.u.status&&x.u.status!=='free'});
+    var pick=cands.length===1?cands[0]:(taken.length===1?taken[0]:null);
+    if(pick) { c.unit=pick.b.name+' / '+pick.u.no; changes++; }
+  });
+  return changes;
+}
+
+// Blok/daire yeniden adlandırılınca müşteri kayıtlarındaki etiketi de güncelle
+function blockNameTaken(p, name, exceptIdx) {
+  return p.blocks.some(function(b,i){ return i!==exceptIdx && blockKey(b.name)===blockKey(name); });
+}
+function renameUnitLabel(projName, oldLabel, newLabel) {
+  var n=0;
+  DB.customers.forEach(function(c){ if(c.project===projName && c.unit===oldLabel){ c.unit=newLabel; n++; } });
+  return n;
+}
+function renameBlockRefs(p, oldName, newName) {
+  var b=p.blocks.find(function(x){return x.name===oldName});
+  var n=0;
+  if(b) b.units.forEach(function(u){ n+=renameUnitLabel(p.name, oldName+' / '+u.no, newName+' / '+u.no); });
+  return n;
+}
+
+// ===== v23.5 — VERİ BÜTÜNLÜĞÜ KONTROLLERİ (sistem testi + özet uyarıları) =====
+function integrityReport() {
+  var r={dupBlocks:[], custNoUnit:[], unitNoCust:[], multiCust:[], zeroTaksit:[], inlineFiles:0};
+  var unitMap={};
+  DB.projects.forEach(function(p){
+    var seen={};
+    p.blocks.forEach(function(b){
+      var k=blockKey(b.name);
+      if(seen[k]) r.dupBlocks.push(p.name+' / '+b.name); seen[k]=1;
+      b.units.forEach(function(u){ unitMap[p.name+'|'+b.name+' / '+u.no]={u:u,cust:0}; });
+    });
+  });
+  DB.customers.forEach(function(c){
+    var m=unitMap[c.project+'|'+c.unit];
+    if(!m) r.custNoUnit.push(c.name+' ('+c.unit+')');
+    else m.cust++;
+    var z=(c.taksitler||[]).filter(function(t){return !(t.amount>0)}).length;
+    if(z>0) r.zeroTaksit.push(c.name+' ('+c.unit+'): '+z+' taksit');
+  });
+  Object.keys(unitMap).forEach(function(k){
+    var m=unitMap[k], st=m.u.status;
+    if(m.cust===0 && (st==='sold'||st==='barter'||st==='reserved')) r.unitNoCust.push(k.split('|')[1]+' ('+st+')');
+    if(m.cust>1) r.multiCust.push(k.split('|')[1]+' ('+m.cust+' müşteri)');
+  });
+  r.inlineFiles=collectFileSlots().filter(function(s){return isInlineFile(s.obj[s.key])}).length;
+  return r;
 }
 
 // ===== DATA STORE =====
@@ -748,6 +1069,7 @@ function migrateOldSchema() {
       });
     });
   });
+  migratedCount += repairDataV235(); // v23.5
   if(migratedCount > 0) {
     console.log('[v23.3 Migration] '+migratedCount+' BB için eski şema yeniye kopyalandı.');
     // Migration sonrası kaydet (sessizce, save() recursion'a girmesin diye localStorage'a doğrudan)
@@ -756,14 +1078,15 @@ function migrateOldSchema() {
   return migratedCount;
 }
 
-function save() {
+function save(force) {
   try {
     DB.lastSaveTime=new Date().toISOString();
-    localStorage.setItem('propakt_db', JSON.stringify(DB));
+    try { localStorage.setItem('propakt_db', JSON.stringify(DB)); }
+    catch(qe) { console.error('localStorage error', qe); toast('Uyarı: tarayıcı hafızası dolu — yerel kopya güncellenemedi'); }
     var el=document.getElementById('last-save-info');
     if(el) el.textContent=formatTimeSince(DB.lastSaveTime);
-    // Firebase'e kaydet
-    saveToFirestore();
+    // Firebase'e kaydet (v23.5: sürüm kontrollü)
+    saveToFirestore(force);
     // Otomatik yedekleme kontrolü
     checkAutoBackupOnSave();
   } catch(e) { console.error('Save error', e); }
@@ -1525,21 +1848,32 @@ function rBB() {
   h+='<div class="cd"><div class="chd"><span class="cht">'+p.name+' — Bloklar</span><span class="cha" onclick="addNewBlockToEdit('+curPrj+')">+ Yeni blok</span></div><div style="padding:10px 16px">';
 
   p.blocks.forEach(function(b,bi){
-    h+='<div class="blk-sec"><div class="blk-hd"><span>'+b.name+'</span><small>'+b.units.length+' BB · '+b.floors+' kat</small></div>';
+    // v23.5 — tip bazlı sayım (Karma blok: konut + dükkan aynı blokta)
+    var tipSay={}, tipSira=[];
+    b.units.forEach(function(u){ var t=unitType(u,b); if(!tipSay[t]){tipSay[t]=0;tipSira.push(t)} tipSay[t]++; });
+    var tipAd=function(t){return t==='Daire'?'Konut':t};
+    var katlar=b.units.map(function(u){return u.floor}).filter(function(f){return typeof f==='number'});
+    var katSay=b.floors||(katlar.length?Math.max.apply(null,katlar):0);
+    h+='<div class="blk-sec"><div class="blk-hd"><span>'+b.name+'</span><small>'+b.units.length+' BB'+(tipSira.length>1?' ('+tipSira.map(function(t){return tipSay[t]+' '+tipAd(t).toLocaleLowerCase('tr')}).join(' + ')+')':'')+(katSay?' · '+katSay+' kat':'')+'</small></div>';
+    var gruplar=tipSira.length>1?tipSira:[null];
+    gruplar.forEach(function(grpTip){
+    if(grpTip) h+='<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin:8px 0 4px">'+tipAd(grpTip)+' · '+tipSay[grpTip]+'</div>';
     h+='<div class="unit-grid">';
     b.units.forEach(function(u,ui){
+      if(grpTip && unitType(u,b)!==grpTip) return;
       var cls='u-'+(u.status==='sold'?'sold':u.status==='reserved'?'rsv':u.status==='barter'?'barter':u.status==='owner'?'rsv':'free');
-      var floorStr = (u.floor!==undefined?'<br><span style="font-size:8px;opacity:.7">'+u.floor+'</span>':'');
+      var floorStr = (typeof u.floor==='number'?'<span style="display:block;font-size:8px;opacity:.8;font-weight:500;margin-top:1px">'+(u.floor===0?'Zemin':u.floor<0?'Bodrum':u.floor+'. kat')+'</span>':'');
       // v23.1 — hover tooltip: m², tip, durum
       var tipParts=[];
       if(u.bbType) tipParts.push(u.bbType);
       if(u.alan) tipParts.push(u.alan+'m²');
-      if(u.floor) tipParts.push(u.floor+'.kat');
+      if(u.floor===0) tipParts.push('Zemin'); else if(u.floor) tipParts.push(u.floor+'.kat');
       tipParts.push(u.status==='free'?'Boş':u.status==='sold'?'Satıldı':u.status==='barter'?'Barter':u.status==='reserved'?'Rezerve':u.status==='owner'?'Arsa sahibi':u.status);
       var tooltip = b.name+' / '+u.no+(tipParts.length?' — '+tipParts.join(' · '):'');
-      h+='<div class="unit '+cls+'" title="'+tooltip.replace(/"/g,'&quot;')+'" onclick="clickUnit('+curPrj+','+bi+','+ui+')">'+u.no+floorStr+'</div>';
+      h+='<div class="unit '+cls+'" style="flex-direction:column;line-height:1.15;text-align:center" title="'+tooltip.replace(/"/g,'&quot;')+'" onclick="clickUnit('+curPrj+','+bi+','+ui+')">'+u.no+floorStr+'</div>';
     });
     h+='</div>';
+    });
     // v23.1 — Detay tablosu (toggle ile aç/kapa) · v23.3: netAlan ve daireType eklendi
     h+='<div style="margin-top:8px"><span onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.nextElementSibling.style.display===\'none\'?\'▸ Detay tablosu (m² ve tipler)\':\'▾ Detay tablosu (gizle)\'" style="font-size:10.5px;color:var(--am);cursor:pointer;font-weight:600;user-select:none">▸ Detay tablosu (m² ve tipler)</span>';
     h+='<div style="display:none;margin-top:6px;overflow-x:auto"><table class="tb" style="font-size:10.5px"><thead><tr><th>Daire</th><th>Kat</th><th>Tip</th><th>Detay tip</th><th>Brüt m²</th><th>Net m²</th><th>Hedef fiyat</th><th>Durum</th></tr></thead><tbody>';
@@ -2350,19 +2684,11 @@ function saveBackupHistory(arr){
 
 function performAutoBackup(reason){
   if(!DB.lastSaveTime) return false;
-  var data=JSON.stringify(DB,null,2);
-  var sizeKB=Math.round(data.length/1024);
   var dt=new Date();
   var fname='propakt-auto-'+dt.toISOString().substring(0,10)+'-'+dt.toTimeString().substring(0,5).replace(':','')+'.json';
-  // Browser'a indir
-  try {
-    var blob=new Blob([data], {type:'application/json'});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url; a.download=fname;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch(e){console.error('Auto backup failed:',e);return false;}
+  var sizeKB=dbSizeKB();
+  // v23.5: dosyalar dahil yedek (dosyalar ayrı belgelerden toplanır)
+  buildBackupData().then(function(full){ downloadJSON(full, fname); });
   // Tarihçeye ekle
   var hist=getBackupHistory();
   var sett=getAutoBackupSettings();
@@ -2404,7 +2730,7 @@ function checkAutoBackupOnSave(){
 function rBackup() {
   var s=getAutoBackupSettings();
   var hist=getBackupHistory();
-  var sizeKB=Math.round(JSON.stringify(DB).length/1024);
+  var sizeKB=dbSizeKB();
   var lastBackup=hist.length>0?hist[hist.length-1]:null;
 
   var h='<div class="warn">Otomatik yedekleme her gün ilk girişte ve her 50 işlemde bir aktif olur. Yedekler bilgisayarınızın "İndirilenler" klasörüne kaydedilir.</div>';
@@ -2413,7 +2739,8 @@ function rBackup() {
   h+='<div class="sts s4">';
   h+='<div class="st xg"><div class="stl">Otomatik yedek</div><div class="stv" style="color:'+(s.enabled?'var(--gn)':'var(--rd)')+'">'+(s.enabled?'Aktif':'Pasif')+'</div></div>';
   h+='<div class="st xa"><div class="stl">Toplam yedek</div><div class="stv" style="color:var(--am)">'+hist.length+'</div></div>';
-  h+='<div class="st xb"><div class="stl">Mevcut veri</div><div class="stv" style="color:var(--bl)">'+sizeKB+' KB</div></div>';
+  var szPct=Math.min(100,Math.round(sizeKB/1024*100));
+  h+='<div class="st xb"><div class="stl">Ana veri boyutu</div><div class="stv" style="color:'+(sizeKB>DOC_WARN_KB?'var(--rd)':'var(--bl)')+'">'+sizeKB+' KB</div><div class="prg" style="margin-top:4px"><div class="pf" style="width:'+szPct+'%;background:'+(szPct>68?'var(--rd)':szPct>45?'var(--am)':'var(--gn)')+'"></div></div><div class="stc" style="color:var(--t2)">sınır 1024 KB · dosyalar hariç</div></div>';
   h+='<div class="st xt"><div class="stl">Son yedek</div><div class="stv" style="color:var(--tl);font-size:14px">'+(lastBackup?lastBackup.date.substring(0,10):'—')+'</div></div>';
   h+='</div>';
 
@@ -2624,7 +2951,7 @@ function saveSite() {
     p.location=document.getElementById('sn-loc').value.trim();
     p.type=document.getElementById('sn-type').value;
     p.startDate=document.getElementById('sn-start').value;
-    if(siteCurPlanFile) p.sitePlan=siteCurPlanFile;
+    if(siteCurPlanFile) { deleteFileDoc(p.sitePlan); p.sitePlan=siteCurPlanFile; }
   } else {
     var newProj={
       id:nid(),name:name,location:document.getElementById('sn-loc').value.trim(),type:document.getElementById('sn-type').value,startDate:document.getElementById('sn-start').value,blocks:blocks
@@ -2704,6 +3031,7 @@ function saveNewBlock() {
   var numb=document.getElementById('newblk-numb').value;
   var startno=parseInt(document.getElementById('newblk-startno').value)||1;
   if(!bn||bu<=0){alert('Blok adı ve birim sayısı giriniz');return}
+  if(blockNameTaken(p,bn,-1)){alert('Bu projede "'+bn+'" adlı blok zaten var. Dükkanları aynı bloğa eklemek için bloğun bölümlerini düzenleyin ya da farklı ad verin.');return}
   var units=[];
   var perFloor=Math.ceil(bu/bf);
   for(var i=0;i<bu;i++) {
@@ -2746,7 +3074,12 @@ function saveBlockDetail() {
   var bIdx=parseInt(document.getElementById('ebd-bidx').value);
   var b=DB.projects[pIdx].blocks[bIdx];
   if(!b)return;
-  b.name=document.getElementById('ebd-name').value.trim()||b.name;
+  var newName=document.getElementById('ebd-name').value.trim()||b.name;
+  if(newName!==b.name) {
+    if(blockNameTaken(DB.projects[pIdx],newName,bIdx)) { alert('Bu projede "'+newName+'" adlı başka bir blok var. Farklı bir ad verin.'); return; }
+    renameBlockRefs(DB.projects[pIdx], b.name, newName);
+    b.name=newName;
+  }
   b.floors=parseInt(document.getElementById('ebd-floors').value)||1;
   var newType=document.getElementById('ebd-bbtype').value;
   var newm2=parseFloat(document.getElementById('ebd-targetm2').value)||0;
@@ -2778,7 +3111,7 @@ function saveBlockDetail() {
     var defAlan=newType==='Daire'?100:newType==='Dükkan'?80:newType==='Ofis'?70:50;
     b.units.forEach(function(u){
       if(!u.alan) u.alan=defAlan;
-      u.bbType=newType;
+      if(newType!=='Karma') u.bbType=newType;   // v23.5: Karma blokta daire/dükkan tipleri korunur
       u.targetPrice=newm2*(u.alan||defAlan);
     });
   }
@@ -2799,12 +3132,7 @@ function selPrj(i) { curPrj=i; render(); }
 function viewSitePlanPDF(pIdx) {
   var p=DB.projects[pIdx];
   if(!p||!p.sitePlan)return;
-  var w=window.open('', '_blank');
-  if(p.sitePlan.type==='application/pdf') {
-    w.document.write('<html><head><title>'+p.name+' planı</title></head><body style="margin:0"><iframe src="'+p.sitePlan.data+'" style="width:100%;height:100vh;border:0"></iframe></body></html>');
-  } else {
-    w.document.write('<html><head><title>'+p.name+' planı</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+p.sitePlan.data+'" style="max-width:100%;max-height:100vh"></body></html>');
-  }
+  viewFile(p.sitePlan, p.name+' planı');
 }
 
 // ===== TAŞERON MODAL — v21: KDV serbest input =====
@@ -3083,6 +3411,7 @@ function uploadTaseronPDF(input,id) {
   if(!t)return;
   var reader=new FileReader();
   reader.onload=function(e){
+    deleteFileDoc(t.contractPDF);
     t.contractPDF={name:f.name,type:f.type,data:e.target.result};
     save(); render(); toast('Sözleşme yüklendi');
   };
@@ -3092,12 +3421,7 @@ function uploadTaseronPDF(input,id) {
 function viewTaseronPDF(id) {
   var t=DB.taserons.find(function(x){return x.id===id});
   if(!t||!t.contractPDF)return;
-  var w=window.open('','_blank');
-  if(t.contractPDF.type==='application/pdf') {
-    w.document.write('<html><head><title>'+t.name+' sözleşmesi</title></head><body style="margin:0"><iframe src="'+t.contractPDF.data+'" style="width:100%;height:100vh;border:0"></iframe></body></html>');
-  } else {
-    w.document.write('<html><head><title>'+t.name+' sözleşmesi</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+t.contractPDF.data+'" style="max-width:100%;max-height:100vh"></body></html>');
-  }
+  viewFile(t.contractPDF, t.name+' sözleşmesi');
 }
 
 // ===== MÜŞTERİ MODAL — v21: KDV serbest input + Peşinat etiketi =====
@@ -3840,6 +4164,7 @@ function uploadContractPDF(input,id) {
   if(!c)return;
   var reader=new FileReader();
   reader.onload=function(e){
+    deleteFileDoc(c.contractPDF);
     c.contractPDF={name:f.name,type:f.type,data:e.target.result};
     save(); render(); toast('Sözleşme yüklendi');
   };
@@ -3849,12 +4174,7 @@ function uploadContractPDF(input,id) {
 function viewContractPDF(id) {
   var c=DB.customers.find(function(x){return x.id===id});
   if(!c||!c.contractPDF)return;
-  var w=window.open('','_blank');
-  if(c.contractPDF.type==='application/pdf') {
-    w.document.write('<html><head><title>'+c.name+' sözleşmesi</title></head><body style="margin:0"><iframe src="'+c.contractPDF.data+'" style="width:100%;height:100vh;border:0"></iframe></body></html>');
-  } else {
-    w.document.write('<html><head><title>'+c.name+' sözleşmesi</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+c.contractPDF.data+'" style="max-width:100%;max-height:100vh"></body></html>');
-  }
+  viewFile(c.contractPDF, c.name+' sözleşmesi');
 }
 
 // ===== UNIT (DAIRE) İŞLEMLERİ =====
@@ -3879,8 +4199,9 @@ function editUnit(pi,bi,ui) {
     '<div style="padding:10px;background:var(--bg);border-radius:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">'+p.name+' / '+b.name+' / '+u.no+'</div><div style="font-size:11px;color:var(--t2)">Mevcut durum: '+u.status+(u.bbType?' · '+u.bbType:'')+(u.alan?' · '+u.alan+'m²':'')+'</div></div>'+
     '<div class="fr"><div class="fg"><label class="fl">Blok adı</label><input class="fi" id="eu-blkname" value="'+b.name+'" onchange="document.getElementById(\'eu-blkname-info\').textContent=\'Blok adı tüm bağımsız bölümleri etkiler\'"></div><div class="fg"><label class="fl">Daire / BB no</label><input class="fi" id="eu-no" value="'+u.no+'"></div></div>'+
     '<div id="eu-blkname-info" style="font-size:10.5px;color:var(--am);margin-top:-4px;margin-bottom:6px"></div>'+
-    '<div class="fr"><div class="fg"><label class="fl">Kat numarası</label><input class="fi" id="eu-floor" type="number" value="'+(u.floor||1)+'" min="1"></div><div class="fg"><label class="fl">BB türü</label><select class="fi" id="eu-bbtype"><option>Daire</option><option>Dükkan</option><option>Ofis</option><option>Depo</option></select></div></div>'+
-    '<div class="fr"><div class="fg"><label class="fl">m² alan</label><input class="fi" id="eu-alan" type="number" value="'+(u.alan||100)+'"></div><div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" id="eu-target" type="number" value="'+(u.targetPrice||0)+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Kat (0 = zemin, -1 = bodrum)</label><input class="fi" id="eu-floor" type="number" value="'+(u.floor!==undefined&&u.floor!==null?u.floor:1)+'"></div><div class="fg"><label class="fl">BB türü</label><select class="fi" id="eu-bbtype"><option>Daire</option><option>Dükkan</option><option>Ofis</option><option>Depo</option></select></div></div>'+
+    '<div class="fr3"><div class="fg"><label class="fl">Brüt m²</label><input class="fi" id="eu-alan" type="number" step="0.01" value="'+(u.alan||'')+'"></div><div class="fg"><label class="fl">Net m²</label><input class="fi" id="eu-net" type="number" step="0.01" value="'+(u.netAlan||'')+'"></div><div class="fg"><label class="fl">Detay tip</label><input class="fi" id="eu-dtype" placeholder="ör: 2+1 STANDART" value="'+escHtml(u.daireType||'')+'"></div></div>'+
+    '<div class="fg"><label class="fl">Hedef satış fiyatı (₺)</label><input class="fi" id="eu-target" type="number" value="'+(u.targetPrice||0)+'"></div>'+
     '<div class="fg"><label class="fl">Durum</label><select class="fi" id="eu-status" onchange="euStatusChange()">'+statusOpt+'</select></div>'+
     '<div id="eu-customer-fields"></div>';
   document.getElementById('eu-bbtype').value=u.bbType||'Daire';
@@ -3908,11 +4229,19 @@ function saveUnitEdit() {
   var ui=parseInt(document.getElementById('eu-ui').value);
   var p=DB.projects[pi],b=p.blocks[bi],u=b.units[ui];
   var newBlkName=document.getElementById('eu-blkname').value.trim();
-  if(newBlkName && newBlkName!==b.name) b.name=newBlkName;
-  u.no=document.getElementById('eu-no').value.trim()||u.no;
-  u.floor=parseInt(document.getElementById('eu-floor').value)||u.floor||1;
+  var newNo=document.getElementById('eu-no').value.trim()||u.no;
+  // v23.5 — çakışma kontrolü
+  if(newBlkName && newBlkName!==b.name && blockNameTaken(p,newBlkName,bi)) { alert('Bu projede "'+newBlkName+'" adlı başka bir blok var. Farklı bir ad verin.'); return; }
+  if(newNo!==String(u.no) && b.units.some(function(x,i){return i!==ui && String(x.no)===newNo})) { alert('Bu blokta '+newNo+' numaralı başka bir bölüm var.'); return; }
+  // v23.5 — blok adı / daire no değişince müşteri kayıtlarındaki etiket de güncellenir
+  if(newBlkName && newBlkName!==b.name) { renameBlockRefs(p, b.name, newBlkName); b.name=newBlkName; }
+  if(newNo!==String(u.no)) { renameUnitLabel(p.name, b.name+' / '+u.no, b.name+' / '+newNo); u.no=newNo; }
+  var fv=document.getElementById('eu-floor').value;
+  if(fv!=='' && !isNaN(parseInt(fv))) u.floor=parseInt(fv);
   u.bbType=document.getElementById('eu-bbtype').value;
   u.alan=parseFloat(document.getElementById('eu-alan').value)||u.alan;
+  var nv=parseFloat(document.getElementById('eu-net').value); if(!isNaN(nv)) u.netAlan=nv;
+  u.daireType=document.getElementById('eu-dtype').value.trim()||u.daireType;
   u.targetPrice=parseFloat(document.getElementById('eu-target').value)||u.targetPrice;
   u.status=document.getElementById('eu-status').value;
   // v20 fix: müşteri adı boşsa otomatik müşteri/satış oluşturma
@@ -4217,14 +4546,11 @@ function confirmSell() {
 
 // ===== EXPORT / IMPORT =====
 function exportData() {
-  var data=JSON.stringify(DB,null,2);
-  var blob=new Blob([data],{type:'application/json'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url; a.download='propakt-yedek-'+today()+'.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('Yedek dosyası indirildi');
+  toast('Yedek hazırlanıyor…');
+  buildBackupData().then(function(data){
+    downloadJSON(data, 'propakt-yedek-'+today()+'.json');
+    toast(data._filesMissing?'Yedek indirildi — '+data._filesMissing+' dosya alınamadı (internet?)':'Yedek dosyası indirildi');
+  });
 }
 
 function importData(input) {
@@ -4235,16 +4561,26 @@ function importData(input) {
     try {
       var data=JSON.parse(e.target.result);
       if(!data.projects||!data.transactions){alert('Geçersiz yedek dosyası');return}
-      if(!confirm('Mevcut tüm veriler değiştirilecek. Devam etmek istediğinize emin misiniz?'))return;
+      if(!confirm('Mevcut tüm veriler (buluttaki ortak veri dahil) bu yedekle değiştirilecek. Devam etmek istediğinize emin misiniz?'))return;
+      var files=data._files||null;
+      delete data._files; delete data._filesMissing;
       DB=data;
-      if(!DB.projects)DB.projects=[];
-      if(!DB.transactions)DB.transactions=[];
-      if(!DB.taserons)DB.taserons=[];
-      if(!DB.customers)DB.customers=[];
-      if(!DB.bankaHesaplari)DB.bankaHesaplari=[];
-      if(!DB.bankaHareketleri)DB.bankaHareketleri=[];
-      if(!DB.settings)DB.settings={nextId:1};
-      save(); render(); toast('Veriler geri yüklendi');
+      normalizeDB();
+      var up=Promise.resolve();
+      if(files && isOnlineMode && currentUser) {
+        up=Promise.all(Object.keys(files).map(function(id){
+          var x=files[id];
+          fileCache[id]=x.data;
+          return db_fire.doc(FILE_DOC_PREFIX+id).set({name:x.name||'dosya',type:x.type||'',data:x.data,sizeKB:Math.round(x.data.length*0.75/1024),restoredAt:firebase.firestore.FieldValue.serverTimestamp(),by:currentUser.email});
+        }));
+      } else if(files) {
+        // offline: dosyaları yeniden gömülü hale getir, bağlantı gelince ayrı belgeye taşınır
+        collectFileSlots().forEach(function(sl){ var r=sl.obj[sl.key]; if(r&&r.fileId&&files[r.fileId]) sl.obj[sl.key]={name:r.name,type:r.type,data:files[r.fileId].data}; });
+      }
+      up.then(function(){
+        migrateOldSchema();
+        save(true); render(); toast('Veriler geri yüklendi');
+      }).catch(function(err){ alert('Dosyalar buluta yüklenemedi: '+err.message); });
     } catch(err) { alert('Yedek dosyası okunamadı: '+err.message); }
   };
   reader.readAsText(f);
@@ -4470,7 +4806,7 @@ function healthCheck() {
   var todayStr=today(),overdueCnt=0,overdueAmt=0;
   DB.customers.forEach(function(c){
     if(c.taksitler) c.taksitler.forEach(function(t){
-      if(!t.paid&&t.date<todayStr){overdueCnt++;overdueAmt+=t.amount}
+      if(!t.paid&&t.amount>0&&t.date<todayStr){overdueCnt++;overdueAmt+=t.amount-(t.paidPartial||0)}
     });
   });
   if(overdueCnt>0) w.push({type:'rd',msg:overdueCnt+' adet gecikmiş taksit var (₺'+fmt(overdueAmt)+')'});
@@ -4479,13 +4815,22 @@ function healthCheck() {
   var weekEnd=addDays(todayStr,7),weekCnt=0;
   DB.customers.forEach(function(c){
     if(c.taksitler) c.taksitler.forEach(function(t){
-      if(!t.paid&&t.date>=todayStr&&t.date<=weekEnd) weekCnt++;
+      if(!t.paid&&t.amount>0&&t.date>=todayStr&&t.date<=weekEnd) weekCnt++;
     });
   });
   if(weekCnt>0) w.push({type:'am',msg:'Bu hafta vadesi gelecek '+weekCnt+' taksit var'});
 
   // Şantiyesiz proje
   if(DB.projects.length===0&&DB.transactions.length>0) w.push({type:'am',msg:'Henüz hiç şantiye eklenmemiş — proje analizi yapılamıyor'});
+
+  // v23.5 — veri bütünlüğü
+  var ir=integrityReport();
+  if(ir.unitNoCust.length) w.push({type:'am',msg:ir.unitNoCust.length+' bağımsız bölüm satılmış/barter görünüyor ama müşteri kaydı yok ('+ir.unitNoCust.slice(0,4).join(', ')+(ir.unitNoCust.length>4?'…':'')+')'});
+  if(ir.multiCust.length) w.push({type:'rd',msg:'Aynı daireye birden fazla müşteri: '+ir.multiCust.join(', ')});
+  if(ir.custNoUnit.length) w.push({type:'rd',msg:ir.custNoUnit.length+' müşterinin dairesi bulunamadı ('+ir.custNoUnit.slice(0,3).join(', ')+')'});
+  if(ir.zeroTaksit.length) w.push({type:'am',msg:ir.zeroTaksit.length+' satışta ₺0 tutarlı taksit var — ödeme planını düzenleyin'});
+  var kb=dbSizeKB(); if(kb>DOC_WARN_KB) w.push({type:'rd',msg:'Ana veri boyutu '+kb+' KB — sınıra yaklaşıyor (1024 KB)'});
+  if(isOnlineMode&&isPending()) w.push({type:'am',msg:'Bu cihazda buluta gönderilmemiş değişiklik var — internet bağlantısını kontrol edin'});
 
   // Çok düşük resmi oran (KDV uyumsuzluğu)
   var totalIncome2=totalIncome(),totalResmiInc=totalResmiIncome();
@@ -4508,7 +4853,7 @@ function runAllTests() {
   var d=document.getElementById('test-results');
   d.innerHTML='<div style="color:var(--am);font-size:12px;font-weight:600">Testler çalışıyor...</div>';
   var tests=[];
-  var doneCount=0,totalTests=10;
+  var doneCount=0,totalTests=16;
 
   function addResult(label,status,detail) {
     tests.push({label:label,status:status,detail:detail});
@@ -4587,6 +4932,31 @@ function runAllTests() {
   });
   if(orphans===0) addResult('Veri bütünlüğü','ok','Tüm müşteri-proje ilişkileri tutarlı');
   else addResult('Veri bütünlüğü','warn',orphans+' müşterinin projesi bulunamadı');
+
+  // ===== v23.5 ek testler =====
+  var ir=integrityReport();
+  var kb=dbSizeKB();
+  // 11. Ana veri boyutu (Firestore belge sınırı 1024 KB)
+  addResult('Ana veri boyutu', kb<DOC_WARN_KB?'ok':kb<DOC_BLOCK_KB?'warn':'err', kb+' KB / 1024 KB (%'+Math.round(kb/1024*100)+') — dosyalar ayrı belgelerde tutuluyor');
+  // 12. Dosyalar
+  if(ir.inlineFiles===0) addResult('Dosya depolama','ok','Tüm PDF/JPG dosyaları ayrı belgelerde ('+collectFileSlots().length+' dosya)');
+  else addResult('Dosya depolama','warn',ir.inlineFiles+' dosya henüz ana veride — bir sonraki kayıtta ayrı belgeye taşınacak');
+  // 13. Senkron durumu
+  if(!isOnlineMode) addResult('Bulut senkronu','warn','Offline mod');
+  else if(isPending()) addResult('Bulut senkronu','warn','Bu cihazda gönderilmemiş değişiklik var (sürüm '+cloudRev+')');
+  else addResult('Bulut senkronu','ok','Güncel — bulut sürümü '+cloudRev+' (eşzamanlı kayıt koruması aktif)');
+  // 14. Blok adları
+  if(ir.dupBlocks.length===0) addResult('Blok adları','ok','Her projede blok adları benzersiz');
+  else addResult('Blok adları','err','Aynı adlı blok: '+ir.dupBlocks.join(', ')+' — satış bu bloklarda yanlış daireye işlenebilir');
+  // 15. Müşteri ↔ daire eşleşmesi
+  var eslesme=[];
+  if(ir.custNoUnit.length) eslesme.push(ir.custNoUnit.length+' müşterinin dairesi bulunamadı: '+ir.custNoUnit.join(', '));
+  if(ir.multiCust.length) eslesme.push('Birden fazla müşteri: '+ir.multiCust.join(', '));
+  if(ir.unitNoCust.length) eslesme.push('Müşterisiz satılmış/barter BB: '+ir.unitNoCust.join(', '));
+  addResult('Müşteri ↔ daire eşleşmesi', (ir.custNoUnit.length||ir.multiCust.length)?'err':ir.unitNoCust.length?'warn':'ok', eslesme.length?eslesme.join(' · '):'Tüm satışlar dairelerle eşleşiyor');
+  // 16. Ödeme planları
+  if(ir.zeroTaksit.length===0) addResult('Ödeme planları','ok','₺0 tutarlı taksit yok');
+  else addResult('Ödeme planları','warn','₺0 tutarlı taksit: '+ir.zeroTaksit.join(', '));
 }
 
 function renderTestResults(tests) {
