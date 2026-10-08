@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.5.1</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.6</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -245,6 +245,7 @@ textarea.fi{resize:vertical;min-height:50px}
 <div class="si" data-pg="od"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Ödemeler dengesi</div>
 <div class="ss">Satış</div>
 <div class="si" data-pg="ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Müşteriler</div>
+<div class="si" data-pg="v3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M21 7l-9 5-9-5"/></svg>3D görünüm</div>
 <div class="si" data-pg="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Satış takip</div>
 <div style="flex:1"></div>
 <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)">
@@ -880,7 +881,7 @@ function buildBackupData() {
 }
 
 // ===== v23.5.1 — Yeni sürüm kontrolü (tarayıcı önbelleği eski sürümü açarsa uyarır) =====
-var APP_VERSION = 'v23.5.1';
+var APP_VERSION = 'v23.6';
 function versionNum(v) { return String(v||'').replace(/^v/,'').split('.').map(function(x){return parseInt(x,10)||0}); }
 function isNewerVersion(a, b) { var x=versionNum(a), y=versionNum(b); for(var i=0;i<Math.max(x.length,y.length);i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0; } return false; }
 function checkNewVersion() {
@@ -1009,6 +1010,246 @@ function integrityReport() {
   return r;
 }
 
+// ===== v23.6 — 3D GÖRÜNÜM (bloklar + bağımsız bölümler, canlı satış durumu) =====
+var V3 = { model:null, modelFile:null, loading:false, inited:false, canvas:null, renderer:null, scene:null, cam:null, ctl:null,
+  meshes:[], labels:[], sel:null, filt:{floor:'all', st:{sold:1,owner:1,barter:1,reserved:1,free:1}, grp:{A:1,B:1}, labels:1}, raf:0 };
+var V3_COL = {sold:0xD84343, owner:0xF2A93B, barter:0x8E5BC4, reserved:0x3B82F6, free:0x22A35A};
+var V3_TR = {sold:'Satıldı', owner:'Arsa sahibi', barter:'Barter', reserved:'Rezerve', free:'Boş'};
+var V3_FILES = {'HİLLSİDE KORU':'hillside3d.json'};
+
+function v3Project() {
+  var p = DB.projects[curPrj] || DB.projects[0];
+  if(p && (p.model3dFile || V3_FILES[p.name])) return p;
+  return DB.projects.find(function(x){return x.model3dFile || V3_FILES[x.name]}) || null;
+}
+function v3LoadScript(src) {
+  return new Promise(function(res, rej){ var s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=function(){rej(new Error(src))}; document.head.appendChild(s); });
+}
+function v3Ensure(file) {
+  var libs = (window.THREE && THREE.OrbitControls) ? Promise.resolve() :
+    v3LoadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js')
+      .then(function(){ return v3LoadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'); });
+  var geo = (V3.model && V3.modelFile===file) ? Promise.resolve(V3.model) :
+    fetch(file+'?v='+APP_VERSION, {cache:'no-cache'}).then(function(r){ if(!r.ok) throw new Error('Model dosyası bulunamadı: '+file); return r.json(); })
+      .then(function(m){ V3.model=m; V3.modelFile=file; V3.inited=false; return m; });
+  return Promise.all([libs, geo]);
+}
+
+function r3D() {
+  var p = v3Project();
+  if(!p) return '<div class="empty">Bu projeler için 3D model tanımlı değil.</div>';
+  var cnt = {sold:0,owner:0,barter:0,reserved:0,free:0};
+  p.blocks.forEach(function(b){ b.units.forEach(function(u){ if(cnt[u.status]!==undefined) cnt[u.status]++; }); });
+  var f = V3.filt;
+  var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+  h += '<b style="font-size:13px">'+escHtml(p.name)+'</b><span style="color:var(--t3)">·</span>';
+  h += '<span style="font-size:11px;color:var(--t2)">Kat:</span>';
+  [['all','Tümü'],[0,'Zemin'],[1,'1'],[2,'2'],[3,'3'],[4,'4']].forEach(function(k){
+    h += '<button class="btn bsm '+(String(f.floor)===String(k[0])?'bp':'bo')+'" onclick="v3SetFloor(\''+k[0]+'\')">'+k[1]+'</button>';
+  });
+  h += '<span style="color:var(--t3)">·</span>';
+  ['A','B'].forEach(function(g){ h += '<button class="btn bsm '+(f.grp[g]?'bp':'bo')+'" onclick="v3Toggle(\'grp\',\''+g+'\')">'+g+' Blok</button>'; });
+  h += '<button class="btn bsm '+(f.labels?'bp':'bo')+'" onclick="v3Toggle(\'labels\')">Numaralar</button>';
+  h += '<button class="btn bsm bo" onclick="v3ResetCam()">Görünümü sıfırla</button>';
+  if(isAdmin) h += '<button class="btn bsm bo" onclick="v3PlaceEdit()">Yerleşim</button>';
+  h += '</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+  ['sold','owner','barter','reserved','free'].forEach(function(s){
+    var c = '#'+('000000'+V3_COL[s].toString(16)).slice(-6);
+    h += '<span onclick="v3Toggle(\'st\',\''+s+'\')" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:12px;border:1px solid var(--bd);background:'+(f.st[s]?'#fff':'#f2f2f2')+';opacity:'+(f.st[s]?1:.45)+'"><i style="width:11px;height:11px;border-radius:3px;background:'+c+';display:inline-block"></i>'+V3_TR[s]+' <b>'+cnt[s]+'</b></span>';
+  });
+  h += '</div>';
+  h += '<div id="v3-wrap" style="position:relative;height:calc(100vh - 220px);min-height:420px;border-radius:10px;overflow:hidden;background:#EEF1F5;border:1px solid var(--bd)">';
+  h += '<div id="v3-msg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:13px">3D model yükleniyor…</div>';
+  h += '<div id="v3-card" style="position:absolute;right:10px;top:10px;width:250px;background:#fff;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.15);padding:12px 14px;font-size:12px;display:none;z-index:2"></div>';
+  h += '<div id="v3-tip" style="position:absolute;pointer-events:none;background:rgba(31,42,68,.92);color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;display:none;z-index:3"></div>';
+  h += '<div style="position:absolute;left:10px;bottom:8px;font-size:10.5px;color:var(--t2);background:rgba(255,255,255,.8);padding:3px 8px;border-radius:6px">Sol tık: döndür · Sağ tık: kaydır · Tekerlek: yakınlaş · Daireye tıkla: detay</div>';
+  h += '</div>';
+  var file = p.model3dFile || V3_FILES[p.name];
+  setTimeout(function(){ v3Mount(p, file); }, 0);
+  return h;
+}
+
+function v3Mount(p, file) {
+  var wrap = document.getElementById('v3-wrap'); if(!wrap) return;
+  v3Ensure(file).then(function(){
+    wrap = document.getElementById('v3-wrap'); if(!wrap) return;
+    var msg = document.getElementById('v3-msg'); if(msg) msg.style.display='none';
+    if(!V3.renderer) v3Init();
+    wrap.appendChild(V3.canvas);
+    if(!V3.inited || V3.builtFor!==p.name) v3Build(p);
+    v3Refresh(p);
+    v3Resize();
+    if(V3.selKey) v3ShowCard(V3.selKey, p);
+  }).catch(function(e){
+    var msg = document.getElementById('v3-msg'); if(msg) msg.textContent='3D model yüklenemedi: '+(e&&e.message?e.message:e)+' — internet bağlantısını kontrol edin.';
+  });
+}
+
+function v3Init() {
+  var c = document.createElement('canvas'); c.style.cssText='width:100%;height:100%;display:block'; V3.canvas=c;
+  var r = new THREE.WebGLRenderer({canvas:c, antialias:true}); r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); V3.renderer=r;
+  var s = new THREE.Scene(); s.background = new THREE.Color(0xEEF1F5); V3.scene=s;
+  V3.cam = new THREE.PerspectiveCamera(38, 1, 0.5, 2000);
+  V3.ctl = new THREE.OrbitControls(V3.cam, c); V3.ctl.enableDamping=true; V3.ctl.maxPolarAngle=Math.PI*0.495;
+  s.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.85));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(60,120,80); s.add(sun);
+  var ray = new THREE.Raycaster(), mv = new THREE.Vector2(), down=null;
+  function pick(e){ var b=c.getBoundingClientRect(); mv.x=((e.clientX-b.left)/b.width)*2-1; mv.y=-((e.clientY-b.top)/b.height)*2+1; ray.setFromCamera(mv,V3.cam); var hit=ray.intersectObjects(V3.meshes.filter(function(m){return m.visible}))[0]; return hit?hit.object:null; }
+  c.addEventListener('pointerdown', function(e){ down={x:e.clientX,y:e.clientY}; });
+  c.addEventListener('pointerup', function(e){ if(!down) return; var moved=Math.abs(e.clientX-down.x)+Math.abs(e.clientY-down.y); down=null; if(moved>5||e.button!==0) return;
+    var o=pick(e); var p=v3Project(); if(o && o.userData.key){ V3.selKey=o.userData.key; v3Refresh(p); v3ShowCard(o.userData.key,p); } else { V3.selKey=null; v3Refresh(p); var cd=document.getElementById('v3-card'); if(cd) cd.style.display='none'; } });
+  c.addEventListener('pointermove', function(e){ var tip=document.getElementById('v3-tip'); if(!tip) return; if(e.buttons){tip.style.display='none';return;}
+    var o=pick(e); if(o && o.userData.key){ var d=o.userData; tip.innerHTML='<b>'+escHtml(d.no)+'</b> · '+escHtml(d.cust||V3_TR[d.st]||''); var b=c.getBoundingClientRect(); tip.style.left=(e.clientX-b.left+12)+'px'; tip.style.top=(e.clientY-b.top+12)+'px'; tip.style.display='block'; c.style.cursor='pointer'; } else { tip.style.display='none'; c.style.cursor=''; } });
+  c.addEventListener('pointerleave', function(){ var tip=document.getElementById('v3-tip'); if(tip) tip.style.display='none'; });
+  window.addEventListener('resize', v3Resize);
+  (function loop(){ V3.raf=requestAnimationFrame(loop); if(!document.getElementById('v3-wrap')) return; V3.ctl.update(); V3.renderer.render(V3.scene, V3.cam); })();
+}
+
+function v3Resize() {
+  var w = document.getElementById('v3-wrap'); if(!w||!V3.renderer) return;
+  var W=w.clientWidth, H=w.clientHeight; if(!W||!H) return;
+  V3.renderer.setSize(W,H,false); V3.cam.aspect=W/H; V3.cam.updateProjectionMatrix();
+}
+
+function v3Place(p, g) {
+  var m = V3.model, d = (m.gruplar && m.gruplar[g]) || {x:0,y:0,rot:0,zemin:0};
+  var o = (p.model3dYer && p.model3dYer[g]) || {};
+  return {x: o.x!=null?o.x:d.x, y: o.y!=null?o.y:d.y, rot: o.rot!=null?o.rot:d.rot, zemin: o.zemin!=null?o.zemin:d.zemin};
+}
+
+function v3Label(text) {
+  var c = document.createElement('canvas'); c.width=128; c.height=44; var g=c.getContext('2d');
+  g.fillStyle='rgba(255,255,255,.92)'; g.fillRect(0,0,128,44); g.fillStyle='#1F2A44'; g.font='bold 24px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,64,23);
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:true})); s.scale.set(3,1.03,1); return s;
+}
+
+function v3Build(p) {
+  var m = V3.model, S = V3.scene, H = m.katYuksekligi || 3;
+  V3.meshes.forEach(function(o){ S.remove(o); o.geometry.dispose(); });
+  V3.labels.forEach(function(o){ S.remove(o); });
+  (V3.extra||[]).forEach(function(o){ S.remove(o); });
+  V3.meshes=[]; V3.labels=[]; V3.extra=[];
+  var box = new THREE.Box3();
+  function shapeOf(poly, pl) {
+    var cs=Math.cos(pl.rot*Math.PI/180), sn=Math.sin(pl.rot*Math.PI/180);
+    var pts = poly.map(function(q){ return new THREE.Vector2(pl.x + q[0]*cs - q[1]*sn, pl.y + q[0]*sn + q[1]*cs); });
+    return new THREE.Shape(pts);
+  }
+  function add(item, isCore) {
+    var pl = v3Place(p, item.g);
+    var shapes = item.p.map(function(poly){ return shapeOf(poly, pl); });
+    if(!shapes.length) return;
+    var geo = new THREE.ExtrudeGeometry(shapes, {depth:H-0.3, bevelEnabled:false});
+    geo.rotateX(-Math.PI/2);
+    var mat = new THREE.MeshLambertMaterial({color: isCore?0xB6BDC8:0xcccccc, transparent:true, opacity: isCore?0.35:1});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = (pl.zemin + item.lv) * H + 0.15;
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color:0x5b6472, transparent:true, opacity:isCore?0.15:0.35}));
+    mesh.add(edges);
+    S.add(mesh);
+    if(isCore) { mesh.userData={core:1, g:item.g, lv:item.lv}; V3.extra.push(mesh); return; }
+    mesh.userData = {key:item.b+'|'+item.n, no:item.n, b:item.b, g:item.g, lv:item.lv};
+    V3.meshes.push(mesh); box.expandByObject(mesh);
+    geo.computeBoundingBox(); var c = new THREE.Vector3(); geo.boundingBox.getCenter(c);
+    var lb = v3Label(item.n); lb.position.set(c.x, mesh.position.y + H - 0.2, c.z); lb.userData={key:mesh.userData.key}; S.add(lb); V3.labels.push(lb); mesh.userData.label=lb;
+  }
+  m.cores.forEach(function(c){ add(c, true); });
+  m.units.forEach(function(u){ add(u, false); });
+  var ctr = new THREE.Vector3(); box.getCenter(ctr); var sz = new THREE.Vector3(); box.getSize(sz);
+  var gnd = new THREE.Mesh(new THREE.PlaneGeometry(sz.x+120, sz.z+120), new THREE.MeshLambertMaterial({color:0xDCE5D6}));
+  gnd.rotation.x=-Math.PI/2; gnd.position.set(ctr.x, box.min.y-0.05, ctr.z); S.add(gnd); V3.extra.push(gnd);
+  V3.home = {ctr:ctr, r:Math.max(sz.x, sz.z)};
+  if(!V3.inited) v3ResetCam();
+  V3.inited = true; V3.builtFor = p.name;
+}
+
+function v3ResetCam() {
+  if(!V3.home) return; var c=V3.home.ctr, r=V3.home.r;
+  V3.cam.position.set(c.x + r*0.55, c.y + r*0.55, c.z + r*0.75); V3.ctl.target.copy(c); V3.ctl.update();
+}
+
+function v3Lookup(p) {
+  var idx = {};
+  p.blocks.forEach(function(b, bi){ b.units.forEach(function(u, ui){ idx[b.name+'|'+u.no] = {u:u, bi:bi, ui:ui}; }); });
+  var cust = {};
+  DB.customers.forEach(function(c, ci){ if(c.project===p.name) cust[String(c.unit).replace(' / ','|')] = {c:c, ci:ci}; });
+  return {idx:idx, cust:cust};
+}
+
+function v3Refresh(p) {
+  if(!V3.meshes.length) return;
+  var L = v3Lookup(p), f = V3.filt;
+  V3.meshes.forEach(function(m){
+    var d = m.userData, hit = L.idx[d.key], cu = L.cust[d.key];
+    var st = hit ? (hit.u.status||'free') : 'free';
+    var fl = hit && typeof hit.u.floor==='number' ? hit.u.floor : null;
+    d.st = st; d.cust = cu ? cu.c.name : ''; d.floor = fl;
+    var vis = !!f.grp[d.g] && !!f.st[st] && (f.floor==='all' || String(fl)===String(f.floor));
+    m.visible = vis; if(d.label) d.label.visible = vis && !!f.labels;
+    m.material.color.setHex(V3_COL[st]||0x999999);
+    m.material.emissive && m.material.emissive.setHex(V3.selKey===d.key ? 0x444444 : 0);
+    m.material.opacity = hit ? 1 : 0.5;
+  });
+  (V3.extra||[]).forEach(function(o){ if(o.userData && o.userData.core) o.visible = !!f.grp[o.userData.g] && f.floor==='all'; });
+}
+
+function v3ShowCard(key, p) {
+  var cd = document.getElementById('v3-card'); if(!cd) return;
+  var L = v3Lookup(p), hit = L.idx[key], cu = L.cust[key];
+  var parts = key.split('|');
+  if(!hit) { cd.innerHTML='<b>'+escHtml(parts[1])+'</b><div style="color:var(--rd);margin-top:6px">Bu bölüm programda bulunamadı.</div>'; cd.style.display='block'; return; }
+  var u = hit.u, st = u.status||'free';
+  var h = '<div style="display:flex;justify-content:space-between;align-items:start"><div><div style="font-size:15px;font-weight:700">'+escHtml(u.no)+'</div><div style="color:var(--t2);font-size:11px">'+escHtml(parts[0])+'</div></div><span style="cursor:pointer;color:var(--t3);font-size:16px" onclick="document.getElementById(\'v3-card\').style.display=\'none\'">✕</span></div>';
+  h += '<div style="margin:8px 0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px">';
+  h += '<span style="color:var(--t2)">Kat</span><span>'+(u.floor===0?'Zemin':(u.floor!=null?u.floor+'. kat':'—'))+'</span>';
+  h += '<span style="color:var(--t2)">Tip</span><span>'+escHtml(u.daireType||u.bbType||'—')+'</span>';
+  if(u.alan) h += '<span style="color:var(--t2)">Brüt/Net</span><span>'+u.alan+(u.netAlan?' / '+u.netAlan:'')+' m²</span>';
+  h += '<span style="color:var(--t2)">Durum</span><span><b style="color:#'+('000000'+V3_COL[st].toString(16)).slice(-6)+'">'+V3_TR[st]+'</b></span>';
+  if(cu) {
+    var c = cu.c;
+    h += '<span style="color:var(--t2)">Müşteri</span><span><b>'+escHtml(c.name)+'</b></span>';
+    if(c.phone) h += '<span style="color:var(--t2)">Telefon</span><span>'+escHtml(c.phone)+'</span>';
+    h += '<span style="color:var(--t2)">Ödeme</span><span>'+escHtml(c.payType||'—')+'</span>';
+    if(c.total) h += '<span style="color:var(--t2)">Toplam</span><span>₺'+fmt(c.total)+'</span><span style="color:var(--t2)">Kalan</span><span style="color:var(--rd)">₺'+fmt(c.remaining||0)+'</span>';
+    else h += '<span style="color:var(--t2)">Fiyat</span><span style="color:var(--am)">girilmedi</span>';
+  } else if(u.targetPrice) h += '<span style="color:var(--t2)">Hedef</span><span>₺'+fmt(u.targetPrice)+'</span>';
+  h += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+  var pi = DB.projects.indexOf(p);
+  if(cu) h += '<button class="btn bp bsm" onclick="openCustomerEdit('+cu.ci+')">Müşteri kartı</button>';
+  else if(st==='free') h += '<button class="btn bp bsm" onclick="openSellModal('+pi+','+hit.bi+','+hit.ui+')">Satış yap</button>';
+  h += '<button class="btn bo bsm" onclick="editUnit('+pi+','+hit.bi+','+hit.ui+')">Bölümü düzenle</button></div>';
+  cd.innerHTML = h; cd.style.display = 'block';
+}
+
+function v3SetFloor(k) { V3.filt.floor = (k==='all')?'all':parseInt(k,10); render(); }
+function v3Toggle(kind, k) {
+  if(kind==='labels') V3.filt.labels = !V3.filt.labels;
+  else V3.filt[kind][k] = !V3.filt[kind][k];
+  render();
+}
+
+function v3PlaceEdit() {
+  var p = v3Project(); if(!p||!V3.model) return;
+  var b = '<div class="warn" style="margin-bottom:10px">Blokların arazideki yerini render ve vaziyet planına bakarak ayarlayın. Değerler metre ve derece; "Zemin" kat sayısı kadar yukarı taşır.</div>';
+  Object.keys(V3.model.gruplar).forEach(function(g){
+    var pl = v3Place(p, g);
+    b += '<div class="sec-t">'+escHtml(V3.model.gruplar[g].ad||g)+'</div><div class="fr3" style="grid-template-columns:repeat(4,1fr)">'+
+      ['x','y','rot','zemin'].map(function(k){ return '<div class="fg"><label class="fl">'+({x:'X (m)',y:'Y (m)',rot:'Dönüş (°)',zemin:'Zemin (kat)'})[k]+'</label><input class="fi" type="number" step="'+(k==='zemin'?1:0.5)+'" id="v3p-'+g+'-'+k+'" value="'+pl[k]+'" oninput="v3PlacePreview()"></div>'; }).join('')+'</div>';
+  });
+  document.getElementById('m-sell-body').innerHTML = b;
+  document.querySelector('#m-sell .mdt').textContent = '3D yerleşim ayarı';
+  document.querySelector('#m-sell .mdf').innerHTML = '<button class="btn bo" onclick="closeM(\'m-sell\');v3PlaceCancel()">İptal</button><button class="btn bp" onclick="v3PlaceSave()">Kaydet</button>';
+  V3.placeBackup = JSON.parse(JSON.stringify(p.model3dYer||null));
+  openM('m-sell');
+}
+function v3PlaceRead() {
+  var o = {}; Object.keys(V3.model.gruplar).forEach(function(g){ o[g]={}; ['x','y','rot','zemin'].forEach(function(k){ o[g][k]=parseFloat(document.getElementById('v3p-'+g+'-'+k).value)||0; }); }); return o;
+}
+function v3PlacePreview() { var p=v3Project(); p.model3dYer=v3PlaceRead(); v3Build(p); v3Refresh(p); }
+function v3PlaceCancel() { var p=v3Project(); p.model3dYer=V3.placeBackup; v3Build(p); v3Refresh(p); }
+function v3PlaceSave() { var p=v3Project(); p.model3dYer=v3PlaceRead(); save(); closeM('m-sell'); toast('3D yerleşim kaydedildi'); render(); }
+
 // ===== DATA STORE =====
 var DB = {
   projects: [],
@@ -1114,7 +1355,7 @@ function today() { return new Date().toISOString().split('T')[0]; }
 
 // ===== NAVIGATION =====
 var curPage = 'oz', curPrj = 0;
-var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme'],users:['Kullanıcı yönetimi','Kullanıcı onay ve yetki yönetimi'],sysTest:['Sistem testi','Firestore bağlantı ve güvenlik kontrolleri']};
+var titles = {oz:['Özet panel','Propakt Group — genel bakış'],gg:['Gelir / gider','Resmi, gayri resmi ve KDV takibi'],kdv:['KDV takip','Aylık KDV beyanname özeti'],ts:['Taşeron yönetimi','Taşeron anlaşma ve ödeme takibi'],tk:['Taksit takip','Müşteri ve taşeron taksitleri'],pgt:['Proje gelir takip','Şantiye bazlı gelir analizi'],pgd:['Proje gider takip','Şantiye bazlı gider analizi'],banka:['Banka hesapları','Banka bakiyeleri ve hareketleri'],sn:['Şantiyeler','Proje ve şantiye yönetimi'],bb:['Bağımsız bölümler','Proje bazlı daire/dükkan takibi'],mh:['Maliyet hesaplama','2026 resmi birim fiyatlarıyla tahmini maliyet'],tg:['Tablo & grafikler','Gelir-gider, satış ve proje analizleri'],od:['Ödemeler dengesi','Aylık nakit akışı ve finansman ihtiyacı'],ms:['Müşteriler','Müşteri ve satış kayıtları'],st:['Satış takip','Proje bazlı satış durumu'],backup:['Yedekleme','Veri yedekleme ve geri yükleme'],users:['Kullanıcı yönetimi','Kullanıcı onay ve yetki yönetimi'],sysTest:['Sistem testi','Firestore bağlantı ve güvenlik kontrolleri'],v3:['3D görünüm','Blok ve bağımsız bölümlerin canlı satış durumu']};
 
 document.querySelectorAll('.si[data-pg]').forEach(function(el) {
   el.addEventListener('click', function() {
@@ -1170,7 +1411,7 @@ var exportMap = {
 function render() {
   document.getElementById('sn-cnt').textContent = DB.projects.length;
   var c = document.getElementById('ct');
-  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,backup:rBackup,users:rUsers,sysTest:rSysTest};
+  var fn = {oz:rOzet,gg:rGG,kdv:rKDV,ts:rTS,tk:rTK,pgt:rPGT,pgd:rPGD,banka:rBanka,sn:rSN,bb:rBB,mh:rMH,tg:rTG,od:rOD,ms:rMS,st:rST,v3:r3D,backup:rBackup,users:rUsers,sysTest:rSysTest};
   if(fn[curPage]) c.innerHTML = fn[curPage]();
   else c.innerHTML = '<div class="empty">Bu sayfa yapım aşamasında.</div>';
   // Export butonlarını güncelle
