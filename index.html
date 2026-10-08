@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.2</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.3</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -881,7 +881,7 @@ function buildBackupData() {
 }
 
 // ===== v23.5.1 — Yeni sürüm kontrolü (tarayıcı önbelleği eski sürümü açarsa uyarır) =====
-var APP_VERSION = 'v23.6.2';
+var APP_VERSION = 'v23.6.3';
 function versionNum(v) { return String(v||'').replace(/^v/,'').split('.').map(function(x){return parseInt(x,10)||0}); }
 function isNewerVersion(a, b) { var x=versionNum(a), y=versionNum(b); for(var i=0;i<Math.max(x.length,y.length);i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0; } return false; }
 function checkNewVersion() {
@@ -1107,7 +1107,7 @@ function v3Init() {
   var sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(60,120,80); s.add(sun);
   V3.spot = new THREE.PointLight(0xFFD27A, 0, 18, 2); s.add(V3.spot);
   var ray = new THREE.Raycaster(), mv = new THREE.Vector2(), down=null;
-  function pick(e){ var b=c.getBoundingClientRect(); mv.x=((e.clientX-b.left)/b.width)*2-1; mv.y=-((e.clientY-b.top)/b.height)*2+1; ray.setFromCamera(mv,V3.cam); var hit=ray.intersectObjects(V3.meshes.filter(function(m){return m.visible}))[0]; return hit?hit.object:null; }
+  function pick(e){ var b=c.getBoundingClientRect(); mv.x=((e.clientX-b.left)/b.width)*2-1; mv.y=-((e.clientY-b.top)/b.height)*2+1; ray.setFromCamera(mv,V3.cam); var hits=ray.intersectObjects(V3.meshes.filter(function(m){return m.visible})); if(V3.selMesh){ for(var i=0;i<hits.length;i++){ if(hits[i].object===V3.selMesh) return V3.selMesh; } } return hits[0]?hits[0].object:null; }
   c.addEventListener('pointerdown', function(e){ down={x:e.clientX,y:e.clientY}; });
   c.addEventListener('pointerup', function(e){ if(!down) return; var moved=Math.abs(e.clientX-down.x)+Math.abs(e.clientY-down.y); down=null; if(moved>5||e.button!==0) return;
     var o=pick(e); v3Select(o && o.userData.key ? o.userData.key : null, false); });
@@ -1134,7 +1134,7 @@ function v3Label(text, wide) {
   var W = wide ? 256 : 128;
   var c = document.createElement('canvas'); c.width=W; c.height=44; var g=c.getContext('2d');
   g.fillStyle=wide?'rgba(55,65,81,.92)':'rgba(255,255,255,.92)'; g.fillRect(0,0,W,44); g.fillStyle=wide?'#fff':'#1F2A44'; g.font='bold 24px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,W/2,23);
-  var s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:!wide})); s.scale.set(wide?6:3,1.03,1); if(wide) s.renderOrder=5; return s;
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:true})); s.scale.set(wide?6:3,1.03,1); return s;
 }
 
 function v3Build(p) {
@@ -1162,15 +1162,26 @@ function v3Build(p) {
     mesh.add(edges); mesh.userData.edges=edges;
     S.add(mesh);
     if(isCore) { mesh.userData={core:1, park:!!item.park, g:item.g, lv:item.lv}; V3.extra.push(mesh);
-      if(item.park){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var kot=Math.round((97+item.lv*3)*10)/10; var pl2=v3Label('OTOPARK · '+String(kot).replace('.',',')+' kotu', true); pl2.position.set(pc.x, mesh.position.y+((item.h||H)-0.3)/2, pc.z); pl2.scale.set(9,1.55,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; }
+      if(item.park){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var kot=Math.round((97+item.lv*3)*10)/10; var pl2=v3Label('OTOPARK · '+String(kot).replace('.',',')+' kotu', true); pl2.position.set(pc.x, mesh.position.y+((item.h||H)-0.3)/2, pc.z); pl2.scale.set(9,1.55,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; parkLbl.push({s:pl2, bb:geo.boundingBox.clone(), g:item.g}); }
       return; }
     mesh.userData = {edges:edges, key:item.b+'|'+item.n, no:item.n, b:item.b, g:item.g, lv:item.lv};
     V3.meshes.push(mesh); box.expandByObject(mesh);
     geo.computeBoundingBox(); var c = new THREE.Vector3(); geo.boundingBox.getCenter(c);
     var lb = v3Label(item.n); lb.position.set(c.x, mesh.position.y + (item.h||H) - 0.2, c.z); lb.userData={key:mesh.userData.key}; S.add(lb); V3.labels.push(lb); mesh.userData.label=lb;
   }
+  var parkLbl = [];
   m.cores.forEach(function(c){ add(c, true); });
   m.units.forEach(function(u){ add(u, false); });
+  // otopark etiketlerini hacmin dışına, bina cephesinin önüne al (birimlerin üstüne binmesin)
+  parkLbl.forEach(function(L){
+    var uc=new THREE.Vector3(), n=0;
+    V3.meshes.forEach(function(ms){ if(ms.userData.g!==L.g) return; var gb=ms.geometry.boundingBox||(ms.geometry.computeBoundingBox(),ms.geometry.boundingBox); var cc=new THREE.Vector3(); gb.getCenter(cc); uc.add(cc); n++; });
+    if(!n) return; uc.divideScalar(n);
+    var pc=new THREE.Vector3(); L.bb.getCenter(pc); var sz=new THREE.Vector3(); L.bb.getSize(sz);
+    var d=new THREE.Vector3(pc.x-uc.x,0,pc.z-uc.z); if(d.length()<0.01) d.set(1,0,0); d.normalize();
+    var ext=Math.abs(d.x)*sz.x/2+Math.abs(d.z)*sz.z/2+3;
+    L.s.position.x=pc.x+d.x*ext; L.s.position.z=pc.z+d.z*ext;
+  });
   var ctr = new THREE.Vector3(); box.getCenter(ctr); var sz = new THREE.Vector3(); box.getSize(sz);
   var gnd = new THREE.Mesh(new THREE.PlaneGeometry(sz.x+120, sz.z+120), new THREE.MeshLambertMaterial({color:0xDCE5D6}));
   gnd.rotation.x=-Math.PI/2; gnd.position.set(ctr.x, box.min.y-0.05, ctr.z); S.add(gnd); V3.extra.push(gnd);
