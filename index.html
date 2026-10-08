@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.3</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.4</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -881,7 +881,7 @@ function buildBackupData() {
 }
 
 // ===== v23.5.1 — Yeni sürüm kontrolü (tarayıcı önbelleği eski sürümü açarsa uyarır) =====
-var APP_VERSION = 'v23.6.3';
+var APP_VERSION = 'v23.6.4';
 function versionNum(v) { return String(v||'').replace(/^v/,'').split('.').map(function(x){return parseInt(x,10)||0}); }
 function isNewerVersion(a, b) { var x=versionNum(a), y=versionNum(b); for(var i=0;i<Math.max(x.length,y.length);i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0; } return false; }
 function checkNewVersion() {
@@ -1012,7 +1012,7 @@ function integrityReport() {
 
 // ===== v23.6 — 3D GÖRÜNÜM · v23.6.1: tek renk model, seçilen daire ışıkla parlar, durum vurgulama =====
 var V3 = { model:null, modelFile:null, loading:false, inited:false, canvas:null, renderer:null, scene:null, cam:null, ctl:null,
-  meshes:[], labels:[], sel:null, filt:{floor:'all', show:{sold:0,owner:0,barter:0,reserved:0,free:0}, grp:{A:1,B:1}, labels:0}, raf:0, fly:null };
+  meshes:[], labels:[], sel:null, filt:{floor:'all', show:{sold:0,owner:0,barter:0,reserved:0,free:0}, grp:{A:1,B:1}, labels:0, mode:'gorsel'}, raf:0, fly:null };
 var V3_BASE = 0xF3EFE7, V3_GLOW = 0xFFC83D;
 var V3_COL = {sold:0xD84343, owner:0xF2A93B, barter:0x8E5BC4, reserved:0x3B82F6, free:0x22A35A};
 var V3_TR = {sold:'Satıldı', owner:'Arsa sahibi', barter:'Barter', reserved:'Rezerve', free:'Boş'};
@@ -1051,6 +1051,7 @@ function r3D() {
   h += '<span style="color:var(--t3)">·</span>';
   ['A','B'].forEach(function(g){ h += '<button class="btn bsm '+(f.grp[g]?'bp':'bo')+'" onclick="v3Toggle(\'grp\',\''+g+'\')">'+g+' Blok</button>'; });
   h += '<button class="btn bsm '+(f.labels?'bp':'bo')+'" onclick="v3Toggle(\'labels\')">Numaralar</button>';
+  h += '<span style="display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden"><button class="btn bsm '+(f.mode==='gorsel'?'bp':'bo')+'" style="border:0;border-radius:0" onclick="v3Mode(\'gorsel\')">Görsel</button><button class="btn bsm '+(f.mode!=='gorsel'?'bp':'bo')+'" style="border:0;border-radius:0" onclick="v3Mode(\'sema\')">Şema</button></span>';
   h += '<button class="btn bsm bo" onclick="v3ResetCam()">Görünümü sıfırla</button>';
   if(isAdmin) h += '<button class="btn bsm bo" onclick="v3PlaceEdit()">Yerleşim</button>';
   h += '</div>';
@@ -1107,7 +1108,7 @@ function v3Init() {
   var sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(60,120,80); s.add(sun);
   V3.spot = new THREE.PointLight(0xFFD27A, 0, 18, 2); s.add(V3.spot);
   var ray = new THREE.Raycaster(), mv = new THREE.Vector2(), down=null;
-  function pick(e){ var b=c.getBoundingClientRect(); mv.x=((e.clientX-b.left)/b.width)*2-1; mv.y=-((e.clientY-b.top)/b.height)*2+1; ray.setFromCamera(mv,V3.cam); var hits=ray.intersectObjects(V3.meshes.filter(function(m){return m.visible})); if(V3.selMesh){ for(var i=0;i<hits.length;i++){ if(hits[i].object===V3.selMesh) return V3.selMesh; } } return hits[0]?hits[0].object:null; }
+  function pick(e){ var b=c.getBoundingClientRect(); mv.x=((e.clientX-b.left)/b.width)*2-1; mv.y=-((e.clientY-b.top)/b.height)*2+1; ray.setFromCamera(mv,V3.cam); var hits=ray.intersectObjects(V3.meshes.concat(V3.ter||[]).filter(function(m){return m.visible})); if(V3.selMesh){ for(var i=0;i<hits.length;i++){ if(hits[i].object===V3.selMesh) return V3.selMesh; } } return hits[0]?hits[0].object:null; }
   c.addEventListener('pointerdown', function(e){ down={x:e.clientX,y:e.clientY}; });
   c.addEventListener('pointerup', function(e){ if(!down) return; var moved=Math.abs(e.clientX-down.x)+Math.abs(e.clientY-down.y); down=null; if(moved>5||e.button!==0) return;
     var o=pick(e); v3Select(o && o.userData.key ? o.userData.key : null, false); });
@@ -1140,10 +1141,12 @@ function v3Label(text, wide) {
 function v3Build(p) {
   var m = V3.model, S = V3.scene, H = m.katYuksekligi || 3;
   V3.meshes.forEach(function(o){ S.remove(o); o.geometry.dispose(); });
+  (V3.ter||[]).forEach(function(o){ S.remove(o); o.geometry.dispose(); });
   V3.labels.forEach(function(o){ S.remove(o); });
   (V3.extra||[]).forEach(function(o){ S.remove(o); });
   V3.meshes=[]; V3.labels=[]; V3.extra=[];
-  var box = new THREE.Box3();
+  var box = new THREE.Box3(), GV = V3.filt.mode==='gorsel';
+  v3Scene(GV);
   function shapeOf(poly, pl) {
     var cs=Math.cos(pl.rot*Math.PI/180), sn=Math.sin(pl.rot*Math.PI/180);
     var pts = poly.map(function(q){ return new THREE.Vector2(pl.x + q[0]*cs - q[1]*sn, pl.y + q[0]*sn + q[1]*cs); });
@@ -1153,18 +1156,26 @@ function v3Build(p) {
     var pl = v3Place(p, item.g);
     var shapes = item.p.map(function(poly){ return shapeOf(poly, pl); });
     if(!shapes.length) return;
-    var geo = new THREE.ExtrudeGeometry(shapes, {depth:(item.h||H)-0.3, bevelEnabled:false});
+    var dep = GV ? ((!isCore && item.h>4.5) ? H : (item.h||H)) : (item.h||H)-0.3;
+    var geo = new THREE.ExtrudeGeometry(shapes, {depth:dep, bevelEnabled:false});
     geo.rotateX(-Math.PI/2);
-    var mat = new THREE.MeshLambertMaterial({color: item.park?(item.lv<0.5?0x6B7686:0x8E99A8):(isCore?0xB6BDC8:V3_BASE), transparent:true, opacity: item.park?0.55:(isCore?0.25:1)});
+    var mat;
+    if(GV) {
+      if(item.park) mat = [v3M('cap', item.alt?0xD9CDB8:0x86A266), v3M('side', item.alt?0xBFA987:0x6A5646)];
+      else if(isCore) mat = [v3M('cap',0xE9E3D8), v3M('wall',0xD9C4A1)];
+      else mat = [new THREE.MeshLambertMaterial({color:0xEDE7DC, transparent:true}), new THREE.MeshLambertMaterial({color:0xFFFFFF, map:v3Tex(), transparent:true})];
+    } else mat = new THREE.MeshLambertMaterial({color: item.park?(item.lv<0.5?0x6B7686:0x8E99A8):(isCore?0xB6BDC8:V3_BASE), transparent:true, opacity: item.park?0.55:(isCore?0.25:1)});
     var mesh = new THREE.Mesh(geo, mat);
-    mesh.position.y = (pl.zemin + item.lv) * H + 0.15;
-    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color:item.park?0x374151:(isCore?0x5b6472:0x4B5563), transparent:true, opacity:item.park?0.9:(isCore?0.12:0.75)}));
+    mesh.position.y = (pl.zemin + item.lv) * H + (GV?0:0.15);
+    if(GV){ mesh.castShadow=true; mesh.receiveShadow=true; }
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color:item.park?0x374151:(isCore?0x5b6472:0x4B5563), transparent:true, opacity:GV?0.18:(item.park?0.9:(isCore?0.12:0.75))}));
+    if(GV && isCore) edges.visible=false;
     mesh.add(edges); mesh.userData.edges=edges;
     S.add(mesh);
     if(isCore) { mesh.userData={core:1, park:!!item.park, g:item.g, lv:item.lv}; V3.extra.push(mesh);
-      if(item.park){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var kot=Math.round((97+item.lv*3)*10)/10; var pl2=v3Label('OTOPARK · '+String(kot).replace('.',',')+' kotu', true); pl2.position.set(pc.x, mesh.position.y+((item.h||H)-0.3)/2, pc.z); pl2.scale.set(9,1.55,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; parkLbl.push({s:pl2, bb:geo.boundingBox.clone(), g:item.g}); }
+      if(item.park && !GV){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var kot=Math.round((97+item.lv*3)*10)/10; var pl2=v3Label((item.ad||'OTOPARK')+' · '+String(kot).replace('.',',')+' kotu', true); pl2.position.set(pc.x, mesh.position.y+((item.h||H)-0.3)/2, pc.z); pl2.scale.set(9,1.55,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; parkLbl.push({s:pl2, bb:geo.boundingBox.clone(), g:item.g}); }
       return; }
-    mesh.userData = {edges:edges, key:item.b+'|'+item.n, no:item.n, b:item.b, g:item.g, lv:item.lv};
+    mesh.userData = {edges:edges, key:item.b+'|'+item.n, no:item.n, b:item.b, g:item.g, lv:item.lv, item:item, dep:dep};
     V3.meshes.push(mesh); box.expandByObject(mesh);
     geo.computeBoundingBox(); var c = new THREE.Vector3(); geo.boundingBox.getCenter(c);
     var lb = v3Label(item.n); lb.position.set(c.x, mesh.position.y + (item.h||H) - 0.2, c.z); lb.userData={key:mesh.userData.key}; S.add(lb); V3.labels.push(lb); mesh.userData.label=lb;
@@ -1172,6 +1183,8 @@ function v3Build(p) {
   var parkLbl = [];
   m.cores.forEach(function(c){ add(c, true); });
   m.units.forEach(function(u){ add(u, false); });
+  V3.ter = [];
+  (m.teraslar||[]).forEach(function(t){ v3Terrace(p, t, shapeOf, H, GV); });
   // otopark etiketlerini hacmin dışına, bina cephesinin önüne al (birimlerin üstüne binmesin)
   parkLbl.forEach(function(L){
     var uc=new THREE.Vector3(), n=0;
@@ -1183,8 +1196,9 @@ function v3Build(p) {
     L.s.position.x=pc.x+d.x*ext; L.s.position.z=pc.z+d.z*ext;
   });
   var ctr = new THREE.Vector3(); box.getCenter(ctr); var sz = new THREE.Vector3(); box.getSize(sz);
-  var gnd = new THREE.Mesh(new THREE.PlaneGeometry(sz.x+120, sz.z+120), new THREE.MeshLambertMaterial({color:0xDCE5D6}));
-  gnd.rotation.x=-Math.PI/2; gnd.position.set(ctr.x, box.min.y-0.05, ctr.z); S.add(gnd); V3.extra.push(gnd);
+  if(GV) { v3Site(p, shapeOf, H); v3Facades(p, H); }
+  else { var gnd = new THREE.Mesh(new THREE.PlaneGeometry(sz.x+120, sz.z+120), new THREE.MeshLambertMaterial({color:0xDCE5D6}));
+  gnd.rotation.x=-Math.PI/2; gnd.position.set(ctr.x, box.min.y-0.05, ctr.z); S.add(gnd); V3.extra.push(gnd); }
   V3.home = {ctr:ctr, r:Math.max(sz.x, sz.z)};
   if(!V3.inited) v3ResetCam();
   V3.inited = true; V3.builtFor = p.name;
@@ -1219,19 +1233,31 @@ function v3Refresh(p) {
     m.visible = vis;
     if(d.label) d.label.visible = vis && (!!f.labels || isSel || (hl && anyShow && !!f.labels));
     var col = isSel ? V3_GLOW : (hl ? V3_COL[st] : V3_BASE);
-    m.material.color.setHex(col);
-    m.material.emissive.setHex(isSel ? 0xFFA000 : 0);
-    m.material.emissiveIntensity = isSel ? 0.6 : 1;
+    var GVm = Array.isArray(m.material), mats = GVm ? m.material : [m.material];
+    if(GVm) col = isSel ? V3_GLOW : (hl ? V3_COL[st] : null);
+    mats.forEach(function(mt,i){ mt.color.setHex(col==null ? (i===0?0xEDE7DC:0xFFFFFF) : col); mt.emissive.setHex(isSel ? 0xFFA000 : 0); mt.emissiveIntensity = isSel ? 0.6 : 1; });
     // vurgu açıkken diğerleri soluk; seçim varken model yarı saydam (seçilen daire içeriden görünsün)
     var fade = (anyShow && !hl && !isSel) || (!!V3.selKey && !isSel);
-    m.material.opacity = !hit ? 0.4 : (fade ? (V3.selKey && !anyShow ? 0.35 : 0.22) : 1);
-    m.material.depthWrite = !fade;
-    if(d.edges) d.edges.material.opacity = fade ? 0.25 : (isSel ? 1 : 0.75);
+    mats.forEach(function(mt){ mt.opacity = !hit ? 0.4 : (fade ? (V3.selKey && !anyShow ? 0.35 : 0.22) : 1); mt.depthWrite = !fade; });
+    m.castShadow = !fade;
+    (d.fac||[]).forEach(function(o){ o.visible=vis; o.material.opacity = fade ? Math.min(0.2,o.material.userData.op) : o.material.userData.op; o.material.depthWrite = !fade && o.material.userData.op>=1; o.castShadow=!fade; });
+    if(d.edges) d.edges.material.opacity = fade ? 0.25 : (isSel ? 1 : (GVm?0.18:0.75));
     if(d.edges) d.edges.material.color.setHex(isSel ? 0xB45309 : 0x4B5563);
     m.renderOrder = isSel ? 2 : (fade ? 0 : 1);
     if(isSel) V3.selMesh = m;
   });
-  (V3.extra||[]).forEach(function(o){ if(o.userData && o.userData.core) o.visible = !!f.grp[o.userData.g] && f.floor==='all'; });
+  (V3.ter||[]).forEach(function(t){
+    var d=t.userData, hit=L.idx[d.key], st=hit?(hit.u.status||'free'):'free', fl=hit&&typeof hit.u.floor==='number'?hit.u.floor:null, cu=L.cust[d.key];
+    d.st=st; d.cust=cu?cu.c.name:'';
+    var isSel=V3.selKey===d.key, hl=!!f.show[st];
+    t.visible = !!f.grp[d.g] && (f.floor==='all' || String(fl)===String(f.floor));
+    var fade=(anyShow && !hl && !isSel) || (!!V3.selKey && !isSel);
+    t.material.color.setHex(isSel ? V3_GLOW : (hl ? V3_COL[st] : d.base));
+    t.material.emissive.setHex(isSel ? 0xFFA000 : 0);
+    t.material.opacity = fade ? 0.3 : 1; t.material.depthWrite=!fade;
+    (d.deko||[]).forEach(function(o){ o.visible = t.visible; [].concat(o.material).forEach(function(mt){ mt.transparent=true; mt.opacity = fade ? 0.25 : (mt.userData&&mt.userData.op||1); }); });
+  });
+  (V3.extra||[]).forEach(function(o){ if(o.userData && o.userData.core && !o.userData.deko) o.visible = !!f.grp[o.userData.g] && f.floor==='all'; });
   if(V3.spot) {
     if(V3.selMesh && V3.selMesh.visible) {
       var g=V3.selMesh.geometry; if(!g.boundingBox) g.computeBoundingBox();
@@ -1242,7 +1268,7 @@ function v3Refresh(p) {
 
 function v3Anim() {
   var t = performance.now()/1000;
-  if(V3.selMesh) { var k=0.45+0.35*Math.sin(t*4); V3.selMesh.material.emissiveIntensity=k; if(V3.spot) V3.spot.intensity=1.6+0.8*Math.sin(t*4); }
+  if(V3.selMesh) { var k=0.45+0.35*Math.sin(t*4); [].concat(V3.selMesh.material).forEach(function(mt){mt.emissiveIntensity=k;}); (V3.ter||[]).forEach(function(o){ if(o.userData.key===V3.selKey) o.material.emissiveIntensity=k; }); if(V3.spot) V3.spot.intensity=1.6+0.8*Math.sin(t*4); }
   if(V3.fly) {
     var a = Math.min(1,(performance.now()-V3.fly.t0)/700), e = a<.5?2*a*a:1-Math.pow(-2*a+2,2)/2;
     V3.ctl.target.lerpVectors(V3.fly.ft, V3.fly.tt, e); V3.cam.position.lerpVectors(V3.fly.fp, V3.fly.tp, e);
@@ -1335,6 +1361,268 @@ function v3PlaceRead() {
 function v3PlacePreview() { var p=v3Project(); p.model3dYer=v3PlaceRead(); v3Build(p); v3Refresh(p); }
 function v3PlaceCancel() { var p=v3Project(); p.model3dYer=V3.placeBackup; v3Build(p); v3Refresh(p); }
 function v3PlaceSave() { var p=v3Project(); p.model3dYer=v3PlaceRead(); save(); closeM('m-sell'); toast('3D yerleşim kaydedildi'); render(); }
+
+// ===== v23.6.4 — Görsel mod: cephe dokusu, çatılar, teras havuzları, arazi, yollar, ağaçlar =====
+function v3Mode(m){ V3.filt.mode=m; V3.builtFor=null; render(); }
+function v3M(kind, col){ return new THREE.MeshLambertMaterial({color:col}); }
+function v3Tex(){
+  if(V3.tex) return V3.tex;
+  var c=document.createElement('canvas'); c.width=c.height=256; var g=c.getContext('2d');
+  g.fillStyle='#D9C4A1'; g.fillRect(0,0,256,256);                     // bej cephe
+  g.fillStyle='#F1ECE3'; g.fillRect(0,224,256,32);                    // kat döşemesi bandı (alt)
+  g.fillStyle='#ffffff'; g.fillRect(0,224,256,4);
+  for(var k=0;k<60;k++){ g.fillStyle='rgba(150,120,80,'+(0.015+Math.random()*0.02)+')'; g.fillRect(Math.random()*256,Math.random()*220,2+Math.random()*30,2+Math.random()*30); }  // sıva dokusu
+  var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(1/3,-1/3); t.offset.set(0,1/3);
+  if(V3.renderer) t.anisotropy=Math.min(8,V3.renderer.capabilities.getMaxAnisotropy());
+  V3.tex=t; return t;
+}
+function v3Scene(GV){
+  var S=V3.scene, r=V3.renderer;
+  S.background=new THREE.Color(GV?0xCFE0EC:0xEEF1F5);
+  S.fog = GV ? new THREE.Fog(0xCFE0EC, 260, 760) : null;
+  r.shadowMap.enabled=GV; r.shadowMap.type=THREE.PCFSoftShadowMap;
+  if(!V3.sun){ S.children.forEach(function(o){ if(o.isDirectionalLight) V3.sun=o; if(o.isHemisphereLight) V3.hemi=o; }); }
+  if(V3.sun){ V3.sun.castShadow=GV; V3.sun.intensity=GV?0.85:0.55; V3.sun.color.setHex(GV?0xFFF1DC:0xffffff);
+    V3.sun.position.set(90,140,110); var sc=V3.sun.shadow.camera; sc.left=-150; sc.right=150; sc.top=150; sc.bottom=-150; sc.far=500; sc.updateProjectionMatrix(); V3.sun.shadow.mapSize.set(2048,2048); V3.sun.shadow.bias=-0.0006; }
+  if(V3.hemi) V3.hemi.intensity=GV?0.62:0.85;
+  r.toneMapping = THREE.NoToneMapping;
+}
+function v3Site(p, shapeOf, H){
+  var S=V3.scene, site=(V3.model.site)||{}, ex=V3.extra;
+  var zem=site.zemin||[[-1e4,0],[1e4,0]];
+  function hAt(x){ for(var i=1;i<zem.length;i++){ if(x<=zem[i][0]){ var a=zem[i-1], b=zem[i], t=(x-a[0])/((b[0]-a[0])||1); return a[1]+(b[1]-a[1])*Math.max(0,Math.min(1,t)); } } return zem[zem.length-1][1]; }
+  V3.hAt=hAt;
+  // yollar (model düzleminde, z=-y)
+  var roads=(site.roads||[]).map(function(r){ return {w:r.w, s:r.pts.map(function(q){return [q[0],-q[1]];})}; });
+  function segD(px,pz,a,b){ var dx=b[0]-a[0], dz=b[1]-a[1], L=dx*dx+dz*dz||1, t=Math.max(0,Math.min(1,((px-a[0])*dx+(pz-a[1])*dz)/L)); var x=a[0]+t*dx-px, z=a[1]+t*dz-pz; return Math.sqrt(x*x+z*z); }
+  // arazi
+  var c=V3.home?V3.home.ctr:new THREE.Vector3(50,0,30);
+  var W=520, D=440, nx=260, nz=220, geo=new THREE.PlaneGeometry(W,D,nx,nz); geo.rotateX(-Math.PI/2);
+  var pos=geo.attributes.position, cols=new Float32Array(pos.count*3), C=new THREE.Color();
+  var grass=new THREE.Color(0x7E9A5E), grass2=new THREE.Color(0x6C8A50), asph=new THREE.Color(0x6E7277), walk=new THREE.Color(0xD1A6A0);
+  for(var i=0;i<pos.count;i++){
+    var x=pos.getX(i)+50, z=pos.getZ(i)+30; pos.setX(i,x); pos.setZ(i,z);
+    var y=hAt(x), best=1e9, kind=0;
+    C.copy(grass).lerp(grass2, (Math.sin(x*0.21)*Math.cos(z*0.17)+1)/2);
+    pos.setY(i,y-0.02); cols[i*3]=C.r; cols[i*3+1]=C.g; cols[i*3+2]=C.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cols,3)); geo.computeVertexNormals();
+  var ter=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true})); ter.receiveShadow=true; S.add(ter); ex.push(ter);
+  // yol + kaldırım şeritleri (araziyi izler)
+  function ribbon(pts, w, y0, col){
+    var L=[], R=[];
+    for(var k=1;k<pts.length;k++){ var a=pts[k-1], b=pts[k], dx=b[0]-a[0], dz=b[1]-a[1], len=Math.sqrt(dx*dx+dz*dz), n=Math.max(1,Math.ceil(len/2));
+      var nx=-dz/len, nz=dx/len;
+      for(var j=(k===1?0:1);j<=n;j++){ var t=j/n, x=a[0]+dx*t, z=a[1]+dz*t; L.push([x+nx*w/2,z+nz*w/2]); R.push([x-nx*w/2,z-nz*w/2]); } }
+    var arr=[]; for(var k2=1;k2<L.length;k2++){ var q=[L[k2-1],R[k2-1],R[k2],L[k2]].map(function(v){ return [v[0], hAt(v[0])+y0, v[1]]; });
+      arr.push.apply(arr, [].concat(q[0],q[1],q[2], q[0],q[2],q[3])); }
+    var g3=new THREE.BufferGeometry(); g3.setAttribute('position', new THREE.Float32BufferAttribute(arr,3)); g3.computeVertexNormals();
+    var m3=new THREE.Mesh(g3, new THREE.MeshLambertMaterial({color:col, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-2-y0*10, polygonOffsetUnits:-2})); m3.receiveShadow=true; S.add(m3); ex.push(m3);
+  }
+  roads.forEach(function(r){ ribbon(r.s, r.w+6.4, 0.04, 0xCDB3AA); ribbon(r.s, r.w, 0.08, 0x6C7075); });
+  // çatılar (kırma çatı, koyu gri)
+  (site.roofs||[]).forEach(function(rf){
+    var pl=v3Place(p, rf.g), cs=Math.cos(pl.rot*Math.PI/180), sn=Math.sin(pl.rot*Math.PI/180);
+    var P=rf.p.map(function(q){ return new THREE.Vector3(pl.x+q[0]*cs-q[1]*sn, 0, -(pl.y+q[0]*sn+q[1]*cs)); });
+    var e1=P[0].distanceTo(P[1]), e2=P[1].distanceTo(P[2]); if(e2>e1) P=[P[1],P[2],P[3],P[0]];   // P0-P1 uzun kenar
+    var y0=(pl.zemin*H)+rf.y, sh=P[1].distanceTo(P[2]), inset=sh*0.45;
+    var mid03=P[0].clone().add(P[3]).multiplyScalar(.5), mid12=P[1].clone().add(P[2]).multiplyScalar(.5);
+    var ax=mid12.clone().sub(mid03).normalize(), R0=mid03.clone().addScaledVector(ax,inset), R1=mid12.clone().addScaledVector(ax,-inset);
+    var v=[P[0],P[1],P[2],P[3],R0,R1].map(function(q,i){ return new THREE.Vector3(q.x, y0+(i>3?rf.rh:0), q.z); });
+    var idx=[0,1,5, 0,5,4, 2,3,4, 2,4,5, 1,2,5, 3,0,4];
+    var g2=new THREE.BufferGeometry(), arr=[]; idx.forEach(function(k){ arr.push(v[k].x,v[k].y,v[k].z); });
+    g2.setAttribute('position', new THREE.Float32BufferAttribute(arr,3)); g2.computeVertexNormals();
+    var rm=new THREE.Mesh(g2, new THREE.MeshLambertMaterial({color:0x50545A, side:THREE.DoubleSide})); rm.castShadow=true; rm.receiveShadow=true;
+    rm.userData={core:1,g:rf.g}; S.add(rm); ex.push(rm);
+    var eg=new THREE.Mesh(new THREE.BoxGeometry(1,0.35,1), new THREE.MeshLambertMaterial({color:0xF3EFE8}));   // saçak bandı
+  });
+  // ara otopark üstü: site girişi bahçesi, uzun havuz, saksılar, giriş kapısı (katalog s.4 + render)
+  v3Garden(p, H);
+  // meydanlar (A Blok önü pembe taş, D blok kafe önü)
+  (site.meydan||[]).forEach(function(poly){
+    var sh=new THREE.Shape(poly.map(function(q){return new THREE.Vector2(q[0],q[1]);}));
+    var g4=new THREE.ShapeGeometry(sh); g4.rotateX(-Math.PI/2);
+    var ps=g4.attributes.position; for(var i=0;i<ps.count;i++){ ps.setY(i, hAt(ps.getX(i))+0.07); } g4.computeVertexNormals();
+    var m4=new THREE.Mesh(g4, new THREE.MeshLambertMaterial({color:0xCFA59C, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-4})); m4.receiveShadow=true; S.add(m4); ex.push(m4);
+  });
+  // ağaçlar (kuzeydeki koru + yol kenarı)
+  var occ=[]; V3.meshes.concat(ex.filter(function(o){return o.userData&&o.userData.core&&o.geometry&&o.geometry.type==='ExtrudeGeometry'})).forEach(function(m){ var b=new THREE.Box3().setFromObject(m); b.expandByScalar(4); occ.push(b); });
+  var rnd=(function(sd){ return function(){ sd=(sd*16807)%2147483647; return (sd-1)/2147483646; }; })(42);
+  var pts=[];
+  for(var n=0;n<900 && pts.length<120;n++){
+    var x=-60+rnd()*220, z=-75+rnd()*60;                 // kuzey koru (z negatif = kuzey)
+    if(n%5===0){ x=-40+rnd()*200; z=60+rnd()*35; }      // yolun güneyi (seyrek)
+    var free=occ.every(function(b){ return !(x>b.min.x && x<b.max.x && z>b.min.z && z<b.max.z); });
+    var onRoad=roads.some(function(r){ for(var k=1;k<r.s.length;k++){ if(segD(x,z,r.s[k-1],r.s[k])<r.w/2+4) return true; } return false; });
+    if(free && !onRoad) pts.push([x,z]);
+  }
+  var crown=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1), new THREE.MeshLambertMaterial({color:0xffffff}), pts.length);
+  var trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18,0.25,1,6), new THREE.MeshLambertMaterial({color:0x5A4330}), pts.length);
+  var M=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(), tp=new THREE.Vector3();
+  var tc=[0x4F7A3A,0x5E8A42,0x3F6B33,0x7A8F3E,0xA0603A,0x8C4E2E];
+  pts.forEach(function(t,i){ var y=hAt(t[0]), s=2.2+rnd()*2.2;
+    sc.set(s,s*1.25,s); tp.set(t[0], y+2.2+s, t[1]); M.compose(tp,q,sc); crown.setMatrixAt(i,M); crown.setColorAt(i,new THREE.Color(tc[Math.floor(rnd()*(rnd()<0.25?6:4))]));
+    sc.set(1,2.6+s*0.4,1); tp.set(t[0], y+(2.6+s*0.4)/2, t[1]); M.compose(tp,q,sc); trunk.setMatrixAt(i,M); });
+  crown.castShadow=true; trunk.castShadow=true; S.add(crown); S.add(trunk); ex.push(crown); ex.push(trunk);
+}
+
+function v3TexShop(){
+  if(V3.texS) return V3.texS;
+  var c=document.createElement('canvas'); c.width=c.height=256; var g=c.getContext('2d');
+  g.fillStyle='#2B2F35'; g.fillRect(0,0,256,256);                     // koyu tabela/çerçeve
+  g.fillStyle='#F1ECE3'; g.fillRect(0,224,256,32);
+  g.fillStyle='#6F8496'; g.fillRect(14,40,228,178);                   // vitrin camı
+  g.fillStyle='#C9B48A'; g.fillRect(14,150,228,68);                   // içerideki ışık
+  g.fillStyle='#2B2F35'; g.fillRect(124,40,8,178);
+  var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(1/4,-1/4); t.offset.set(0,1/4);
+  V3.texS=t; return t;
+}
+
+// ===== v23.6.4 — Teraslar (katalog: 4+1 Jakuzi Terrace, 3+1 Pool Terrace, 5+1 Loft Pool Terrace) =====
+function v3Terrace(p, t, shapeOf, H, GV){
+  var S=V3.scene, pl=v3Place(p,'B'), lv=(t.kot-97)/3, y0=(pl.zemin+lv)*H+(GV?0:0.15);
+  var cs=Math.cos(pl.rot*Math.PI/180), sn=Math.sin(pl.rot*Math.PI/180);
+  function W(x,y,h){ return new THREE.Vector3(pl.x+x*cs-y*sn, h, -(pl.y+x*sn+y*cs)); }
+  var geo=new THREE.ExtrudeGeometry(t.p.map(function(q){return shapeOf(q,pl);}), {depth:0.3, bevelEnabled:false}); geo.rotateX(-Math.PI/2);
+  var base=GV?0x8DB86A:0xCFE3C0;
+  var mesh=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({color:base, transparent:true}));
+  mesh.position.y=y0; mesh.receiveShadow=true;
+  var ed=new THREE.LineSegments(new THREE.EdgesGeometry(geo,30), new THREE.LineBasicMaterial({color:0x3F6B33, transparent:true, opacity:0.6})); mesh.add(ed);
+  mesh.userData={key:t.b+'|'+t.n, no:t.n, b:t.b, g:'B', lv:lv, ter:1, base:base, deko:[]};
+  S.add(mesh); V3.ter.push(mesh);
+  var top=y0+0.3, D=mesh.userData.deko;
+  function put(o){ o.userData={core:1,g:'B',deko:1}; if(GV){o.castShadow=true; o.receiveShadow=true;} S.add(o); V3.extra.push(o); D.push(o); return o; }
+  function M(c,op,em){ var m=new THREE.MeshLambertMaterial({color:c}); if(em){m.emissive=new THREE.Color(em); m.emissiveIntensity=0.35;} m.userData={op:op||1}; return m; }
+  function boxAt(x0,y0_,x1,y1,h0,h1,mat){ var c=W((x0+x1)/2,(y0_+y1)/2,(h0+h1)/2), g2=new THREE.BoxGeometry(Math.abs(x1-x0),Math.abs(h1-h0),Math.abs(y1-y0_)); g2.rotateY(pl.rot*Math.PI/180); var o=new THREE.Mesh(g2,mat); o.position.copy(c); return put(o); }
+  var bb=new THREE.Box2(); t.p[0].forEach(function(q){ bb.expandByPoint(new THREE.Vector2(q[0],q[1])); });
+  if(t.havuz){ var a=t.havuz;
+    boxAt(a[0]-0.4,Math.min(a[1],a[3])-0.4,a[2]+0.4,Math.max(a[1],a[3])+0.4, top, top+0.12, M(0xF1ECE3));
+    boxAt(a[0],a[1],a[2],a[3], top+0.08, top+0.2, M(0x3DBFE0,1,0x0E6A84)); }
+  if(t.jakuzi){ var j=t.jakuzi, c1=W(j[0],j[1],top+0.3);
+    var r1=put(new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.25,0.6,20), M(0xF3EFE8))); r1.position.copy(c1);
+    var w1=put(new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.0,0.62,20), M(0x5FD3EC,1,0x0E6A84))); w1.position.copy(c1); }
+  if(!GV) return;
+  // ahşap deck şeridi (orta aks tarafı) + cam korkuluk
+  var southT=/^(BA-19|BB-35|BB-37|BC-57)$/.test(t.n), yin=southT?bb.max.y:bb.min.y, sg=southT?-1:1;
+  boxAt(bb.min.x+0.3, yin+sg*0.1, bb.max.x-0.3, yin+sg*(t.havuz?6.0:5.0), top, top+0.06, M(0xB08560));
+  var rg=[], rt=[]; for(var i=0;i<t.p[0].length;i++){ var q0=t.p[0][i], q1=t.p[0][(i+1)%t.p[0].length], A0=W(q0[0],q0[1],0), A1=W(q1[0],q1[1],0), dv=A1.clone().sub(A0), Ll=dv.length(); if(Ll<0.3) continue; dv.normalize(); var nn=new THREE.Vector3(-dv.z,0,dv.x), cc=A0.clone().add(A1).multiplyScalar(0.5);
+    v3BoxArr(rg, cc.clone().setY(top+0.55), dv, nn, Ll, 1.0, 0.04); v3BoxArr(rt, cc.clone().setY(top+1.08), dv, nn, Ll, 0.05, 0.06); }
+  [[rg,0xCFE8F0,0.3],[rt,0x23272C,1]].forEach(function(z){ var g3=new THREE.BufferGeometry(); g3.setAttribute('position', new THREE.Float32BufferAttribute(z[0],3)); g3.computeVertexNormals(); var mt=M(z[1],z[2]); mt.transparent=true; mt.opacity=z[2]; mt.depthWrite=z[2]>=1; put(new THREE.Mesh(g3, mt)); });
+  var dark=M(0x3E4247);
+  function canopy(x0,y0_,x1,y1,h){ boxAt(x0,y0_,x1,y1, top+h, top+h+0.25, dark);
+    [[x0+0.3,y0_+0.3],[x1-0.3,y0_+0.3],[x0+0.3,y1-0.3],[x1-0.3,y1-0.3]].forEach(function(q){ boxAt(q[0]-0.09,q[1]-0.09,q[0]+0.09,q[1]+0.09, top, top+h, dark); }); }
+  if(t.golge) canopy(t.golge[0], bb.min.y+0.2, t.golge[1]-0.2, bb.max.y-0.2, 3.0);
+  if(t.pergola){ var q=t.pergola; canopy(q[0],Math.min(q[1],q[3]),q[2],Math.max(q[1],q[3]),2.7); }
+  if(t.havuz){ // beyaz kabana (render)
+    var cx=t.havuz[0]-2.2, cy=(bb.min.y+bb.max.y)/2 + sg*(-2.5);
+    boxAt(cx-1.2,cy-1.2,cx+1.2,cy+1.2, top+2.3, top+2.45, M(0xF6F1EA));
+    [[-1.1,-1.1],[1.1,-1.1],[-1.1,1.1],[1.1,1.1]].forEach(function(o){ boxAt(cx+o[0]-0.06,cy+o[1]-0.06,cx+o[0]+0.06,cy+o[1]+0.06, top, top+2.3, M(0xC9A27A)); }); }
+}
+
+function v3Garden(p, H){
+  var b=(V3.model.site||{}).bahce; if(!b) return;
+  var S=V3.scene, ex=V3.extra, pl=v3Place(p,'B'), y0=(pl.zemin+b.lv)*H, hAt=V3.hAt||function(){return 0;};
+  function put(o){ o.userData={core:1,g:'B'}; o.castShadow=true; o.receiveShadow=true; S.add(o); ex.push(o); return o; }
+  function V(q,h){ return new THREE.Vector3(q[0],h,-q[1]); }
+  // yürüyüş yolu (pembe taş)
+  var arr=[]; for(var k=1;k<b.yol.length;k++){ var a=b.yol[k-1], c=b.yol[k], dx=c[0]-a[0], dy=c[1]-a[1], L=Math.sqrt(dx*dx+dy*dy), nx=-dy/L*1.6, ny=dx/L*1.6;
+    var q=[[a[0]+nx,a[1]+ny],[a[0]-nx,a[1]-ny],[c[0]-nx,c[1]-ny],[c[0]+nx,c[1]+ny]].map(function(v){return V(v,y0+0.06);});
+    arr.push.apply(arr,[q[0].x,q[0].y,q[0].z,q[1].x,q[1].y,q[1].z,q[2].x,q[2].y,q[2].z, q[0].x,q[0].y,q[0].z,q[2].x,q[2].y,q[2].z,q[3].x,q[3].y,q[3].z]); }
+  var gp=new THREE.BufferGeometry(); gp.setAttribute('position', new THREE.Float32BufferAttribute(arr,3)); gp.computeVertexNormals();
+  put(new THREE.Mesh(gp, new THREE.MeshLambertMaterial({color:0xD3A9A3, side:THREE.DoubleSide})));
+  // uzun havuz
+  var sh=new THREE.Shape(b.havuz.map(function(q){return new THREE.Vector2(q[0],q[1]);}));
+  var g1=new THREE.ExtrudeGeometry(sh,{depth:0.15,bevelEnabled:false}); g1.rotateX(-Math.PI/2);
+  var pm=put(new THREE.Mesh(g1, new THREE.MeshLambertMaterial({color:0x3DBFE0, emissive:0x0E6A84, emissiveIntensity:0.35}))); pm.position.y=y0+0.05;
+  var g1b=new THREE.ExtrudeGeometry(new THREE.Shape(b.havuz.map(function(q){return new THREE.Vector2(q[0],q[1]);})),{depth:0.1,bevelEnabled:false}); g1b.rotateX(-Math.PI/2); g1b.scale(1.08,1,1.08);
+  // yuvarlak saksılar + küçük ağaçlar
+  b.saksi.forEach(function(q){ var c=V(q,y0+0.3);
+    var s1=put(new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.5,0.6,18), new THREE.MeshLambertMaterial({color:0xC9B79C}))); s1.position.copy(c);
+    var s2=put(new THREE.Mesh(new THREE.IcosahedronGeometry(1.1,1), new THREE.MeshLambertMaterial({color:0x5E8A42}))); s2.position.set(c.x,c.y+1.6,c.z); });
+  // site giriş kapısı (render: "HillSide-Koru Evleri")
+  var A=b.kapi[0], B=b.kapi[1], gx=(A[0]+B[0])/2, gy=(A[1]+B[1])/2, L2=Math.sqrt(Math.pow(B[0]-A[0],2)+Math.pow(B[1]-A[1],2)), ang=Math.atan2(B[1]-A[1],B[0]-A[0]);
+  var hb=hAt(gx);
+  [A,B].forEach(function(q){ var pi=put(new THREE.Mesh(new THREE.BoxGeometry(1.1,4.4,1.1), new THREE.MeshLambertMaterial({color:0x9C8670}))); pi.position.set(q[0],hAt(q[0])+2.2,-q[1]); pi.rotation.y=ang; });
+  var bm=put(new THREE.Mesh(new THREE.BoxGeometry(L2+2,1.1,1.8), new THREE.MeshLambertMaterial({color:0xF4F1EC}))); bm.position.set(gx,hb+4.9,-gy); bm.rotation.y=ang;
+  var bx=put(new THREE.Mesh(new THREE.BoxGeometry(3.2,2.8,2.6), new THREE.MeshLambertMaterial({color:0x6E7B86}))); bx.position.set(B[0]+2.5,hAt(B[0])+1.4,-(B[1])+2); bx.rotation.y=ang;
+}
+
+// ===== v23.6.5 — Cephe: her dairenin pencereleri, balkonları, vitrinler, bahçeler (render + katalog) =====
+function v3Facades(p, H){
+  var S=V3.scene, hAt=V3.hAt||function(){return 0;};
+  var MAT={
+    glass:{c:0x2E3540,op:1,em:0x0A0F18}, door:{c:0x39424F,op:1}, frame:{c:0x2B2F35,op:1},
+    slab:{c:0xF3EFE8,op:1}, soffit:{c:0xC9B08A,op:1}, rail:{c:0x23272C,op:0.55}, railTop:{c:0x23272C,op:1},
+    glassRail:{c:0xBFE3EE,op:0.35}, plant:{c:0x4F7F3A,op:1}, vitrin:{c:0x8FA7B8,op:1,em:0x3A3020}, sign:{c:0x2B2F35,op:1},
+    garden:{c:0x86AE5E,op:1}, fence:{c:0x6A4E3A,op:1}, wall:{c:0x7B5E49,op:1}
+  };
+  function addBox(A, c, ax, nz, L, Hh, D){ // c: merkez, ax: kenar yönü (birim), nz: dış normal (birim), L: boy, Hh: yükseklik, D: derinlik
+    var hx=ax.clone().multiplyScalar(L/2), hn=nz.clone().multiplyScalar(D/2), hy=new THREE.Vector3(0,Hh/2,0);
+    var v=[]; [-1,1].forEach(function(i){ [-1,1].forEach(function(j){ [-1,1].forEach(function(k){ v.push(c.clone().addScaledVector(hx,i).addScaledVector(hy,j).addScaledVector(hn,k)); }); }); });
+    // v index: i*4+j*2+k  (i:boy, j:yükseklik, k:derinlik)
+    var F=[[0,1,3,2],[4,6,7,5],[0,4,5,1],[2,3,7,6],[0,2,6,4],[1,5,7,3]];
+    F.forEach(function(f){ [f[0],f[1],f[2], f[0],f[2],f[3]].forEach(function(ii){ A.push(v[ii].x,v[ii].y,v[ii].z); }); });
+  }
+  V3.meshes.forEach(function(m){
+    var d=m.userData, it=d.item; if(!it || !it.f || !it.f.length) return;
+    var pl=v3Place(p, it.g), cs=Math.cos(pl.rot*Math.PI/180), sn=Math.sin(pl.rot*Math.PI/180);
+    function W(x,y,h){ return new THREE.Vector3(pl.x+x*cs-y*sn, h, -(pl.y+x*sn+y*cs)); }
+    function Wd(x,y){ return new THREE.Vector3(x*cs-y*sn, 0, -(x*sn+y*cs)).normalize(); }
+    var y0=m.position.y, hh=d.dep||H, isA=it.g==='A', bufs={};
+    function B(k){ return bufs[k]||(bufs[k]=[]); }
+    it.f.forEach(function(e){
+      var a=W(e[0],e[1],0), b=W(e[2],e[3],0), ax=b.clone().sub(a), L=ax.length(); ax.normalize();
+      var nz=Wd(e[4],e[5]), t=e[6];
+      function at(s, off, h){ return a.clone().addScaledVector(ax,s).addScaledVector(nz,off).setY(y0+h); }
+      function windows(s0,s1,bot,top,mat){ var len=s1-s0; if(len<1.0) return; var n=Math.max(1,Math.floor((len+0.4)/2.4)), w=Math.min(1.7,len/n-0.5);
+        for(var i=0;i<n;i++){ var sc=s0+len*(i+0.5)/n; addBox(B(mat), at(sc,0.04,(bot+top)/2), ax, nz, w, top-bot, 0.08); addBox(B('frame'), at(sc,0.05,top+0.05), ax, nz, w+0.12, 0.1, 0.1); } }
+      if(t==='v'){ // dükkan vitrini + tabela bandı
+        addBox(B('vitrin'), at(L/2,0.05,(0.15+hh-1.0)/2), ax, nz, L-0.5, hh-1.15, 0.1);
+        for(var q=1;q<Math.floor(L/2.2);q++) addBox(B('frame'), at(q*L/Math.floor(L/2.2),0.08,(0.15+hh-1.0)/2), ax, nz, 0.08, hh-1.15, 0.14);
+        addBox(B('sign'), at(L/2,0.18,hh-0.6), ax, nz, L-0.2, 0.7, 0.3);
+        if(L>4 && !d.signed){ d.signed=1; var sg=v3SignPlane(it.n, Math.min(L*0.6,6)); sg.position.copy(at(L/2,0.34,hh-0.6)); sg.lookAt(sg.position.clone().add(nz)); S.add(sg); (d.fac=d.fac||[]).push(sg); sg.material.userData={op:1}; sg.material.transparent=true; }
+        return;
+      }
+      if(t==='w'){ windows(0.4,L-0.4,0.75,2.55,'glass'); return; }
+      // balkon / bahçe: kenarın ortasında
+      var Lb = t==='g' ? L-0.6 : (isA ? Math.min(L*0.5,3.2) : Math.min(L*0.8,7.5)), s0=(L-Lb)/2, s1=s0+Lb, D = isA?1.35:1.6, WMIN=isA?1.3:2.0;
+      windows(s0+0.2, s1-0.2, 0.08, 2.6, 'door');
+      if(s0>=WMIN) windows(0.25, s0-0.15, 0.75, 2.55, 'glass');
+      if(L-s1>=WMIN) windows(s1+0.15, L-0.25, 0.75, 2.55, 'glass');
+      if(t==='g'){ var GD=3.6, gy=hAt(at(L/2,GD/2,0).x);
+        addBox(B('garden'), at(L/2,GD/2+0.02,-0.06), ax, nz, Lb, 0.12, GD);
+        var dep2=Math.max(0.2, y0-0.12-gy); addBox(B('wall'), at(L/2,GD/2+0.02,-0.12-dep2/2), ax, nz, Lb, dep2, GD-0.1);
+        addBox(B('rail'), at(L/2,GD,0.5), ax, nz, Lb, 1.0, 0.05); for(var fp=0;fp<=Math.floor(Lb/2.5);fp++) addBox(B('fence'), at(s0+fp*Lb/Math.max(1,Math.floor(Lb/2.5)),GD,0.55), ax, nz, 0.35, 1.1, 0.35);
+        return; }
+      addBox(B('slab'), at((s0+s1)/2,D/2,-0.05), ax, nz, Lb, 0.22, D);
+      if(isA){ addBox(B('rail'), at((s0+s1)/2,D-0.05,0.58), ax, nz, Lb, 0.95, 0.04); addBox(B('railTop'), at((s0+s1)/2,D-0.05,1.07), ax, nz, Lb+0.04, 0.06, 0.08);
+               addBox(B('plant'), at((s0+s1)/2,D-0.2,1.18), ax, nz, Lb-0.3, 0.28, 0.32);
+               [s0,s1].forEach(function(sx){ addBox(B('rail'), at(sx,D/2,0.58), nz, ax, D, 0.95, 0.04); }); }
+      else { addBox(B('rail'), at((s0+s1)/2,D-0.05,0.62), ax, nz, Lb, 0.95, 0.04); addBox(B('railTop'), at((s0+s1)/2,D-0.05,1.1), ax, nz, Lb+0.04, 0.05, 0.06);
+             addBox(B('slab'), at((s0+s1)/2,D-0.02,0.0), ax, nz, Lb+0.1, 0.36, 0.08); addBox(B('soffit'), at((s0+s1)/2,D/2,-0.17), ax, nz, Lb-0.1, 0.02, D-0.1);
+             [s0,s1].forEach(function(sx){ addBox(B('rail'), at(sx,D/2,0.62), nz, ax, D, 0.95, 0.04); }); }
+    });
+    d.fac = d.fac||[];
+    Object.keys(bufs).forEach(function(k){
+      var g2=new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(bufs[k],3)); g2.computeVertexNormals();
+      var mm=MAT[k], mat=new THREE.MeshLambertMaterial({color:mm.c, transparent:true, opacity:mm.op}); if(mm.em){ mat.emissive=new THREE.Color(mm.em); mat.emissiveIntensity=0.5; }
+      mat.userData={op:mm.op}; mat.depthWrite = mm.op>=1;
+      var o=new THREE.Mesh(g2, mat); o.castShadow = (k==='slab'||k==='rail'||k==='garden'||k==='wall'); o.receiveShadow=true; o.userData={fac:1};
+      S.add(o); V3.extra.push(o); d.fac.push(o);
+    });
+  });
+}
+function v3SignPlane(txt, w){
+  var c=document.createElement('canvas'); c.width=512; c.height=64; var g=c.getContext('2d');
+  g.fillStyle='#2B2F35'; g.fillRect(0,0,512,64); g.fillStyle='#F4EBDD'; g.font='bold 34px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt+'  ·  DÜKKAN',256,34);
+  var m=new THREE.Mesh(new THREE.PlaneGeometry(w, w*64/512), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)})); m.userData={fac:1}; return m;
+}
+
+function v3BoxArr(A, c, ax, nz, L, Hh, D){
+  var hx=ax.clone().multiplyScalar(L/2), hn=nz.clone().multiplyScalar(D/2), hy=new THREE.Vector3(0,Hh/2,0), v=[];
+  [-1,1].forEach(function(i){ [-1,1].forEach(function(j){ [-1,1].forEach(function(k){ v.push(c.clone().addScaledVector(hx,i).addScaledVector(hy,j).addScaledVector(hn,k)); }); }); });
+  [[0,1,3,2],[4,6,7,5],[0,4,5,1],[2,3,7,6],[0,2,6,4],[1,5,7,3]].forEach(function(f){ [f[0],f[1],f[2], f[0],f[2],f[3]].forEach(function(ii){ A.push(v[ii].x,v[ii].y,v[ii].z); }); });
+}
 
 // ===== DATA STORE =====
 var DB = {
