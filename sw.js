@@ -1,4 +1,4 @@
-var CACHE_NAME = 'propakt-v23.5.1';
+var CACHE_NAME = 'propakt-v23.6.2';
 var urlsToCache = [
   './',
   './index.html',

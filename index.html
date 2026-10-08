@@ -15,7 +15,7 @@ if(location.protocol==='https:'){
   var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.sizes='192x192';fi.href='icon-192.png';document.head.appendChild(fi);
 }
 </script>
-<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.1</title>
+<title>Propakt Group — İnşaat Yönetim Sistemi v23.6.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -881,7 +881,7 @@ function buildBackupData() {
 }
 
 // ===== v23.5.1 — Yeni sürüm kontrolü (tarayıcı önbelleği eski sürümü açarsa uyarır) =====
-var APP_VERSION = 'v23.6.1';
+var APP_VERSION = 'v23.6.2';
 function versionNum(v) { return String(v||'').replace(/^v/,'').split('.').map(function(x){return parseInt(x,10)||0}); }
 function isNewerVersion(a, b) { var x=versionNum(a), y=versionNum(b); for(var i=0;i<Math.max(x.length,y.length);i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0; } return false; }
 function checkNewVersion() {
@@ -1130,10 +1130,11 @@ function v3Place(p, g) {
   return {x: o.x!=null?o.x:d.x, y: o.y!=null?o.y:d.y, rot: o.rot!=null?o.rot:d.rot, zemin: o.zemin!=null?o.zemin:d.zemin};
 }
 
-function v3Label(text) {
-  var c = document.createElement('canvas'); c.width=128; c.height=44; var g=c.getContext('2d');
-  g.fillStyle='rgba(255,255,255,.92)'; g.fillRect(0,0,128,44); g.fillStyle='#1F2A44'; g.font='bold 24px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,64,23);
-  var s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:true})); s.scale.set(3,1.03,1); return s;
+function v3Label(text, wide) {
+  var W = wide ? 256 : 128;
+  var c = document.createElement('canvas'); c.width=W; c.height=44; var g=c.getContext('2d');
+  g.fillStyle=wide?'rgba(55,65,81,.92)':'rgba(255,255,255,.92)'; g.fillRect(0,0,W,44); g.fillStyle=wide?'#fff':'#1F2A44'; g.font='bold 24px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,W/2,23);
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:!wide})); s.scale.set(wide?6:3,1.03,1); if(wide) s.renderOrder=5; return s;
 }
 
 function v3Build(p) {
@@ -1154,14 +1155,14 @@ function v3Build(p) {
     if(!shapes.length) return;
     var geo = new THREE.ExtrudeGeometry(shapes, {depth:(item.h||H)-0.3, bevelEnabled:false});
     geo.rotateX(-Math.PI/2);
-    var mat = new THREE.MeshLambertMaterial({color: item.park?0x8E99A8:(isCore?0xB6BDC8:V3_BASE), transparent:true, opacity: item.park?0.45:(isCore?0.25:1)});
+    var mat = new THREE.MeshLambertMaterial({color: item.park?(item.lv<0.5?0x6B7686:0x8E99A8):(isCore?0xB6BDC8:V3_BASE), transparent:true, opacity: item.park?0.55:(isCore?0.25:1)});
     var mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = (pl.zemin + item.lv) * H + 0.15;
-    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color:isCore?0x5b6472:0x4B5563, transparent:true, opacity:isCore?0.12:0.75}));
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color:item.park?0x374151:(isCore?0x5b6472:0x4B5563), transparent:true, opacity:item.park?0.9:(isCore?0.12:0.75)}));
     mesh.add(edges); mesh.userData.edges=edges;
     S.add(mesh);
     if(isCore) { mesh.userData={core:1, park:!!item.park, g:item.g, lv:item.lv}; V3.extra.push(mesh);
-      if(item.park){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var pl2=v3Label('OTOPARK'); pl2.position.set(pc.x, mesh.position.y+(item.h||H)-0.2, pc.z); pl2.scale.set(5,1.7,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; }
+      if(item.park){ geo.computeBoundingBox(); var pc=new THREE.Vector3(); geo.boundingBox.getCenter(pc); var kot=Math.round((97+item.lv*3)*10)/10; var pl2=v3Label('OTOPARK · '+String(kot).replace('.',',')+' kotu', true); pl2.position.set(pc.x, mesh.position.y+((item.h||H)-0.3)/2, pc.z); pl2.scale.set(9,1.55,1); S.add(pl2); V3.extra.push(pl2); pl2.userData={core:1,g:item.g}; }
       return; }
     mesh.userData = {edges:edges, key:item.b+'|'+item.n, no:item.n, b:item.b, g:item.g, lv:item.lv};
     V3.meshes.push(mesh); box.expandByObject(mesh);
